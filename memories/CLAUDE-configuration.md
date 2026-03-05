@@ -3,12 +3,14 @@
 **Last Updated:** January 24, 2026
 
 ## Quick Reference
+
 **Category:** Implementation
 **Keywords:** configuration, credentials, SecureStore, demo mode, environment, settings, fallback
 
 Smart three-tier configuration fallback system with SecureStore, development credentials, and demo mode support.
 
 ## Related Documentation
+
 - [`CLAUDE-api-reference.md`](./CLAUDE-api-reference.md) - Configuration API methods
 - [`CLAUDE-security.md`](./CLAUDE-security.md) - Credential security
 - [`CLAUDE-development.md`](./CLAUDE-development.md) - Development environment setup
@@ -48,19 +50,20 @@ connectToDemoServer(clearCaches: boolean = true)
 ```
 
 **Parameters:**
+
 - `clearCaches` (default: `true`): Controls cache behavior
   - `true`: Full cache clear (use when initially connecting to demo server)
   - `false`: Preserve UI state (use when refreshing expired credentials mid-session, e.g., during video playback)
 
 ## SecureStore Keys
 
-| Key | Purpose | Type |
-|-----|---------|------|
-| `jellyfin_server_url` | Jellyfin server URL | string |
-| `jellyfin_api_key` | API authentication token | string (hex) |
-| `jellyfin_user_id` | User GUID | string (hex) |
-| `app_video_quality` | Transcoding quality preset (0-3) | string (number) |
-| `jellyfin_is_demo_mode` | Demo server connection flag | "true" \| null |
+| Key                     | Purpose                          | Type            |
+| ----------------------- | -------------------------------- | --------------- |
+| `jellyfin_server_url`   | Jellyfin server URL              | string          |
+| `jellyfin_api_key`      | API authentication token         | string (hex)    |
+| `jellyfin_user_id`      | User GUID                        | string (hex)    |
+| `app_video_quality`     | Transcoding quality preset (0-3) | string (number) |
+| `jellyfin_is_demo_mode` | Demo server connection flag      | "true" \| null  |
 
 **Note:** All keys are stored in device Keychain via expo-secure-store.
 
@@ -71,10 +74,12 @@ The `syncDevCredentials()` function checks the `jellyfin_is_demo_mode` flag befo
 ## Configuration Initialization Pattern
 
 The app uses `configInitPromise` to prevent race conditions between:
+
 1. `syncDevCredentials()` writing to SecureStore (async, runs on app load)
 2. Components calling `getConfig()` (sync, reads from cache)
 
 **Solution:**
+
 ```typescript
 let configInitPromise: Promise<void> | null = null;
 
@@ -89,15 +94,18 @@ Components that need guaranteed initialized config can await `waitForConfig()`.
 ## Configuration Migration
 
 **Old Format (v1.x):**
+
 - Separate keys: `JELLYFIN_SERVER_IP`, `JELLYFIN_SERVER_PORT`, `JELLYFIN_SERVER_PROTOCOL`
 - Three discrete values combined into URL
 
 **New Format (v2.x+):**
+
 - Single key: `jellyfin_server_url` (full URL string)
 - Simpler validation and usage
 
 **Auto-Migration:**
 On first load, `migrateOldConfigFormat()` in `services/jellyfinApi.ts`:
+
 1. Checks for old keys in SecureStore
 2. Combines into full URL format
 3. Writes to new `jellyfin_server_url` key
@@ -165,11 +173,12 @@ The settings screen uses `useFocusEffect` instead of `useEffect` to reload crede
 useFocusEffect(
   useCallback(() => {
     loadSettings();
-  }, [])
+  }, []),
 );
 ```
 
 This ensures:
+
 - Demo server credentials are visible after connecting from error screens
 - Settings always reflect current SecureStore state
 - Multi-screen workflows work seamlessly
@@ -181,5 +190,6 @@ Uses refs (`currentServerUrl.current`) alongside state to maintain sync between 
 ### Demo Mode UI
 
 Demo server connection is NOT available from Settings screen (removed in commit 740d791). Demo mode is only accessible via:
+
 - "Try Demo Server" button on Library error screen
 - Programmatic `connectToDemoServer()` calls

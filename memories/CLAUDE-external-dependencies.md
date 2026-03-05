@@ -3,12 +3,14 @@
 **Last Updated:** January 24, 2026
 
 ## Quick Reference
+
 **Category:** Implementation
 **Keywords:** expo-tvos-search, native search, external packages, dependencies, Swift module
 
 External packages and repositories maintained separately from the main TomoTV codebase, including expo-tvos-search.
 
 ## Related Documentation
+
 - [`CLAUDE-multi-audio.md`](./CLAUDE-multi-audio.md) - Usage in multi-audio feature
 
 ---
@@ -43,12 +45,14 @@ When testing unreleased changes, use a git branch reference instead of a local f
 ```
 
 **Supported formats:**
+
 - `github:user/repo#branch` - Specific branch
 - `github:user/repo#commit-sha` - Specific commit
 - `github:user/repo#tag` - Specific tag
 - `github:user/repo` - Default branch
 
 After updating package.json, run:
+
 ```bash
 npm install
 npm run prebuild:tv
@@ -76,7 +80,7 @@ npm run prebuild:tv
 ### Usage in TomoTV
 
 ```typescript
-import { TvosSearchView, isNativeSearchAvailable } from 'expo-tvos-search';
+import { TvosSearchView, isNativeSearchAvailable } from "expo-tvos-search";
 
 if (isNativeSearchAvailable()) {
   // Use native search on tvOS
@@ -86,6 +90,7 @@ if (isNativeSearchAvailable()) {
 ```
 
 **Implementation:**
+
 - Used in `app/(tabs)/search.tsx`
 - Provides native SwiftUI `.searchable` modifier
 - Fixed 280x420 card grid with poster images
@@ -95,6 +100,7 @@ if (isNativeSearchAvailable()) {
 To contribute to the search package:
 
 1. Clone repository:
+
    ```bash
    git clone https://github.com/keiver/expo-tvos-search.git
    cd expo-tvos-search
@@ -103,6 +109,7 @@ To contribute to the search package:
 2. Make changes to `ios/ExpoTvosSearchView.swift`
 
 3. Test in demo app:
+
    ```bash
    cd example
    npm run prebuild:tv && npm run ios
@@ -129,30 +136,39 @@ To contribute to the search package:
 
 When adding new external packages, document them here:
 
-```markdown
+````markdown
 ## [Package Name]
 
 ### Repository Details
+
 - **GitHub:** [url]
 - **npm:** `package-name@version`
 - **Demo/docs:** [url or path]
 
 ### Features
+
 - [Feature 1]
 - [Feature 2]
 
 ### Current Integration
+
 - **Version:** [version]
 - **Last updated:** [date]
 - **Status:** [stable/beta/experimental]
 - **Local modifications:** [none/list]
 
 ### Usage in TomoTV
+
 ```typescript
 // Example code
 ```
+````
 
 ### Why Separate Repository?
+
 - [Reason 1]
 - [Reason 2]
+
+```
+
 ```

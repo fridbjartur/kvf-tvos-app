@@ -13,11 +13,7 @@
  * and human-readable error messages.
  */
 
-import {
-  PlaybackErrorType,
-  classifyPlaybackError,
-  getPlaybackErrorMessage,
-} from "../useVideoPlayback";
+import { PlaybackErrorType, classifyPlaybackError, getPlaybackErrorMessage } from "../useVideoPlayback";
 
 describe("classifyPlaybackError", () => {
   describe("NOT_FOUND errors", () => {

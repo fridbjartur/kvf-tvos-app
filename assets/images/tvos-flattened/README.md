@@ -9,7 +9,7 @@ This directory contains flattened composite images used by the `@react-native-tv
 These images are created by compositing the three layers (back, middle, front) from the backup in `Images.xcassets/Brand Assets.brandassets/`:
 
 - **icon-400x240.png** - Home screen icon @1x
-- **icon-800x480.png** - Home screen icon @2x  
+- **icon-800x480.png** - Home screen icon @2x
 - **icon-1280x768.png** - App Store icon (large)
 
 ### Top Shelf Images (Copied from Images.xcassets backup)
@@ -62,11 +62,11 @@ for name, stack, scale in composites:
     suffix = scale.replace('@', '@') if scale != '@1x' else '@1x' if '800' in name else ''
     if 'App Store' in stack:
         suffix = '@1x' if scale == '@1x' else ''
-    
+
     back = f'{base}/{stack}/Back.imagestacklayer/Content.imageset/back{suffix}.png'
     middle = f'{base}/{stack}/Middle.imagestacklayer/Content.imageset/middle{suffix}.png'
     front = f'{base}/{stack}/Front.imagestacklayer/Content.imageset/front{suffix}.png'
-    
+
     composite_layers(back, middle, front, f'{output}/{name}')
 ```
 

@@ -13,10 +13,7 @@
  * Created: January 23, 2026
  */
 
-const {
-  withDangerousMod,
-  withXcodeProject,
-} = require("@expo/config-plugins");
+const { withDangerousMod, withXcodeProject } = require("@expo/config-plugins");
 const fs = require("fs");
 const path = require("path");
 
@@ -37,9 +34,7 @@ function withMultiAudioResourceLoader(config) {
 
       // Ensure the MultiAudioResourceLoader directory exists
       if (!fs.existsSync(modulePath)) {
-        console.log(
-          "[MultiAudioResourceLoader] Creating MultiAudioResourceLoader directory..."
-        );
+        console.log("[MultiAudioResourceLoader] Creating MultiAudioResourceLoader directory...");
         fs.mkdirSync(modulePath, { recursive: true });
       }
 
@@ -94,9 +89,7 @@ function withMultiAudioResourceLoader(config) {
 
       // Check if file already exists in project
       const existingFile = xcodeProject.pbxFileReferenceSection();
-      const alreadyAdded = Object.values(existingFile).some(
-        (file) => file.path && file.path.includes(fileName)
-      );
+      const alreadyAdded = Object.values(existingFile).some((file) => file.path && file.path.includes(fileName));
 
       if (!alreadyAdded) {
         console.log(`[MultiAudioResourceLoader] Adding ${fileName} to Xcode project`);
@@ -114,8 +107,7 @@ function withMultiAudioResourceLoader(config) {
 
     // Configure bridging header in build settings
     // IMPORTANT: Must wrap in quotes because of $(PROJECT_DIR) syntax
-    const bridgingHeaderPath =
-      '"$(PROJECT_DIR)/MultiAudioResourceLoader/MultiAudioResourceLoader-Bridging-Header.h"';
+    const bridgingHeaderPath = '"$(PROJECT_DIR)/MultiAudioResourceLoader/MultiAudioResourceLoader-Bridging-Header.h"';
 
     const configurations = xcodeProject.pbxXCBuildConfigurationSection();
     Object.keys(configurations).forEach((key) => {
@@ -125,9 +117,7 @@ function withMultiAudioResourceLoader(config) {
         return;
       }
       if (config.buildSettings) {
-        console.log(
-          `[MultiAudioResourceLoader] Setting bridging header for ${config.name || "config"}`
-        );
+        console.log(`[MultiAudioResourceLoader] Setting bridging header for ${config.name || "config"}`);
         config.buildSettings.SWIFT_OBJC_BRIDGING_HEADER = bridgingHeaderPath;
 
         // Ensure Swift version is set

@@ -1,6 +1,6 @@
 // Polyfill structuredClone for older Node versions
 // Standard Web API - proper polyfill pattern
-if (typeof global.structuredClone === 'undefined') {
+if (typeof global.structuredClone === "undefined") {
   global.structuredClone = (obj) => JSON.parse(JSON.stringify(obj));
 }
 
@@ -11,26 +11,26 @@ if (typeof global.structuredClone === 'undefined') {
 global.__ExpoImportMetaRegistry = {};
 
 // Mock @expo/metro-runtime to prevent native runtime from loading in Node
-jest.mock('@expo/metro-runtime', () => ({}));
+jest.mock("@expo/metro-runtime", () => ({}));
 
 // Mock expo-secure-store
-jest.mock('expo-secure-store', () => ({
+jest.mock("expo-secure-store", () => ({
   getItemAsync: jest.fn(),
   setItemAsync: jest.fn(),
-  deleteItemAsync: jest.fn()
+  deleteItemAsync: jest.fn(),
 }));
 
 // Mock react-native-video
-jest.mock('react-native-video', () => {
-  const React = require('react');
+jest.mock("react-native-video", () => {
+  const React = require("react");
   return React.forwardRef((props, ref) => {
     return null; // Mock Video component
   });
 });
 
 // Mock expo-router to prevent loading app structure
-jest.mock('expo-router', () => ({
-  Stack: 'Stack',
+jest.mock("expo-router", () => ({
+  Stack: "Stack",
   useRouter: jest.fn(() => ({
     push: jest.fn(),
     replace: jest.fn(),
@@ -46,14 +46,14 @@ jest.mock('expo-router', () => ({
 }));
 
 // Mock InteractionManager - must happen before React Native imports
-jest.doMock('react-native/Libraries/Interaction/InteractionManager', () => ({
+jest.doMock("react-native/Libraries/Interaction/InteractionManager", () => ({
   runAfterInteractions: jest.fn((callback) => {
     // Execute callback immediately in tests
     if (callback) callback();
     return { cancel: jest.fn() };
   }),
   createInteractionHandle: jest.fn(),
-  clearInteractionHandle: jest.fn()
+  clearInteractionHandle: jest.fn(),
 }));
 
 // Mock console methods to reduce noise in tests
@@ -63,5 +63,5 @@ global.console = {
   debug: jest.fn(),
   info: jest.fn(),
   warn: jest.fn(),
-  error: jest.fn()
+  error: jest.fn(),
 };

@@ -34,11 +34,7 @@ interface UseWatchProgressResult {
  * - Sets internal ended flag
  * - Calls clearProgress(videoId) — video is finished, no resume needed
  */
-export function useWatchProgress({
-  videoId,
-  videoRef,
-  durationRef,
-}: UseWatchProgressConfig): UseWatchProgressResult {
+export function useWatchProgress({ videoId, videoRef, durationRef }: UseWatchProgressConfig): UseWatchProgressResult {
   const lastSavedPositionRef = useRef(0);
   const lastSampledPositionRef = useRef(0);
   const endedRef = useRef(false);

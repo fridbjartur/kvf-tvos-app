@@ -6,12 +6,13 @@ import { Platform, StyleSheet, Text, View } from "react-native";
 
 interface ConnectedSectionProps {
   serverName: string;
+  serverUrl: string;
   userName: string;
   authMethod: string;
   onSignOut: () => void;
 }
 
-export function ConnectedSection({ serverName, userName, authMethod, onSignOut }: ConnectedSectionProps) {
+export function ConnectedSection({ serverName, serverUrl, userName, authMethod, onSignOut }: ConnectedSectionProps) {
   const authMethodLabel = authMethod === "quickconnect" ? "Quick Connect" : authMethod === "password" ? "Username & Password" : authMethod === "apikey" ? "API Key" : "Unknown";
 
   return (
@@ -23,6 +24,7 @@ export function ConnectedSection({ serverName, userName, authMethod, onSignOut }
             <View style={styles.connectedInfo}>
               <Text style={styles.connectedLabel}>Connected</Text>
               <Text style={styles.connectedValue}>{serverName}</Text>
+              {serverUrl ? <Text style={styles.connectedLabel}>{serverUrl}</Text> : null}
             </View>
           </View>
         </View>

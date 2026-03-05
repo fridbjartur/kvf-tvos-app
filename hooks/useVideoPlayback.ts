@@ -1,7 +1,19 @@
 import { useEffect, useState, useMemo, useRef, useCallback, useReducer } from "react";
 import type { VideoRef, OnLoadData, OnProgressData, OnVideoErrorData, AudioTrack, TextTrack } from "react-native-video";
 import { InteractionManager } from "react-native";
-import { fetchVideoDetails, needsTranscoding, isAudioOnly, getSubtitleTracks, getVideoStreamUrl, getTranscodingStreamUrl, isDemoMode, connectToDemoServer, refreshConfig, getConfig, JELLYFIN_TIME } from "@/services/jellyfinApi";
+import {
+  fetchVideoDetails,
+  needsTranscoding,
+  isAudioOnly,
+  getSubtitleTracks,
+  getVideoStreamUrl,
+  getTranscodingStreamUrl,
+  isDemoMode,
+  connectToDemoServer,
+  refreshConfig,
+  getConfig,
+  JELLYFIN_TIME,
+} from "@/services/jellyfinApi";
 import { getProgress } from "@/services/watchProgressService";
 import { useWatchProgress } from "./useWatchProgress";
 import { JellyfinVideoItem } from "@/types/jellyfin";
@@ -53,14 +65,7 @@ const ERROR_PATTERNS: { type: PlaybackErrorType; patterns: RegExp[] }[] = [
   },
   {
     type: PlaybackErrorType.NETWORK,
-    patterns: [
-      /network\s*(error|fail|issue)/i,
-      /fetch\s*(error|fail)/i,
-      /connection\s*(refused|reset|closed)/i,
-      /econnreset/i,
-      /econnrefused/i,
-      /unable.*connect/i,
-    ],
+    patterns: [/network\s*(error|fail|issue)/i, /fetch\s*(error|fail)/i, /connection\s*(refused|reset|closed)/i, /econnreset/i, /econnrefused/i, /unable.*connect/i],
   },
 ];
 
@@ -75,14 +80,14 @@ export function classifyPlaybackError(error: unknown): PlaybackErrorType {
   let errorMessage: string;
   if (error instanceof Error) {
     errorMessage = error.message;
-  } else if (typeof error === 'object' && error !== null && 'message' in error) {
+  } else if (typeof error === "object" && error !== null && "message" in error) {
     errorMessage = String((error as { message: unknown }).message);
   } else {
     errorMessage = String(error);
   }
 
   for (const { type, patterns } of ERROR_PATTERNS) {
-    if (patterns.some(pattern => pattern.test(errorMessage))) {
+    if (patterns.some((pattern) => pattern.test(errorMessage))) {
       return type;
     }
   }
@@ -435,38 +440,41 @@ export function useVideoPlayback(config: VideoPlaybackConfig): VideoPlaybackResu
   /**
    * Handle audio track switch by restarting video with new audioStreamIndex
    */
-  const handleAudioTrackSwitch = useCallback((newTrackIndex: number) => {
-    if (!videoId || !videoDetails) {
-      logger.error("❌ Cannot switch audio track: missing video info", {
+  const handleAudioTrackSwitch = useCallback(
+    (newTrackIndex: number) => {
+      if (!videoId || !videoDetails) {
+        logger.error("❌ Cannot switch audio track: missing video info", {
+          service: "useVideoPlayback",
+        });
+        return;
+      }
+
+      // Save current playback position for auto-seek after restart
+      const currentPosition = currentTimeRef.current;
+      seekToPositionAfterLoadRef.current = currentPosition;
+
+      logger.info("🔄 Starting audio track switch via restart", {
         service: "useVideoPlayback",
+        jellyfinStreamIndex: newTrackIndex,
+        savedPosition: currentPosition,
       });
-      return;
-    }
 
-    // Save current playback position for auto-seek after restart
-    const currentPosition = currentTimeRef.current;
-    seekToPositionAfterLoadRef.current = currentPosition;
+      // Pause current playback
+      setPaused(true);
 
-    logger.info("🔄 Starting audio track switch via restart", {
-      service: "useVideoPlayback",
-      jellyfinStreamIndex: newTrackIndex,
-      savedPosition: currentPosition,
-    });
+      // Reset playing state refs so onProgress will detect playback start after restart
+      isPlayingRef.current = false;
+      hasStablePlaybackRef.current = false;
+      setHasStablePlayback(false);
 
-    // Pause current playback
-    setPaused(true);
+      // Force restart by transitioning through states
+      dispatch({ type: "RETRY_WITH_TRANSCODE" });
 
-    // Reset playing state refs so onProgress will detect playback start after restart
-    isPlayingRef.current = false;
-    hasStablePlaybackRef.current = false;
-    setHasStablePlayback(false);
-
-    // Force restart by transitioning through states
-    dispatch({ type: "RETRY_WITH_TRANSCODE" });
-
-    // Store selected audio track for URL generation
-    selectedAudioTrackIndexRef.current = newTrackIndex;
-  }, [videoId, videoDetails]);
+      // Store selected audio track for URL generation
+      selectedAudioTrackIndexRef.current = newTrackIndex;
+    },
+    [videoId, videoDetails],
+  );
 
   /**
    * Store streamUrl in state to keep it stable across state transitions
@@ -510,12 +518,7 @@ export function useVideoPlayback(config: VideoPlaybackConfig): VideoPlaybackResu
             // Then prepare multi-audio playback with custom protocol
             const cachedConfig = await getConfig();
 
-            url = await prepareMultiAudioPlayback(
-              videoId,
-              details,
-              baseUrl,
-              cachedConfig.apiKey
-            );
+            url = await prepareMultiAudioPlayback(videoId, details, baseUrl, cachedConfig.apiKey);
 
             // SET REF: We're using multi-audio mode
             isUsingMultiAudioRef.current = true;
@@ -539,7 +542,7 @@ export function useVideoPlayback(config: VideoPlaybackConfig): VideoPlaybackResu
           }
         } else {
           // Direct play
-          url = getVideoStreamUrl(videoId);
+          url = getVideoStreamUrl(videoId, details);
 
           // CLEAR REF: Direct play doesn't use multi-audio
           isUsingMultiAudioRef.current = false;
@@ -575,11 +578,11 @@ export function useVideoPlayback(config: VideoPlaybackConfig): VideoPlaybackResu
           // but Jellyfin uses actual stream indices (1, 8, etc.)
           // CRITICAL: Use the SAME sorted array that was sent to Swift via prepareMultiAudioPlayback()
           if (details.MediaStreams && audioTracks.length > 0) {
-            audioTrackMappingRef.current = audioTracks.map(track => track.Index);
+            audioTrackMappingRef.current = audioTracks.map((track) => track.Index);
             logger.debug("Built audio track mapping", {
               service: "useVideoPlayback",
               mapping: audioTrackMappingRef.current,
-              tracks: audioTracks.map(t => `${t.Language || "und"} (stream ${t.Index})`).join(", "),
+              tracks: audioTracks.map((t) => `${t.Language || "und"} (stream ${t.Index})`).join(", "),
             });
           }
 
@@ -588,8 +591,8 @@ export function useVideoPlayback(config: VideoPlaybackConfig): VideoPlaybackResu
               service: "useVideoPlayback",
               subtitleCount: subtitles.length,
               audioTrackCount: audioTracks.length,
-              subtitleLanguages: subtitles.map(s => s.language).join(", "),
-              audioLanguages: audioTracks.map(a => a.Language).join(", "),
+              subtitleLanguages: subtitles.map((s) => s.language).join(", "),
+              audioLanguages: audioTracks.map((a) => a.Language).join(", "),
             });
           }
         }
@@ -653,142 +656,148 @@ export function useVideoPlayback(config: VideoPlaybackConfig): VideoPlaybackResu
    */
 
   // Callback: Video loaded and ready
-  const onLoad = useCallback((data: OnLoadData) => {
-    if (!isMountedRef.current) return;
+  const onLoad = useCallback(
+    (data: OnLoadData) => {
+      if (!isMountedRef.current) return;
 
-    durationRef.current = data.duration;
+      durationRef.current = data.duration;
 
-    logger.debug("Player loaded and ready", {
-      service: "useVideoPlayback",
-      duration: data.duration,
-    });
-
-    // Auto-seek to saved position if this is a restart (audio track switch)
-    const seekPosition = seekToPositionAfterLoadRef.current;
-    if (seekPosition !== null && seekPosition > 0) {
-      logger.info("⏩ Auto-seeking to saved position", {
+      logger.debug("Player loaded and ready", {
         service: "useVideoPlayback",
-        position: seekPosition,
+        duration: data.duration,
       });
 
-      // Small delay to ensure player is ready for seek
-      setTimeout(() => {
-        videoRef.current?.seek(seekPosition);
-        seekToPositionAfterLoadRef.current = null; // Clear after use
-
-        // ✅ FIX: Resume playback after seek
-        setPaused(false);
-
-        // ✅ FIX: Reset audio track ref to re-enable multi-audio mode
-        // This allows the user to switch tracks again after the restart
-        selectedAudioTrackIndexRef.current = null;
-
-        logger.info("✅ Auto-seek complete — resumed playback", {
+      // Auto-seek to saved position if this is a restart (audio track switch)
+      const seekPosition = seekToPositionAfterLoadRef.current;
+      if (seekPosition !== null && seekPosition > 0) {
+        logger.info("⏩ Auto-seeking to saved position", {
           service: "useVideoPlayback",
           position: seekPosition,
         });
-      }, 100);
-    }
 
-    // Ensure state update happens on main thread via InteractionManager
-    InteractionManager.runAfterInteractions(() => {
-      if (!isMountedRef.current) return;
-      dispatch({ type: "PLAYER_READY" });
-    });
+        // Small delay to ensure player is ready for seek
+        setTimeout(() => {
+          videoRef.current?.seek(seekPosition);
+          seekToPositionAfterLoadRef.current = null; // Clear after use
 
-    // Auto-play on first load
-    if (!autoPlayTriggeredRef.current && isMountedRef.current) {
-      logger.debug("Scheduling auto-play", { service: "useVideoPlayback" });
+          // ✅ FIX: Resume playback after seek
+          setPaused(false);
 
-      // Clear any existing timer
-      if (autoPlayTimerRef.current) {
-        clearTimeout(autoPlayTimerRef.current);
+          // ✅ FIX: Reset audio track ref to re-enable multi-audio mode
+          // This allows the user to switch tracks again after the restart
+          selectedAudioTrackIndexRef.current = null;
+
+          logger.info("✅ Auto-seek complete — resumed playback", {
+            service: "useVideoPlayback",
+            position: seekPosition,
+          });
+        }, 100);
       }
 
-      // Use InteractionManager to ensure play() is called after interactions complete
-      autoPlayTimerRef.current = setTimeout(() => {
-        if (!isMountedRef.current) {
-          logger.debug("Component unmounted, skipping auto-play", { service: "useVideoPlayback" });
-          return;
+      // Ensure state update happens on main thread via InteractionManager
+      InteractionManager.runAfterInteractions(() => {
+        if (!isMountedRef.current) return;
+        dispatch({ type: "PLAYER_READY" });
+      });
+
+      // Auto-play on first load
+      if (!autoPlayTriggeredRef.current && isMountedRef.current) {
+        logger.debug("Scheduling auto-play", { service: "useVideoPlayback" });
+
+        // Clear any existing timer
+        if (autoPlayTimerRef.current) {
+          clearTimeout(autoPlayTimerRef.current);
         }
 
-        InteractionManager.runAfterInteractions(() => {
-          if (!isMountedRef.current) return;
-
-          try {
-            logger.debug("Auto-playing video", { service: "useVideoPlayback" });
-            setPaused(false);
-            // Only mark as triggered after successful play
-            autoPlayTriggeredRef.current = true;
-          } catch (error) {
-            logger.error("Error auto-playing", error, { service: "useVideoPlayback" });
-            // Dispatch error on main thread
-            InteractionManager.runAfterInteractions(() => {
-              if (!isMountedRef.current) return;
-              dispatch({
-                type: "PLAYER_ERROR",
-                error: {
-                  message: "Failed to start video playback. The video file may be corrupted or incompatible.",
-                },
-                mode: currentModeRef.current,
-                hasTriedTranscode: hasTriedTranscoding,
-              });
-            });
+        // Use InteractionManager to ensure play() is called after interactions complete
+        autoPlayTimerRef.current = setTimeout(() => {
+          if (!isMountedRef.current) {
+            logger.debug("Component unmounted, skipping auto-play", { service: "useVideoPlayback" });
+            return;
           }
-        });
 
-        autoPlayTimerRef.current = null;
-      }, 100);
-    }
-  }, [hasTriedTranscoding]);
-
-  // Callback: Video progress update
-  const onProgress = useCallback((data: OnProgressData) => {
-    if (!isMountedRef.current) return;
-
-    currentTimeRef.current = data.currentTime;
-
-    // Update playing state
-    const nowPlaying = !paused;
-    const wasPlaying = isPlayingRef.current;
-
-    if (nowPlaying !== wasPlaying) {
-      isPlayingRef.current = nowPlaying;
-
-      if (nowPlaying) {
-        // Video started playing
-        if (!hasStablePlaybackRef.current) {
           InteractionManager.runAfterInteractions(() => {
             if (!isMountedRef.current) return;
-            dispatch({ type: "PLAYER_PLAYING" });
-          });
 
-          // Start stable playback detection after video starts playing
-          if (stablePlaybackTimerRef.current) {
-            clearTimeout(stablePlaybackTimerRef.current);
-          }
-
-          stablePlaybackTimerRef.current = setTimeout(() => {
-            if (isMountedRef.current && isPlayingRef.current) {
-              logger.debug("Stable playback detected, hiding spinner", { service: "useVideoPlayback" });
-              hasStablePlaybackRef.current = true;
+            try {
+              logger.debug("Auto-playing video", { service: "useVideoPlayback" });
+              setPaused(false);
+              // Only mark as triggered after successful play
+              autoPlayTriggeredRef.current = true;
+            } catch (error) {
+              logger.error("Error auto-playing", error, { service: "useVideoPlayback" });
+              // Dispatch error on main thread
               InteractionManager.runAfterInteractions(() => {
                 if (!isMountedRef.current) return;
-                setHasStablePlayback(true);
+                dispatch({
+                  type: "PLAYER_ERROR",
+                  error: {
+                    message: "Failed to start video playback. The video file may be corrupted or incompatible.",
+                  },
+                  mode: currentModeRef.current,
+                  hasTriedTranscode: hasTriedTranscoding,
+                });
               });
-              stablePlaybackTimerRef.current = null;
             }
-          }, 500);
-        }
-      } else {
-        // Video paused or stopped, clear the stable playback timer
-        if (stablePlaybackTimerRef.current && !hasStablePlaybackRef.current) {
-          clearTimeout(stablePlaybackTimerRef.current);
-          stablePlaybackTimerRef.current = null;
+          });
+
+          autoPlayTimerRef.current = null;
+        }, 100);
+      }
+    },
+    [hasTriedTranscoding],
+  );
+
+  // Callback: Video progress update
+  const onProgress = useCallback(
+    (data: OnProgressData) => {
+      if (!isMountedRef.current) return;
+
+      currentTimeRef.current = data.currentTime;
+
+      // Update playing state
+      const nowPlaying = !paused;
+      const wasPlaying = isPlayingRef.current;
+
+      if (nowPlaying !== wasPlaying) {
+        isPlayingRef.current = nowPlaying;
+
+        if (nowPlaying) {
+          // Video started playing
+          if (!hasStablePlaybackRef.current) {
+            InteractionManager.runAfterInteractions(() => {
+              if (!isMountedRef.current) return;
+              dispatch({ type: "PLAYER_PLAYING" });
+            });
+
+            // Start stable playback detection after video starts playing
+            if (stablePlaybackTimerRef.current) {
+              clearTimeout(stablePlaybackTimerRef.current);
+            }
+
+            stablePlaybackTimerRef.current = setTimeout(() => {
+              if (isMountedRef.current && isPlayingRef.current) {
+                logger.debug("Stable playback detected, hiding spinner", { service: "useVideoPlayback" });
+                hasStablePlaybackRef.current = true;
+                InteractionManager.runAfterInteractions(() => {
+                  if (!isMountedRef.current) return;
+                  setHasStablePlayback(true);
+                });
+                stablePlaybackTimerRef.current = null;
+              }
+            }, 500);
+          }
+        } else {
+          // Video paused or stopped, clear the stable playback timer
+          if (stablePlaybackTimerRef.current && !hasStablePlaybackRef.current) {
+            clearTimeout(stablePlaybackTimerRef.current);
+            stablePlaybackTimerRef.current = null;
+          }
         }
       }
-    }
-  }, [paused, hasTriedTranscoding]);
+    },
+    [paused, hasTriedTranscoding],
+  );
 
   // Callback: Video playback ended
   const onEnd = useCallback(() => {
@@ -806,263 +815,266 @@ export function useVideoPlayback(config: VideoPlaybackConfig): VideoPlaybackResu
   }, []);
 
   // Callback: Video error
-  const onError = useCallback((error: OnVideoErrorData) => {
-    if (!isMountedRef.current) return;
+  const onError = useCallback(
+    (error: OnVideoErrorData) => {
+      if (!isMountedRef.current) return;
 
-    const currentMode = currentModeRef.current;
-    const willRetryWithTranscode = currentMode === "direct" && !hasTriedTranscoding;
+      const currentMode = currentModeRef.current;
+      const willRetryWithTranscode = currentMode === "direct" && !hasTriedTranscoding;
 
-    // Classify error first to determine if it's a 401
-    const errorType = classifyPlaybackError(error.error);
-    // Extract error message from react-native-video error object
-    const originalMessage =
-      error.error?.localizedDescription ||
-      error.error?.errorString ||
-      String(error.error || "");
+      // Classify error first to determine if it's a 401
+      const errorType = classifyPlaybackError(error.error);
+      // Extract error message from react-native-video error object
+      const originalMessage = error.error?.localizedDescription || error.error?.errorString || String(error.error || "");
 
-    logger.debug("Error classified", {
-      service: "useVideoPlayback",
-      errorType,
-      willRetryWithTranscode,
-      hasTriedCredentialRefresh,
-    });
-
-    // Check if this is a 401 error in demo mode - try refreshing credentials
-    const is401Error = errorType === PlaybackErrorType.UNAUTHORIZED;
-
-    if (is401Error && !hasTriedCredentialRefresh) {
-      logger.info("Authentication error detected, attempting to refresh demo credentials", {
+      logger.debug("Error classified", {
         service: "useVideoPlayback",
-        error: originalMessage,
+        errorType,
+        willRetryWithTranscode,
+        hasTriedCredentialRefresh,
       });
 
-      // Try to refresh demo credentials and retry playback
-      (async () => {
-        try {
-          const inDemoMode = await isDemoMode();
-          if (inDemoMode) {
-            logger.info("Reconnecting to demo server for fresh credentials", {
+      // Check if this is a 401 error in demo mode - try refreshing credentials
+      const is401Error = errorType === PlaybackErrorType.UNAUTHORIZED;
+
+      if (is401Error && !hasTriedCredentialRefresh) {
+        logger.info("Authentication error detected, attempting to refresh demo credentials", {
+          service: "useVideoPlayback",
+          error: originalMessage,
+        });
+
+        // Try to refresh demo credentials and retry playback
+        (async () => {
+          try {
+            const inDemoMode = await isDemoMode();
+            if (inDemoMode) {
+              logger.info("Reconnecting to demo server for fresh credentials", {
+                service: "useVideoPlayback",
+              });
+
+              // Pass false to preserve folder navigation and library state
+              await connectToDemoServer(false);
+              await refreshConfig();
+
+              logger.info("Demo credentials refreshed, retrying playback", {
+                service: "useVideoPlayback",
+              });
+
+              // Mark that we tried credential refresh
+              setHasTriedCredentialRefresh(true);
+
+              // Retry playback by resetting state
+              InteractionManager.runAfterInteractions(() => {
+                if (!isMountedRef.current) return;
+                dispatch({ type: "RETRY" });
+              });
+
+              return;
+            }
+          } catch (error) {
+            logger.error("Failed to refresh demo credentials", error, {
               service: "useVideoPlayback",
             });
-
-            // Pass false to preserve folder navigation and library state
-            await connectToDemoServer(false);
-            await refreshConfig();
-
-            logger.info("Demo credentials refreshed, retrying playback", {
-              service: "useVideoPlayback",
-            });
-
-            // Mark that we tried credential refresh
-            setHasTriedCredentialRefresh(true);
-
-            // Retry playback by resetting state
-            InteractionManager.runAfterInteractions(() => {
-              if (!isMountedRef.current) return;
-              dispatch({ type: "RETRY" });
-            });
-
-            return;
           }
-        } catch (error) {
-          logger.error("Failed to refresh demo credentials", error, {
-            service: "useVideoPlayback",
-          });
-        }
 
-        // If not in demo mode or refresh failed, show the error
-        const errorMessage = getPlaybackErrorMessage(errorType, originalMessage);
+          // If not in demo mode or refresh failed, show the error
+          const errorMessage = getPlaybackErrorMessage(errorType, originalMessage);
+          InteractionManager.runAfterInteractions(() => {
+            if (!isMountedRef.current) return;
+            dispatch({
+              type: "PLAYER_ERROR",
+              error: { message: errorMessage },
+              mode: currentMode,
+              hasTriedTranscode: hasTriedTranscoding,
+            });
+          });
+        })();
+
+        return;
+      }
+
+      // Seek recovery: when a transcode stream crashes mid-playback (e.g. seek to non-keyframe),
+      // restart the transcode session from the last known position using StartTimeTicks.
+      // Limited to 1 attempt to prevent loops.
+      if (currentMode === "transcode" && currentTimeRef.current > 1 && !hasTriedSeekRecovery) {
+        const lastPositionSec = currentTimeRef.current;
+        const ticks = lastPositionSec * JELLYFIN_TIME.TICKS_PER_SECOND;
+
+        logger.info("Seek crash detected during transcode, attempting recovery", {
+          service: "useVideoPlayback",
+          lastPositionSec,
+          startTimeTicks: ticks,
+        });
+
+        setHasTriedSeekRecovery(true);
+        startTimeTicksRef.current = ticks;
+
+        // Reset playback state for the recovery attempt
+        autoPlayTriggeredRef.current = false;
+        isPlayingRef.current = false;
+        hasStablePlaybackRef.current = false;
+        setHasStablePlayback(false);
+
+        // Clear stream URL to unmount Video component
+        setStreamUrl(null);
+
+        // Do NOT set seekToPositionAfterLoadRef — the HLS stream already starts at the offset
+
         InteractionManager.runAfterInteractions(() => {
           if (!isMountedRef.current) return;
-          dispatch({
-            type: "PLAYER_ERROR",
-            error: { message: errorMessage },
-            mode: currentMode,
-            hasTriedTranscode: hasTriedTranscoding,
-          });
+          dispatch({ type: "RETRY_WITH_TRANSCODE" });
         });
-      })();
 
-      return;
-    }
+        return;
+      }
 
-    // Seek recovery: when a transcode stream crashes mid-playback (e.g. seek to non-keyframe),
-    // restart the transcode session from the last known position using StartTimeTicks.
-    // Limited to 1 attempt to prevent loops.
-    if (currentMode === "transcode" && currentTimeRef.current > 1 && !hasTriedSeekRecovery) {
-      const lastPositionSec = currentTimeRef.current;
-      const ticks = lastPositionSec * JELLYFIN_TIME.TICKS_PER_SECOND;
+      // Resume fallback: when a transcoded stream with StartTimeTicks fails on initial load
+      // (e.g. Jellyfin returns NSURLErrorResourceUnavailable -1008), retry without StartTimeTicks
+      // and use client-side seek instead. Only fires when the player never started (currentTime ≈ 0).
+      if (currentMode === "transcode" && resumePositionForFallbackRef.current !== null && !hasTriedResumeFallbackRef.current) {
+        const resumePosition = resumePositionForFallbackRef.current;
 
-      logger.info("Seek crash detected during transcode, attempting recovery", {
-        service: "useVideoPlayback",
-        lastPositionSec,
-        startTimeTicks: ticks,
-      });
+        logger.info("StartTimeTicks resume failed, retrying with client-side seek", {
+          service: "useVideoPlayback",
+          resumePosition,
+        });
 
-      setHasTriedSeekRecovery(true);
-      startTimeTicksRef.current = ticks;
+        hasTriedResumeFallbackRef.current = true;
+        resumePositionForFallbackRef.current = null;
+        seekToPositionAfterLoadRef.current = resumePosition;
+        selectedAudioTrackIndexRef.current = null;
 
-      // Reset playback state for the recovery attempt
-      autoPlayTriggeredRef.current = false;
-      isPlayingRef.current = false;
-      hasStablePlaybackRef.current = false;
-      setHasStablePlayback(false);
+        // Reset playback state for the retry
+        autoPlayTriggeredRef.current = false;
+        isPlayingRef.current = false;
+        hasStablePlaybackRef.current = false;
+        setHasStablePlayback(false);
 
-      // Clear stream URL to unmount Video component
-      setStreamUrl(null);
+        // Clear stream URL to unmount Video component
+        setStreamUrl(null);
 
-      // Do NOT set seekToPositionAfterLoadRef — the HLS stream already starts at the offset
+        InteractionManager.runAfterInteractions(() => {
+          if (!isMountedRef.current) return;
+          dispatch({ type: "RETRY_WITH_TRANSCODE" });
+        });
 
+        return;
+      }
+
+      // Log at INFO level if we'll auto-retry, ERROR level if this is a real failure
+      if (willRetryWithTranscode) {
+        logger.info("Direct play failed, will retry with transcoding", error, { service: "useVideoPlayback" });
+      } else {
+        logger.error("Playback error", error, { service: "useVideoPlayback" });
+      }
+
+      const errorMessage = getPlaybackErrorMessage(errorType, originalMessage);
+
+      // Ensure error dispatch happens on main thread
       InteractionManager.runAfterInteractions(() => {
         if (!isMountedRef.current) return;
-        dispatch({ type: "RETRY_WITH_TRANSCODE" });
+        dispatch({
+          type: "PLAYER_ERROR",
+          error: { message: errorMessage },
+          mode: currentMode,
+          hasTriedTranscode: hasTriedTranscoding,
+        });
       });
-
-      return;
-    }
-
-    // Resume fallback: when a transcoded stream with StartTimeTicks fails on initial load
-    // (e.g. Jellyfin returns NSURLErrorResourceUnavailable -1008), retry without StartTimeTicks
-    // and use client-side seek instead. Only fires when the player never started (currentTime ≈ 0).
-    if (currentMode === "transcode" && resumePositionForFallbackRef.current !== null && !hasTriedResumeFallbackRef.current) {
-      const resumePosition = resumePositionForFallbackRef.current;
-
-      logger.info("StartTimeTicks resume failed, retrying with client-side seek", {
-        service: "useVideoPlayback",
-        resumePosition,
-      });
-
-      hasTriedResumeFallbackRef.current = true;
-      resumePositionForFallbackRef.current = null;
-      seekToPositionAfterLoadRef.current = resumePosition;
-      selectedAudioTrackIndexRef.current = null;
-
-      // Reset playback state for the retry
-      autoPlayTriggeredRef.current = false;
-      isPlayingRef.current = false;
-      hasStablePlaybackRef.current = false;
-      setHasStablePlayback(false);
-
-      // Clear stream URL to unmount Video component
-      setStreamUrl(null);
-
-      InteractionManager.runAfterInteractions(() => {
-        if (!isMountedRef.current) return;
-        dispatch({ type: "RETRY_WITH_TRANSCODE" });
-      });
-
-      return;
-    }
-
-    // Log at INFO level if we'll auto-retry, ERROR level if this is a real failure
-    if (willRetryWithTranscode) {
-      logger.info("Direct play failed, will retry with transcoding", error, { service: "useVideoPlayback" });
-    } else {
-      logger.error("Playback error", error, { service: "useVideoPlayback" });
-    }
-
-    const errorMessage = getPlaybackErrorMessage(errorType, originalMessage);
-
-    // Ensure error dispatch happens on main thread
-    InteractionManager.runAfterInteractions(() => {
-      if (!isMountedRef.current) return;
-      dispatch({
-        type: "PLAYER_ERROR",
-        error: { message: errorMessage },
-        mode: currentMode,
-        hasTriedTranscode: hasTriedTranscoding,
-      });
-    });
-  }, [hasTriedTranscoding, hasTriedCredentialRefresh, hasTriedSeekRecovery]);
+    },
+    [hasTriedTranscoding, hasTriedCredentialRefresh, hasTriedSeekRecovery],
+  );
 
   // Callback: Audio tracks discovered from HLS manifest
-  const onAudioTracks = useCallback((data: { audioTracks: AudioTrack[] }) => {
-    if (!isMountedRef.current) return;
+  const onAudioTracks = useCallback(
+    (data: { audioTracks: AudioTrack[] }) => {
+      if (!isMountedRef.current) return;
 
-    // Deduplicate logs - only log when data actually changes
-    const trackSignature = JSON.stringify({
-      count: data.audioTracks.length,
-      selected: data.audioTracks.find(t => t.selected)?.index ?? -1,
-    });
-
-    if (trackSignature !== lastLoggedAudioTracksRef.current) {
-      lastLoggedAudioTracksRef.current = trackSignature;
-      logger.debug("🎵 Audio tracks", {
-        service: "useVideoPlayback",
+      // Deduplicate logs - only log when data actually changes
+      const trackSignature = JSON.stringify({
         count: data.audioTracks.length,
-        selected: data.audioTracks.find(t => t.selected)?.index,
+        selected: data.audioTracks.find((t) => t.selected)?.index ?? -1,
       });
-    }
 
-    // Skip change detection if we're in single-track mode after restart
-    // This prevents infinite restart loop when Jellyfin returns a manifest with only the selected track
-    if (data.audioTracks.length === 1 && selectedAudioTrackIndexRef.current !== null) {
-      return;
-    }
+      if (trackSignature !== lastLoggedAudioTracksRef.current) {
+        lastLoggedAudioTracksRef.current = trackSignature;
+        logger.debug("🎵 Audio tracks", {
+          service: "useVideoPlayback",
+          count: data.audioTracks.length,
+          selected: data.audioTracks.find((t) => t.selected)?.index,
+        });
+      }
 
-    // Detect audio track change
-    const selectedTrack = data.audioTracks.find(t => t.selected);
-    if (selectedTrack) {
-      const newIndex = selectedTrack.index;
-      const previousIndex = selectedAudioTrackIndexRef.current;
+      // Skip change detection if we're in single-track mode after restart
+      // This prevents infinite restart loop when Jellyfin returns a manifest with only the selected track
+      if (data.audioTracks.length === 1 && selectedAudioTrackIndexRef.current !== null) {
+        return;
+      }
 
-      // Only trigger restart if:
-      // 1. We have a previous index (not first load)
-      // 2. Index actually changed
-      // 3. Video has achieved stable playback (prevents auto-selection from triggering restart)
-      // 4. NOT using multi-audio mode (multi-audio supports seamless switching)
-      const isUsingMultiAudio = isUsingMultiAudioRef.current;
+      // Detect audio track change
+      const selectedTrack = data.audioTracks.find((t) => t.selected);
+      if (selectedTrack) {
+        const newIndex = selectedTrack.index;
+        const previousIndex = selectedAudioTrackIndexRef.current;
 
-      if (previousIndex !== null && previousIndex !== newIndex && hasStablePlaybackRef.current && !isUsingMultiAudio) {
-        // Map react-native-video track index to Jellyfin stream index
-        const jellyfinStreamIndex = audioTrackMappingRef.current[newIndex];
+        // Only trigger restart if:
+        // 1. We have a previous index (not first load)
+        // 2. Index actually changed
+        // 3. Video has achieved stable playback (prevents auto-selection from triggering restart)
+        // 4. NOT using multi-audio mode (multi-audio supports seamless switching)
+        const isUsingMultiAudio = isUsingMultiAudioRef.current;
 
-        if (jellyfinStreamIndex !== undefined) {
-          logger.info("🔄 Audio track changed by user - triggering restart", {
+        if (previousIndex !== null && previousIndex !== newIndex && hasStablePlaybackRef.current && !isUsingMultiAudio) {
+          // Map react-native-video track index to Jellyfin stream index
+          const jellyfinStreamIndex = audioTrackMappingRef.current[newIndex];
+
+          if (jellyfinStreamIndex !== undefined) {
+            logger.info("🔄 Audio track changed by user - triggering restart", {
+              service: "useVideoPlayback",
+              previousIndex,
+              newIndex,
+              jellyfinStreamIndex,
+              newLanguage: selectedTrack.language,
+              newTitle: selectedTrack.title,
+            });
+
+            // Trigger audio track switch with restart (using Jellyfin stream index)
+            handleAudioTrackSwitch(jellyfinStreamIndex);
+
+            // CRITICAL: Return early to prevent updating selectedAudioTrackIndexRef
+            // The ref now holds the Jellyfin stream index and must not be overwritten
+            return;
+          } else {
+            logger.warn("⚠️ Could not map audio track index to Jellyfin stream index", {
+              service: "useVideoPlayback",
+              trackIndex: newIndex,
+              mappingSize: audioTrackMappingRef.current.length,
+            });
+          }
+        } else if (isUsingMultiAudio && previousIndex !== null && previousIndex !== newIndex) {
+          // In multi-audio mode, track switch is seamless - just log it
+          logger.info("🎵 Audio track switched seamlessly (no restart needed)", {
             service: "useVideoPlayback",
             previousIndex,
             newIndex,
-            jellyfinStreamIndex,
             newLanguage: selectedTrack.language,
             newTitle: selectedTrack.title,
           });
+        }
 
-          // Trigger audio track switch with restart (using Jellyfin stream index)
-          handleAudioTrackSwitch(jellyfinStreamIndex);
-
-          // CRITICAL: Return early to prevent updating selectedAudioTrackIndexRef
-          // The ref now holds the Jellyfin stream index and must not be overwritten
-          return;
-        } else {
-          logger.warn("⚠️ Could not map audio track index to Jellyfin stream index", {
+        // Only update the ref if we're in multi-audio mode (not during restart)
+        // During restart, selectedAudioTrackIndexRef holds the Jellyfin stream index
+        if (selectedAudioTrackIndexRef.current === null || data.audioTracks.length > 1) {
+          selectedAudioTrackIndexRef.current = newIndex;
+          logger.debug("🔹 Updated audio track ref", {
             service: "useVideoPlayback",
-            trackIndex: newIndex,
-            mappingSize: audioTrackMappingRef.current.length,
+            newIndex,
+            isMultiAudio: data.audioTracks.length > 1,
           });
         }
-      } else if (isUsingMultiAudio && previousIndex !== null && previousIndex !== newIndex) {
-        // In multi-audio mode, track switch is seamless - just log it
-        logger.info("🎵 Audio track switched seamlessly (no restart needed)", {
-          service: "useVideoPlayback",
-          previousIndex,
-          newIndex,
-          newLanguage: selectedTrack.language,
-          newTitle: selectedTrack.title,
-        });
       }
-
-      // Only update the ref if we're in multi-audio mode (not during restart)
-      // During restart, selectedAudioTrackIndexRef holds the Jellyfin stream index
-      if (selectedAudioTrackIndexRef.current === null || data.audioTracks.length > 1) {
-        selectedAudioTrackIndexRef.current = newIndex;
-        logger.debug("🔹 Updated audio track ref", {
-          service: "useVideoPlayback",
-          newIndex,
-          isMultiAudio: data.audioTracks.length > 1,
-        });
-      }
-    }
-  }, [handleAudioTrackSwitch]);
+    },
+    [handleAudioTrackSwitch],
+  );
 
   // Callback: Text tracks (subtitles) discovered
   const onTextTracks = useCallback((data: { textTracks: TextTrack[] }) => {
@@ -1152,7 +1164,6 @@ export function useVideoPlayback(config: VideoPlaybackConfig): VideoPlaybackResu
     }
   }, [state.type, fetchMetadata]);
 
-
   /**
    * Handle retry with transcoding when direct play fails
    */
@@ -1231,25 +1242,24 @@ export function useVideoPlayback(config: VideoPlaybackConfig): VideoPlaybackResu
   const isAudioOnlyFile = videoDetails ? isAudioOnly(videoDetails) : false;
 
   const isLoading =
-    state.type === "FETCHING_METADATA" ||
-    state.type === "CREATING_STREAM" ||
-    state.type === "INITIALIZING_PLAYER" ||
-    state.type === "READY" ||
-    (state.type === "PLAYING" && !hasStablePlayback);
+    state.type === "FETCHING_METADATA" || state.type === "CREATING_STREAM" || state.type === "INITIALIZING_PLAYER" || state.type === "READY" || (state.type === "PLAYING" && !hasStablePlayback);
 
   const showLoadingOverlay = isLoading;
 
   /**
    * Video callbacks object for Video component props
    */
-  const videoCallbacks = useMemo(() => ({
-    onLoad,
-    onProgress,
-    onError,
-    onEnd,
-    onAudioTracks,
-    onTextTracks,
-  }), [onLoad, onProgress, onError, onEnd, onAudioTracks, onTextTracks]);
+  const videoCallbacks = useMemo(
+    () => ({
+      onLoad,
+      onProgress,
+      onError,
+      onEnd,
+      onAudioTracks,
+      onTextTracks,
+    }),
+    [onLoad, onProgress, onError, onEnd, onAudioTracks, onTextTracks],
+  );
 
   return {
     videoRef,

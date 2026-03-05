@@ -1,13 +1,4 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  ReactNode,
-  useMemo,
-  useCallback,
-  useEffect,
-  useRef,
-} from "react";
+import React, { createContext, useContext, useState, ReactNode, useMemo, useCallback, useEffect, useRef } from "react";
 import { folderNavigationManager } from "@/services/folderNavigationManager";
 import { FolderStackEntry, JellyfinItem } from "@/types/jellyfin";
 import { logger } from "@/utils/logger";
@@ -129,26 +120,10 @@ export function FolderNavigationProvider({ children }: { children: ReactNode }) 
       loadMore,
       refresh,
     }),
-    [
-      items,
-      isLoading,
-      isLoadingMore,
-      hasMoreResults,
-      error,
-      folderStack,
-      currentFolder,
-      navigateToFolder,
-      navigateBack,
-      navigateToBreadcrumb,
-      loadRoot,
-      loadMore,
-      refresh,
-    ],
+    [items, isLoading, isLoadingMore, hasMoreResults, error, folderStack, currentFolder, navigateToFolder, navigateBack, navigateToBreadcrumb, loadRoot, loadMore, refresh],
   );
 
-  return (
-    <FolderNavigationContext.Provider value={value}>{children}</FolderNavigationContext.Provider>
-  );
+  return <FolderNavigationContext.Provider value={value}>{children}</FolderNavigationContext.Provider>;
 }
 
 export function useFolderNavigation() {

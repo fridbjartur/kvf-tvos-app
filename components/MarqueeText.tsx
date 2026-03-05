@@ -58,7 +58,7 @@ export function MarqueeText({ children, active, style, speed = 60 }: MarqueeText
   // to its natural width for accurate overflow measurement.
   const innerTextStyle = useMemo(() => {
     if (!style) return style;
-    const { width, ...rest } = style as TextStyle & { width?: unknown };
+    const { width: _width, ...rest } = style as TextStyle & { width?: unknown };
     return rest;
   }, [style]);
 

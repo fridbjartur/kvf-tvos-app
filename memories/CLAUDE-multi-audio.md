@@ -3,12 +3,14 @@
 **Last Updated:** January 24, 2026
 
 ## Quick Reference
+
 **Category:** Implementation
 **Keywords:** multi-audio, Swift, HLS, transcoding, audio tracks, native module, manifest
 
 Seamless multi-audio track switching during transcoding using custom Swift module with HLS manifest generation.
 
 ## Related Documentation
+
 - [`CLAUDE-api-reference.md`](./CLAUDE-api-reference.md) - Transcoding API functions
 - [`CLAUDE-external-dependencies.md`](./CLAUDE-external-dependencies.md) - Swift module architecture
 - [`CLAUDE-patterns.md`](./CLAUDE-patterns.md) - Multi-audio implementation patterns
@@ -66,6 +68,7 @@ TomoTV uses a custom Swift module (`MultiAudioResourceLoader`) that intercepts H
 ### The Challenge
 
 The standard approach with HLS transcoding is to generate a single manifest per video with one audio track selected. When users want to switch audio:
+
 1. Stop video playback
 2. Request new manifest with different audio track
 3. Restart video (potentially from timestamp)

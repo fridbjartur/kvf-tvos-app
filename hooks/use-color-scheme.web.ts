@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
-type ColorScheme = 'light' | 'dark' | null;
+type ColorScheme = "light" | "dark" | null;
 
 /**
  * Web-specific color scheme hook using matchMedia
@@ -15,31 +15,31 @@ export function useColorScheme(): ColorScheme {
     setHasHydrated(true);
 
     // Check if matchMedia is available (browser environment)
-    if (typeof window === 'undefined' || !window.matchMedia) {
+    if (typeof window === "undefined" || !window.matchMedia) {
       return;
     }
 
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
     // Set initial value
-    setColorScheme(mediaQuery.matches ? 'dark' : 'light');
+    setColorScheme(mediaQuery.matches ? "dark" : "light");
 
     // Listen for changes
     const handleChange = (event: MediaQueryListEvent) => {
-      setColorScheme(event.matches ? 'dark' : 'light');
+      setColorScheme(event.matches ? "dark" : "light");
     };
 
     // Modern browsers use addEventListener
-    mediaQuery.addEventListener('change', handleChange);
+    mediaQuery.addEventListener("change", handleChange);
 
     return () => {
-      mediaQuery.removeEventListener('change', handleChange);
+      mediaQuery.removeEventListener("change", handleChange);
     };
   }, []);
 
   // Before hydration, return 'light' as default (matches SSR)
   if (!hasHydrated) {
-    return 'light';
+    return "light";
   }
 
   return colorScheme;

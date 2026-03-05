@@ -18,11 +18,7 @@ import type { PlaybackMode } from "../useVideoPlayback";
  *
  * Returns what the hook would do given these inputs.
  */
-function evaluateResumeFallback(params: {
-  currentMode: PlaybackMode;
-  resumePositionForFallback: number | null;
-  hasTriedResumeFallback: boolean;
-}): {
+function evaluateResumeFallback(params: { currentMode: PlaybackMode; resumePositionForFallback: number | null; hasTriedResumeFallback: boolean }): {
   shouldTrigger: boolean;
   seekToPositionAfterLoad: number | null;
   newResumePositionForFallback: number | null;
@@ -32,11 +28,7 @@ function evaluateResumeFallback(params: {
 } {
   const { currentMode, resumePositionForFallback, hasTriedResumeFallback } = params;
 
-  if (
-    currentMode === "transcode" &&
-    resumePositionForFallback !== null &&
-    !hasTriedResumeFallback
-  ) {
+  if (currentMode === "transcode" && resumePositionForFallback !== null && !hasTriedResumeFallback) {
     return {
       shouldTrigger: true,
       seekToPositionAfterLoad: resumePositionForFallback,

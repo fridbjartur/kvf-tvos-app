@@ -4,8 +4,8 @@ import { PlayQueueProvider, usePlayQueue } from "../PlayQueueContext";
 import { playQueueManager } from "@/services/playQueueManager";
 import { JellyfinVideoItem } from "@/types/jellyfin";
 
-jest.mock("@/services/jellyfinApi")
-jest.mock("@/utils/logger")
+jest.mock("@/services/jellyfinApi");
+jest.mock("@/utils/logger");
 
 const mockVideos: JellyfinVideoItem[] = [
   {

@@ -3,23 +3,27 @@
 **Last Updated:** February 11, 2026
 
 ## Quick Reference
+
 **Category:** Deployment
 **Keywords:** App Store, metadata, screenshots, description, keywords, ASO, privacy policy
 
 Complete App Store metadata including app name, description, keywords, screenshots, privacy policy, and marketing copy.
 
 ## Related Documentation
+
 - [`CLAUDE-apple-store-checklist.md`](./CLAUDE-apple-store-checklist.md) - Metadata validation
 
 ---
 
 ## App Name (30 characters max)
+
 **TomoTV - Jellyfin Player**
 (29 characters)
 
 ---
 
 ## Subtitle/Tagline (30 characters max)
+
 **Stream from your media server**
 (30 characters)
 
@@ -30,6 +34,7 @@ Alternative:
 ---
 
 ## Promotional Text (170 characters max)
+
 **Stream any video from your Jellyfin server. Automatic transcoding, multi-audio switching, and subtitles. Just hit play. No codec headaches. Made for Apple TV.**
 (158 characters)
 
@@ -51,6 +56,7 @@ TomoTV connects your Apple TV to your Jellyfin media server. Select a video, it 
 • Secure on-device credential storage
 
 **SETUP**
+
 1. Run Jellyfin on your Mac, PC, or NAS
 2. Enter your server URL and credentials in Settings
 3. Start watching
@@ -74,6 +80,7 @@ No analytics. No tracking. No ads. Your credentials stay in device Keychain. Vid
 (99 characters)
 
 Keywords Strategy:
+
 - "jellyfin" (primary - core users)
 - "plex" (competitor spillover)
 - "media server", "nas" (adjacent searches)
@@ -85,6 +92,7 @@ Keywords Strategy:
 ## What's New (4,000 characters max)
 
 ### Version 1.3.1
+
 **4K Support**
 
 **New Features:**
@@ -97,6 +105,7 @@ Keywords Strategy:
 ---
 
 ### Version 1.3.0
+
 **Quick Connect, Sign-In & Continue Watching**
 
 **New Features:**
@@ -112,6 +121,7 @@ Keywords Strategy:
 ---
 
 ### Version 1.2.0
+
 **Queue Playback, Multi-Audio & Subtitles**
 
 **New Features:**
@@ -130,6 +140,7 @@ Keywords Strategy:
 ---
 
 ### Version 1.1.1
+
 **Stability & Polish**
 
 **Improvements:**
@@ -142,6 +153,7 @@ Keywords Strategy:
 ---
 
 ### Version 1.1.0
+
 **Demo Mode & Playlist Support**
 
 **New Features:**
@@ -159,6 +171,7 @@ Keywords Strategy:
 ---
 
 ### Version 1.0.8
+
 **Audio Playback Support**
 
 **New Features:**
@@ -174,6 +187,7 @@ Keywords Strategy:
 ---
 
 ### Version 1.0.7
+
 **Stability & Polish**
 
 **Improvements:**
@@ -189,6 +203,7 @@ Keywords Strategy:
 ---
 
 ### Version 1.0.6
+
 **Folder Navigation & UI Improvements**
 
 **New Features:**
@@ -209,6 +224,7 @@ Keywords Strategy:
 ---
 
 ### Version 1.0.5
+
 **Initial Release - Welcome to TomoTV!**
 
 We're excited to bring you the first release of TomoTV, built from the ground up for Apple TV and Jellyfin.
@@ -251,6 +267,7 @@ Thank you for supporting independent development!
 **Rating:** 4+ (No objectionable content)
 
 **Why 4+:**
+
 - User-provided content (videos from user's own Jellyfin server)
 - No in-app purchases or ads
 - No data collection
@@ -266,6 +283,7 @@ Thank you for supporting independent development!
 **URL:** https://keiver.dev/lab/tomotv
 
 **Minimum Privacy Policy Content:**
+
 ```
 TomoTV Privacy Policy
 
@@ -299,6 +317,7 @@ For questions or concerns: contact@keiver.dev
 **URL:** https://keiver.dev/lab/tomotv
 
 **Minimum Support Page Content:**
+
 ```
 TomoTV Support
 
@@ -334,6 +353,7 @@ GitHub Issues: https://github.com/keiver/tomotv/issues
 **URL:** https://keiver.dev/lab/tomotv
 
 **Suggested Landing Page Sections:**
+
 1. Hero: "Stream Your Jellyfin Library on Apple TV"
 2. Features: Smart transcoding, quality control, TV optimized
 3. Screenshots carousel
@@ -352,6 +372,7 @@ GitHub Issues: https://github.com/keiver/tomotv/issues
 ## App Store Screenshots Requirements
 
 ### Apple TV (Required if submitting tvOS app)
+
 - **Size:** 1920x1080 pixels
 - **Required:** 1-5 screenshots
 - **Recommended:** 3-5 screenshots showing:
@@ -362,10 +383,12 @@ GitHub Issues: https://github.com/keiver/tomotv/issues
   5. Help screen (shows features)
 
 ### iPhone (if applicable)
+
 - **6.7" Display:** 1290x2796 pixels
 - **Required:** 1-10 screenshots
 
 ### iPad (if applicable)
+
 - **12.9" Display:** 2048x2732 pixels
 - **Required:** 1-10 screenshots
 
@@ -375,6 +398,7 @@ GitHub Issues: https://github.com/keiver/tomotv/issues
 
 **Duration:** 15-30 seconds
 **Content Suggestions:**
+
 1. Show library browsing (2-3 seconds)
 2. Select a video (1 second)
 3. Video starts playing immediately (3-4 seconds)
@@ -384,6 +408,7 @@ GitHub Issues: https://github.com/keiver/tomotv/issues
 7. End with app icon and tagline: "TomoTV - Your Jellyfin on Apple TV"
 
 **Technical Requirements:**
+
 - Resolution: 1920x1080 (Apple TV)
 - Format: M4V, MP4, or MOV
 - Codec: H.264 or HEVC
@@ -423,6 +448,7 @@ Notes:
 **Build Number:** 1 (auto-increments on Xcode Archive)
 
 **Version Naming Convention Going Forward:**
+
 - 1.0.x - Bug fixes, minor tweaks
 - 1.x.0 - New features (resume playback, metadata, etc.)
 - x.0.0 - Major updates (UI overhaul, new platforms)
@@ -433,6 +459,7 @@ Notes:
 
 **Current:** English only
 **Priority Languages for v1.1+:**
+
 1. Spanish (es)
 2. French (fr)
 3. German (de)
@@ -446,6 +473,7 @@ Notes:
 **Primary Goal:** Reach Jellyfin users searching for Apple TV clients
 
 **Target Search Terms:**
+
 1. "jellyfin apple tv" (exact match - high intent)
 2. "jellyfin player" (broad - competitor to official app)
 3. "media server apple tv" (adjacent - Plex users)
@@ -453,11 +481,13 @@ Notes:
 5. "transcode player" (specific - technical users)
 
 **Competitive Positioning:**
+
 - Primary competitor: Swiftfin (free, open source)
 - Advantage: Smart transcoding UX, quality presets, simplified setup
 - Disadvantage: Missing resume playback, metadata
 
 **Conversion Strategy:**
+
 - Lead with "automatic transcoding" (solves immediate pain)
 - Emphasize Apple TV optimization (native feel)
 - Show quality presets (control over experience)
@@ -467,14 +497,14 @@ Notes:
 
 ## Character Count Summary
 
-| Field | Limit | Current | Status |
-|-------|-------|---------|--------|
-| App Name | 30 | 29 | ✅ |
-| Subtitle | 30 | 30 | ✅ |
-| Promotional Text | 170 | 158 | ✅ |
-| Description | 4,000 | ~2,400 | ✅ |
-| Keywords | 100 | 99 | ✅ |
-| What's New | 4,000 | ~1,800 | ✅ |
+| Field            | Limit | Current | Status |
+| ---------------- | ----- | ------- | ------ |
+| App Name         | 30    | 29      | ✅     |
+| Subtitle         | 30    | 30      | ✅     |
+| Promotional Text | 170   | 158     | ✅     |
+| Description      | 4,000 | ~2,400  | ✅     |
+| Keywords         | 100   | 99      | ✅     |
+| What's New       | 4,000 | ~1,800  | ✅     |
 
 ---
 
@@ -495,12 +525,14 @@ Notes:
 ## Post-Launch Marketing
 
 **Reddit:**
+
 - r/jellyfin (main community)
 - r/selfhosted
 - r/AppleTV
 - r/cordcutters
 
 **Forums:**
+
 - Jellyfin Community Forum
 - Jellyfin Discord
 

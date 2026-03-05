@@ -121,6 +121,51 @@ describe("jellyfinApi", () => {
     it("should return false when video item is null", () => {
       expect(needsTranscoding(null)).toBe(false);
     });
+
+    it("should return true for supported codec in MKV container", () => {
+      const videoItem: JellyfinVideoItem = {
+        Id: "123",
+        Name: "Test Video",
+        MediaStreams: [{ Type: "Video", Codec: "h264", Index: 0 }],
+        MediaSources: [{ Id: "123", Container: "mkv" }],
+      } as any;
+
+      expect(needsTranscoding(videoItem)).toBe(true);
+    });
+
+    it("should return false for supported codec in MP4 container", () => {
+      const videoItem: JellyfinVideoItem = {
+        Id: "123",
+        Name: "Test Video",
+        MediaStreams: [{ Type: "Video", Codec: "h264", Index: 0 }],
+        MediaSources: [{ Id: "123", Container: "mp4" }],
+      } as any;
+
+      expect(needsTranscoding(videoItem)).toBe(false);
+    });
+
+    it("should return true for unsupported containers like avi and webm", () => {
+      for (const container of ["avi", "wmv", "flv", "webm"]) {
+        const videoItem: JellyfinVideoItem = {
+          Id: "123",
+          Name: "Test Video",
+          MediaStreams: [{ Type: "Video", Codec: "hevc", Index: 0 }],
+          MediaSources: [{ Id: "123", Container: container }],
+        } as any;
+
+        expect(needsTranscoding(videoItem)).toBe(true);
+      }
+    });
+
+    it("should return false for supported codec with no container info", () => {
+      const videoItem: JellyfinVideoItem = {
+        Id: "123",
+        Name: "Test Video",
+        MediaStreams: [{ Type: "Video", Codec: "h264", Index: 0 }],
+      } as any;
+
+      expect(needsTranscoding(videoItem)).toBe(false);
+    });
   });
 
   describe("isAudioOnly", () => {
@@ -570,10 +615,7 @@ describe("jellyfinApi", () => {
 
     it("should fail after max retry attempts", async () => {
       // All attempts fail with network error (retryable)
-      (global.fetch as jest.Mock)
-        .mockRejectedValueOnce(new Error("Network error"))
-        .mockRejectedValueOnce(new Error("Network error"))
-        .mockRejectedValueOnce(new Error("Network error"));
+      (global.fetch as jest.Mock).mockRejectedValueOnce(new Error("Network error")).mockRejectedValueOnce(new Error("Network error")).mockRejectedValueOnce(new Error("Network error"));
 
       await expect(fetchPlaylistContents("playlist-fail")).rejects.toThrow("Network error");
       expect(global.fetch).toHaveBeenCalledTimes(3);
@@ -663,7 +705,7 @@ describe("jellyfinApi", () => {
               "Content-Type": "application/json",
             }),
             body: expect.stringContaining('"Username":"demo"'),
-          })
+          }),
         );
 
         // Verify credentials were saved (3 credentials + demo flag)
@@ -691,54 +733,47 @@ describe("jellyfinApi", () => {
 
       it("should handle demo server unavailable (503)", async () => {
         // Mock 503 for stable server (2 retry attempts)
-        (global.fetch as jest.Mock)
-          .mockResolvedValueOnce({ ok: false, status: 503 })
-          .mockResolvedValueOnce({ ok: false, status: 503 });
+        (global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 503 }).mockResolvedValueOnce({ ok: false, status: 503 });
 
         await expect(connectToDemoServer()).rejects.toThrow("Demo server is temporarily unavailable");
       });
 
       it("should handle demo server error (502)", async () => {
         // Mock 502 for stable server (2 retry attempts)
-        (global.fetch as jest.Mock)
-          .mockResolvedValueOnce({ ok: false, status: 502 })
-          .mockResolvedValueOnce({ ok: false, status: 502 });
+        (global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 502 }).mockResolvedValueOnce({ ok: false, status: 502 });
 
         await expect(connectToDemoServer()).rejects.toThrow("Demo server is temporarily unavailable");
       });
 
       it("should handle invalid credentials (401)", async () => {
         // Mock 401 for stable server (no retry on 401)
-        (global.fetch as jest.Mock)
-          .mockResolvedValueOnce({ ok: false, status: 401 });
+        (global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 401 });
 
         await expect(connectToDemoServer()).rejects.toThrow("Demo credentials are invalid");
       });
 
       it("should handle invalid response format (non-JSON)", async () => {
         // Mock invalid response for stable server (no retry on invalid response)
-        (global.fetch as jest.Mock)
-          .mockResolvedValueOnce({
-            ok: true,
-            headers: new Headers({ "content-type": "text/html" }),
-            json: async () => {
-              throw new Error("Invalid JSON");
-            },
-          });
+        (global.fetch as jest.Mock).mockResolvedValueOnce({
+          ok: true,
+          headers: new Headers({ "content-type": "text/html" }),
+          json: async () => {
+            throw new Error("Invalid JSON");
+          },
+        });
 
         await expect(connectToDemoServer()).rejects.toThrow("Demo server returned invalid response format");
       });
 
       it("should handle missing credentials in response", async () => {
         // Mock missing credentials for stable server (no retry)
-        (global.fetch as jest.Mock)
-          .mockResolvedValueOnce({
-            ok: true,
-            headers: new Headers({ "content-type": "application/json" }),
-            json: async () => ({
-              // Missing AccessToken and User.Id
-            }),
-          });
+        (global.fetch as jest.Mock).mockResolvedValueOnce({
+          ok: true,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: async () => ({
+            // Missing AccessToken and User.Id
+          }),
+        });
 
         await expect(connectToDemoServer()).rejects.toThrow("Invalid demo server response: missing credentials");
       });
@@ -830,9 +865,7 @@ describe("jellyfinApi", () => {
 
       it("should fail after max retry attempts", async () => {
         // All attempts fail for stable server (2 retry attempts)
-        (global.fetch as jest.Mock)
-          .mockRejectedValueOnce(new Error("Network error"))
-          .mockRejectedValueOnce(new Error("Network error"));
+        (global.fetch as jest.Mock).mockRejectedValueOnce(new Error("Network error")).mockRejectedValueOnce(new Error("Network error"));
 
         await expect(connectToDemoServer()).rejects.toThrow();
 
@@ -866,9 +899,7 @@ describe("jellyfinApi", () => {
         await expect(connectToDemoServer()).rejects.toThrow();
 
         // Verify demo mode flag was never set
-        const demoModeCalls = (mockSecureStore.setItemAsync as jest.Mock).mock.calls.filter(
-          (call) => call[0] === "jellyfin_is_demo_mode"
-        );
+        const demoModeCalls = (mockSecureStore.setItemAsync as jest.Mock).mock.calls.filter((call) => call[0] === "jellyfin_is_demo_mode");
         expect(demoModeCalls).toHaveLength(0);
       });
     });
@@ -953,20 +984,30 @@ describe("jellyfinApi", () => {
 
     beforeEach(async () => {
       jest.clearAllMocks();
-      mockSecureStore.getItemAsync.mockImplementation((key: string) =>
-        Promise.resolve(mockConfig[key as keyof typeof mockConfig] || null)
-      );
+      mockSecureStore.getItemAsync.mockImplementation((key: string) => Promise.resolve(mockConfig[key as keyof typeof mockConfig] || null));
       // Need to call refreshConfig to populate cachedConfig
       await refreshConfig();
     });
 
     describe("getVideoStreamUrl", () => {
-      it("should generate direct play URL with API key", () => {
+      it("should generate direct play URL with Static=true and MediaSourceId", () => {
         const url = getVideoStreamUrl("video123");
 
-        expect(url).toBe("http://192.168.1.100:8096/Items/video123/Download?api_key=test-api-key");
-        expect(url).toContain("/Items/video123/Download");
+        expect(url).toBe("http://192.168.1.100:8096/Videos/video123/stream?Static=true&MediaSourceId=video123&api_key=test-api-key");
+        expect(url).toContain("/Videos/video123/stream");
+        expect(url).toContain("Static=true");
         expect(url).toContain("api_key=test-api-key");
+      });
+
+      it("should use MediaSourceId from videoItem when provided", () => {
+        const videoItem = {
+          Id: "video123",
+          Name: "Test",
+          MediaSources: [{ Id: "media-source-456" }],
+        } as any;
+        const url = getVideoStreamUrl("video123", videoItem);
+
+        expect(url).toContain("MediaSourceId=media-source-456");
       });
 
       it("should handle HTTPS server URLs", async () => {
@@ -979,7 +1020,7 @@ describe("jellyfinApi", () => {
         const url = getVideoStreamUrl("video123");
 
         expect(url).toContain("https://jellyfin.example.com");
-        expect(url).toContain("/Items/video123/Download");
+        expect(url).toContain("/Videos/video123/stream");
       });
     });
 
@@ -1056,7 +1097,6 @@ describe("jellyfinApi", () => {
           MediaSources: [{ Id: "source-456" }],
         };
 
-        
         const url = await getTranscodingStreamUrl("video123", videoItem);
 
         expect(url).toContain("MediaSourceId=source-456");
@@ -1071,7 +1111,6 @@ describe("jellyfinApi", () => {
             { Type: "Subtitle", IsExternal: true, Index: 3, Language: "spa" },
           ],
         };
-
 
         const url = await getTranscodingStreamUrl("video123", videoItem);
 
@@ -1088,7 +1127,6 @@ describe("jellyfinApi", () => {
           ],
         };
 
-        
         const url = await getTranscodingStreamUrl("video123", videoItem);
 
         expect(url).not.toContain("SubtitleStreamIndex");
@@ -1112,7 +1150,6 @@ describe("jellyfinApi", () => {
 
         expect(url).not.toContain("StartTimeTicks");
       });
-
     });
 
     describe("getSubtitleTracks", () => {
@@ -1153,31 +1190,26 @@ describe("jellyfinApi", () => {
 
     describe("getPosterUrl", () => {
       it("should generate poster URL with default maxHeight", async () => {
-        
         const url = getPosterUrl("item123");
 
         expect(url).toBe("http://192.168.1.100:8096/Items/item123/Images/Primary?api_key=test-api-key&maxHeight=450&quality=90");
       });
 
       it("should generate poster URL with custom maxHeight", async () => {
-        
         const url = getPosterUrl("item123", 600);
 
         expect(url).toContain("maxHeight=600");
       });
-
     });
 
     describe("getFolderThumbnailUrl", () => {
       it("should generate folder thumbnail URL with default maxHeight", async () => {
-        
         const url = getFolderThumbnailUrl("folder123");
 
         expect(url).toBe("http://192.168.1.100:8096/Items/folder123/Images/Primary?api_key=test-api-key&maxHeight=300&quality=90");
       });
 
       it("should generate folder thumbnail URL with custom maxHeight", async () => {
-        
         const url = getFolderThumbnailUrl("folder123", 400);
 
         expect(url).toContain("maxHeight=400");
@@ -1186,14 +1218,12 @@ describe("jellyfinApi", () => {
 
     describe("getSubtitleUrl", () => {
       it("should generate subtitle URL with default VTT format", async () => {
-        
         const url = getSubtitleUrl("video123", 2);
 
         expect(url).toBe("http://192.168.1.100:8096/Videos/video123/video123/Subtitles/2/Stream.vtt?api_key=test-api-key");
       });
 
       it("should generate subtitle URL with custom format", async () => {
-        
         const url = getSubtitleUrl("video123", 3, "srt");
 
         expect(url).toContain("/Subtitles/3/Stream.srt");
@@ -1223,14 +1253,10 @@ describe("jellyfinApi", () => {
         return Promise.resolve(oldConfig[key] || null);
       });
 
-      
       await syncDevCredentials();
 
       // Should have migrated to new URL format
-      expect(mockSecureStore.setItemAsync).toHaveBeenCalledWith(
-        "jellyfin_server_url",
-        "http://192.168.1.100:8096"
-      );
+      expect(mockSecureStore.setItemAsync).toHaveBeenCalledWith("jellyfin_server_url", "http://192.168.1.100:8096");
 
       // Should have deleted old keys
       expect(mockSecureStore.deleteItemAsync).toHaveBeenCalledWith("jellyfin_server_ip");
@@ -1244,27 +1270,19 @@ describe("jellyfinApi", () => {
         return Promise.resolve(null);
       });
 
-      
       await syncDevCredentials();
 
       // Should not have called setItemAsync for migration
-      expect(mockSecureStore.setItemAsync).not.toHaveBeenCalledWith(
-        "jellyfin_server_url",
-        expect.any(String)
-      );
+      expect(mockSecureStore.setItemAsync).not.toHaveBeenCalledWith("jellyfin_server_url", expect.any(String));
     });
 
     it("should skip migration if old format doesn't exist", async () => {
       mockSecureStore.getItemAsync.mockResolvedValue(null);
 
-      
       await syncDevCredentials();
 
       // Should not have called setItemAsync for migration
-      expect(mockSecureStore.setItemAsync).not.toHaveBeenCalledWith(
-        "jellyfin_server_url",
-        expect.any(String)
-      );
+      expect(mockSecureStore.setItemAsync).not.toHaveBeenCalledWith("jellyfin_server_url", expect.any(String));
     });
 
     it("should handle HTTPS protocol in migration", async () => {
@@ -1278,13 +1296,9 @@ describe("jellyfinApi", () => {
         return Promise.resolve(oldConfig[key] || null);
       });
 
-      
       await syncDevCredentials();
 
-      expect(mockSecureStore.setItemAsync).toHaveBeenCalledWith(
-        "jellyfin_server_url",
-        "https://jellyfin.example.com:443"
-      );
+      expect(mockSecureStore.setItemAsync).toHaveBeenCalledWith("jellyfin_server_url", "https://jellyfin.example.com:443");
     });
 
     it("should use default values when old protocol/port missing", async () => {
@@ -1297,14 +1311,10 @@ describe("jellyfinApi", () => {
         return Promise.resolve(oldConfig[key] || null);
       });
 
-      
       await syncDevCredentials();
 
       // Should default to http://ip:8096
-      expect(mockSecureStore.setItemAsync).toHaveBeenCalledWith(
-        "jellyfin_server_url",
-        "http://192.168.1.50:8096"
-      );
+      expect(mockSecureStore.setItemAsync).toHaveBeenCalledWith("jellyfin_server_url", "http://192.168.1.50:8096");
     });
   });
 });

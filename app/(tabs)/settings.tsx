@@ -53,6 +53,7 @@ export default function SettingsScreen() {
   const [password, setPassword] = useState("");
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [connectedServerName, setConnectedServerName] = useState("");
+  const [connectedServerUrl, setConnectedServerUrl] = useState("");
   const [connectedUserName, setConnectedUserName] = useState("");
   const [connectedAuthMethod, setConnectedAuthMethod] = useState("");
   const [videoQuality, setVideoQuality] = useState(2);
@@ -97,6 +98,7 @@ export default function SettingsScreen() {
 
       if (savedUrl && savedKey && savedUserId) {
         setConnectedServerName(savedServerName || savedUrl);
+        setConnectedServerUrl(savedUrl || "");
         setConnectedUserName(savedUserName || "Unknown User");
         setConnectedAuthMethod(savedAuthMethod || "apikey");
         setScreenState("CONNECTED");
@@ -294,7 +296,9 @@ export default function SettingsScreen() {
             />
           )}
 
-          {screenState === "CONNECTED" && <ConnectedSection serverName={connectedServerName} userName={connectedUserName} authMethod={connectedAuthMethod} onSignOut={handleSignOut} />}
+          {screenState === "CONNECTED" && (
+            <ConnectedSection serverName={connectedServerName} serverUrl={connectedServerUrl} userName={connectedUserName} authMethod={connectedAuthMethod} onSignOut={handleSignOut} />
+          )}
 
           <View style={screenStyles.sectionHeader}>
             <Text style={screenStyles.sectionHeaderText}>VIDEO QUALITY</Text>

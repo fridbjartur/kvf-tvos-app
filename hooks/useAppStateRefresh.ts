@@ -9,19 +9,13 @@ import { logger } from "@/utils/logger";
  * @param onForeground - Callback to execute when app enters foreground
  * @param context - Context name for logging (e.g., "LibraryContext")
  */
-export function useAppStateRefresh(
-  onForeground: () => void,
-  context: string
-): void {
+export function useAppStateRefresh(onForeground: () => void, context: string): void {
   const appState = useRef<AppStateStatus>(AppState.currentState);
 
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       // Refresh when app comes to foreground (background/inactive -> active)
-      if (
-        appState.current.match(/inactive|background/) &&
-        nextAppState === "active"
-      ) {
+      if (appState.current.match(/inactive|background/) && nextAppState === "active") {
         logger.info("App came to foreground, triggering refresh", {
           context,
           previousState: appState.current,
@@ -31,10 +25,7 @@ export function useAppStateRefresh(
       appState.current = nextAppState;
     };
 
-    const subscription = AppState.addEventListener(
-      "change",
-      handleAppStateChange
-    );
+    const subscription = AppState.addEventListener("change", handleAppStateChange);
 
     return () => {
       subscription.remove();

@@ -6,12 +6,8 @@ import { JellyfinVideoItem } from "@/types/jellyfin";
 jest.mock("../jellyfinApi");
 jest.mock("@/utils/logger");
 
-const mockFetchLibraryVideos = jellyfinApi.fetchLibraryVideos as jest.MockedFunction<
-  typeof jellyfinApi.fetchLibraryVideos
->;
-const mockFetchLibraryName = jellyfinApi.fetchLibraryName as jest.MockedFunction<
-  typeof jellyfinApi.fetchLibraryName
->;
+const mockFetchLibraryVideos = jellyfinApi.fetchLibraryVideos as jest.MockedFunction<typeof jellyfinApi.fetchLibraryVideos>;
+const mockFetchLibraryName = jellyfinApi.fetchLibraryName as jest.MockedFunction<typeof jellyfinApi.fetchLibraryName>;
 
 describe("LibraryManager", () => {
   const mockVideos: JellyfinVideoItem[] = [

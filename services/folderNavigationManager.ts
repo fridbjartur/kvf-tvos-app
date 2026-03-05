@@ -1,84 +1,84 @@
-import {CACHE} from "@/constants/app"
-import {fetchFolderContents, fetchPlaylistContents} from "@/services/jellyfinApi"
-import {FolderStackEntry, JellyfinItem} from "@/types/jellyfin"
-import {logger} from "@/utils/logger"
+import { CACHE } from "@/constants/app";
+import { fetchFolderContents, fetchPlaylistContents } from "@/services/jellyfinApi";
+import { FolderStackEntry, JellyfinItem } from "@/types/jellyfin";
+import { logger } from "@/utils/logger";
 
 type FolderNavigationListener = (data: {
-  items: JellyfinItem[]
-  isLoading: boolean
-  isLoadingMore: boolean
-  hasMoreResults: boolean
-  error: string | null
-  folderStack: FolderStackEntry[]
-  currentFolder: FolderStackEntry | null
-}) => void
+  items: JellyfinItem[];
+  isLoading: boolean;
+  isLoadingMore: boolean;
+  hasMoreResults: boolean;
+  error: string | null;
+  folderStack: FolderStackEntry[];
+  currentFolder: FolderStackEntry | null;
+}) => void;
 
 /**
  * Singleton service for managing folder navigation with caching and pagination
  */
 class FolderNavigationManager {
-  private static instance: FolderNavigationManager
+  private static instance: FolderNavigationManager;
 
-  private items: JellyfinItem[] = []
-  private isLoading: boolean = false
-  private isLoadingMore: boolean = false
-  private hasMoreResults: boolean = false
-  private error: string | null = null
+  private items: JellyfinItem[] = [];
+  private isLoading: boolean = false;
+  private isLoadingMore: boolean = false;
+  private hasMoreResults: boolean = false;
+  private error: string | null = null;
 
-  private folderStack: FolderStackEntry[] = []
+  private folderStack: FolderStackEntry[] = [];
 
-  private nextStartIndex: number = 0
-  private totalRecordCount: number | undefined = undefined
-  private isLoadingRef: boolean = false
+  private nextStartIndex: number = 0;
+  private totalRecordCount: number | undefined = undefined;
+  private isLoadingRef: boolean = false;
 
   // Cache stores only the initial page of items, not accumulated pagination results
   // This prevents re-navigation from loading all items at once
   private folderCache: Map<
     string,
     {
-      items: JellyfinItem[] // Only first page items
-      total?: number
-      timestamp: number
-      pageSize: number // Track original page size for proper pagination
+      items: JellyfinItem[]; // Only first page items
+      total?: number;
+      timestamp: number;
+      pageSize: number; // Track original page size for proper pagination
     }
-  > = new Map()
+  > = new Map();
 
-  private listeners: Set<FolderNavigationListener> = new Set()
+  private listeners: Set<FolderNavigationListener> = new Set();
 
-  private readonly CACHE_TTL = CACHE.DEFAULT_TTL_MS
-  private readonly PAGE_SIZE = 60
+  private readonly CACHE_TTL = CACHE.DEFAULT_TTL_MS;
+  private readonly PAGE_SIZE = 60;
 
   private constructor() {}
 
   static getInstance(): FolderNavigationManager {
     if (!FolderNavigationManager.instance) {
-      FolderNavigationManager.instance = new FolderNavigationManager()
+      FolderNavigationManager.instance = new FolderNavigationManager();
     }
-    return FolderNavigationManager.instance
+    return FolderNavigationManager.instance;
   }
 
   subscribe(listener: FolderNavigationListener): () => void {
-    this.listeners.add(listener)
+    this.listeners.add(listener);
 
     logger.debug("Folder navigation subscriber added", {
       service: "FolderNavigationManager",
-      totalSubscribers: this.listeners.size
-    })
+      totalSubscribers: this.listeners.size,
+    });
 
-    listener(this.getState())
+    listener(this.getState());
 
     return () => {
-      this.listeners.delete(listener)
+      this.listeners.delete(listener);
       logger.debug("Folder navigation subscriber removed", {
         service: "FolderNavigationManager",
-        totalSubscribers: this.listeners.size
-      })
-    }
+        totalSubscribers: this.listeners.size,
+      });
+    };
   }
 
   private notifyListeners(): void {
-    const state = this.getState()
-    this.listeners.forEach(listener => listener(state))
+    const state = this.getState();
+    this.listeners.forEach((listener) => listener(state));
   }
 
   getState() {
@@ -89,9 +89,8 @@ class FolderNavigationManager {
       hasMoreResults: this.hasMoreResults,
       error: this.error,
       folderStack: this.folderStack,
-      currentFolder:
-        this.folderStack.length > 0 ? this.folderStack[this.folderStack.length - 1] : null
-    }
+      currentFolder: this.folderStack.length > 0 ? this.folderStack[this.folderStack.length - 1] : null,
+    };
   }
 
   /**
@@ -101,12 +100,12 @@ class FolderNavigationManager {
     logger.info("Navigating to folder", {
       service: "FolderNavigationManager",
       folderId: folder.id,
-      folderName: folder.name
-    })
+      folderName: folder.name,
+    });
 
     // Create new array reference for React state detection
-    this.folderStack = [...this.folderStack, folder]
-    await this.loadFolderContents(folder.id)
+    this.folderStack = [...this.folderStack, folder];
+    await this.loadFolderContents(folder.id);
   }
 
   /**
@@ -115,33 +114,33 @@ class FolderNavigationManager {
   async navigateBack(): Promise<boolean> {
     if (this.folderStack.length === 0) {
       logger.debug("Already at library selection, cannot navigate back", {
-        service: "FolderNavigationManager"
-      })
-      return false
+        service: "FolderNavigationManager",
+      });
+      return false;
     }
 
     if (this.folderStack.length === 1) {
       // At library root - go back to library selection
       logger.info("Navigating back to library selection", {
-        service: "FolderNavigationManager"
-      })
-      this.folderStack = []
-      await this.loadFolderContents(null)
-      return true
+        service: "FolderNavigationManager",
+      });
+      this.folderStack = [];
+      await this.loadFolderContents(null);
+      return true;
     }
 
     // Create new array reference for React state detection (remove last item)
-    this.folderStack = this.folderStack.slice(0, -1)
-    const parentFolder = this.folderStack[this.folderStack.length - 1]
+    this.folderStack = this.folderStack.slice(0, -1);
+    const parentFolder = this.folderStack[this.folderStack.length - 1];
 
     logger.info("Navigating back to parent", {
       service: "FolderNavigationManager",
       parentId: parentFolder?.id,
-      parentName: parentFolder?.name
-    })
+      parentName: parentFolder?.name,
+    });
 
-    await this.loadFolderContents(parentFolder?.id || null)
-    return true
+    await this.loadFolderContents(parentFolder?.id || null);
+    return true;
   }
 
   /**
@@ -149,18 +148,18 @@ class FolderNavigationManager {
    */
   async navigateToBreadcrumb(index: number): Promise<void> {
     if (index < 0 || index >= this.folderStack.length) {
-      return
+      return;
     }
 
     logger.info("Navigating to breadcrumb", {
       service: "FolderNavigationManager",
       index,
-      folderName: this.folderStack[index]?.name
-    })
+      folderName: this.folderStack[index]?.name,
+    });
 
-    this.folderStack = this.folderStack.slice(0, index + 1)
-    const targetFolder = this.folderStack[index]
-    await this.loadFolderContents(targetFolder?.id || null)
+    this.folderStack = this.folderStack.slice(0, index + 1);
+    const targetFolder = this.folderStack[index];
+    await this.loadFolderContents(targetFolder?.id || null);
   }
 
   /**
@@ -168,12 +167,12 @@ class FolderNavigationManager {
    */
   async loadRoot(): Promise<void> {
     logger.info("Loading root libraries", {
-      service: "FolderNavigationManager"
-    })
+      service: "FolderNavigationManager",
+    });
 
     // Start with empty stack (library selection state)
-    this.folderStack = []
-    await this.loadFolderContents(null)
+    this.folderStack = [];
+    await this.loadFolderContents(null);
   }
 
   /**
@@ -181,89 +180,90 @@ class FolderNavigationManager {
    */
   private async loadFolderContents(folderId: string | null): Promise<void> {
     if (this.isLoadingRef) {
-      return
+      return;
     }
 
-    const cacheKey = folderId || "root"
-    const cached = this.folderCache.get(cacheKey)
-    const now = Date.now()
+    const cacheKey = folderId || "root";
+    const cached = this.folderCache.get(cacheKey);
+    const now = Date.now();
 
     // Check cache
     if (cached && now - cached.timestamp < this.CACHE_TTL) {
       logger.debug("Using cached folder contents", {
         service: "FolderNavigationManager",
         cacheKey,
-        itemCount: cached.items.length
-      })
+        itemCount: cached.items.length,
+      });
 
-      this.items = cached.items
-      this.hasMoreResults = cached.total !== undefined && cached.items.length < cached.total
-      this.nextStartIndex = cached.items.length
-      this.totalRecordCount = cached.total
-      this.notifyListeners()
-      return
+      this.items = cached.items;
+      this.hasMoreResults = cached.total !== undefined && cached.items.length < cached.total;
+      this.nextStartIndex = cached.items.length;
+      this.totalRecordCount = cached.total;
+      this.notifyListeners();
+      return;
     }
 
     try {
-      this.isLoadingRef = true
-      this.isLoading = true
-      this.error = null
-      this.nextStartIndex = 0
-      this.notifyListeners()
+      this.isLoadingRef = true;
+      this.isLoading = true;
+      this.error = null;
+      this.nextStartIndex = 0;
+      this.notifyListeners();
 
       // Check if current folder is a playlist to use correct API endpoint
-      const currentEntry = this.folderStack[this.folderStack.length - 1]
-      const isPlaylist = currentEntry?.type === "playlist"
+      const currentEntry = this.folderStack[this.folderStack.length - 1];
+      const isPlaylist = currentEntry?.type === "playlist";
 
       logger.info("Loading folder contents", {
         service: "FolderNavigationManager",
         folderId: cacheKey,
-        isPlaylist
-      })
+        isPlaylist,
+      });
 
-      const {items, total} = isPlaylist && folderId
-        ? await fetchPlaylistContents(folderId, {
-            limit: this.PAGE_SIZE,
-            startIndex: 0
-          })
-        : await fetchFolderContents(folderId, {
-            limit: this.PAGE_SIZE,
-            startIndex: 0
-          })
+      const { items, total } =
+        isPlaylist && folderId
+          ? await fetchPlaylistContents(folderId, {
+              limit: this.PAGE_SIZE,
+              startIndex: 0,
+            })
+          : await fetchFolderContents(folderId, {
+              limit: this.PAGE_SIZE,
+              startIndex: 0,
+            });
 
-      this.items = items
-      this.totalRecordCount = total
-      this.nextStartIndex = items.length
-      this.hasMoreResults = total !== undefined && items.length < total
+      this.items = items;
+      this.totalRecordCount = total;
+      this.nextStartIndex = items.length;
+      this.hasMoreResults = total !== undefined && items.length < total;
 
       // Update cache with only first page items (not accumulated results)
       this.folderCache.set(cacheKey, {
         items,
         total,
         timestamp: now,
-        pageSize: this.PAGE_SIZE
-      })
+        pageSize: this.PAGE_SIZE,
+      });
 
-      this.isLoading = false
-      this.notifyListeners()
+      this.isLoading = false;
+      this.notifyListeners();
 
       logger.info("Successfully loaded folder contents", {
         service: "FolderNavigationManager",
         itemCount: items.length,
         total,
-        hasMore: this.hasMoreResults
-      })
+        hasMore: this.hasMoreResults,
+      });
     } catch (err) {
-      this.items = []
-      this.error = err instanceof Error ? err.message : "Failed to load folder"
-      this.isLoading = false
-      this.notifyListeners()
+      this.items = [];
+      this.error = err instanceof Error ? err.message : "Failed to load folder";
+      this.isLoading = false;
+      this.notifyListeners();
 
       logger.error("Error loading folder contents", err, {
-        service: "FolderNavigationManager"
-      })
+        service: "FolderNavigationManager",
+      });
     } finally {
-      this.isLoadingRef = false
+      this.isLoadingRef = false;
     }
   }
 
@@ -272,71 +272,72 @@ class FolderNavigationManager {
    */
   async loadMore(): Promise<void> {
     if (this.isLoadingMore || this.isLoading || !this.hasMoreResults) {
-      return
+      return;
     }
 
-    const currentFolder = this.folderStack[this.folderStack.length - 1]
-    const folderId = currentFolder?.id || null
+    const currentFolder = this.folderStack[this.folderStack.length - 1];
+    const folderId = currentFolder?.id || null;
 
     try {
-      this.isLoadingMore = true
-      this.notifyListeners()
+      this.isLoadingMore = true;
+      this.notifyListeners();
 
       // Check if current folder is a playlist to use correct API endpoint
-      const isPlaylist = currentFolder?.type === "playlist"
+      const isPlaylist = currentFolder?.type === "playlist";
 
       logger.info("Loading more folder items", {
         service: "FolderNavigationManager",
         startIndex: this.nextStartIndex,
-        isPlaylist
-      })
+        isPlaylist,
+      });
 
-      const {items, total} = isPlaylist && folderId
-        ? await fetchPlaylistContents(folderId, {
-            limit: this.PAGE_SIZE,
-            startIndex: this.nextStartIndex
-          })
-        : await fetchFolderContents(folderId || null, {
-            limit: this.PAGE_SIZE,
-            startIndex: this.nextStartIndex
-          })
+      const { items, total } =
+        isPlaylist && folderId
+          ? await fetchPlaylistContents(folderId, {
+              limit: this.PAGE_SIZE,
+              startIndex: this.nextStartIndex,
+            })
+          : await fetchFolderContents(folderId || null, {
+              limit: this.PAGE_SIZE,
+              startIndex: this.nextStartIndex,
+            });
 
       // If no new items returned, we've reached the end
       if (items.length === 0) {
-        this.hasMoreResults = false
-        this.isLoadingMore = false
-        this.notifyListeners()
+        this.hasMoreResults = false;
+        this.isLoadingMore = false;
+        this.notifyListeners();
         logger.info("No more items to load", {
           service: "FolderNavigationManager",
-          totalLoaded: this.items.length
-        })
-        return
+          totalLoaded: this.items.length,
+        });
+        return;
       }
 
-      this.items = [...this.items, ...items]
-      this.totalRecordCount = total
-      this.nextStartIndex += items.length
-      this.hasMoreResults = total !== undefined && this.items.length < total
+      this.items = [...this.items, ...items];
+      this.totalRecordCount = total;
+      this.nextStartIndex += items.length;
+      this.hasMoreResults = total !== undefined && this.items.length < total;
 
       // Note: Don't update cache with accumulated items
       // This preserves proper pagination behavior on re-navigation
 
-      this.isLoadingMore = false
-      this.notifyListeners()
+      this.isLoadingMore = false;
+      this.notifyListeners();
 
       logger.info("Successfully loaded more folder items", {
         service: "FolderNavigationManager",
         newItems: items.length,
-        totalLoaded: this.items.length
-      })
+        totalLoaded: this.items.length,
+      });
     } catch (err) {
-      this.error = err instanceof Error ? err.message : "Failed to load more"
-      this.isLoadingMore = false
-      this.notifyListeners()
+      this.error = err instanceof Error ? err.message : "Failed to load more";
+      this.isLoadingMore = false;
+      this.notifyListeners();
 
       logger.error("Error loading more folder items", err, {
-        service: "FolderNavigationManager"
-      })
+        service: "FolderNavigationManager",
+      });
     }
   }
 
@@ -344,37 +345,37 @@ class FolderNavigationManager {
    * Force refresh current folder
    */
   async refresh(): Promise<void> {
-    const currentFolder = this.folderStack[this.folderStack.length - 1]
-    const folderId = currentFolder?.id || null
-    const cacheKey = folderId || "root"
+    const currentFolder = this.folderStack[this.folderStack.length - 1];
+    const folderId = currentFolder?.id || null;
+    const cacheKey = folderId || "root";
 
     logger.info("Refreshing folder contents", {
       service: "FolderNavigationManager",
-      cacheKey
-    })
+      cacheKey,
+    });
 
-    this.folderCache.delete(cacheKey)
-    await this.loadFolderContents(folderId || null)
+    this.folderCache.delete(cacheKey);
+    await this.loadFolderContents(folderId || null);
   }
 
   /**
    * Clear all state and cache
    */
   clearCache(): void {
-    this.items = []
-    this.folderStack = []
-    this.folderCache.clear()
-    this.error = null
-    this.isLoadingRef = false
-    this.nextStartIndex = 0
-    this.hasMoreResults = false
-    this.totalRecordCount = undefined
-    this.notifyListeners()
+    this.items = [];
+    this.folderStack = [];
+    this.folderCache.clear();
+    this.error = null;
+    this.isLoadingRef = false;
+    this.nextStartIndex = 0;
+    this.hasMoreResults = false;
+    this.totalRecordCount = undefined;
+    this.notifyListeners();
 
     logger.info("Folder navigation cache cleared", {
-      service: "FolderNavigationManager"
-    })
+      service: "FolderNavigationManager",
+    });
   }
 }
 
-export const folderNavigationManager = FolderNavigationManager.getInstance()
+export const folderNavigationManager = FolderNavigationManager.getInstance();

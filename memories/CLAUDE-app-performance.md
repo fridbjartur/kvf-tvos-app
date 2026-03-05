@@ -6,12 +6,14 @@
 **Current Memory Usage:** 250-350MB during browsing and video playback
 
 ## Quick Reference
+
 **Category:** Performance
 **Keywords:** performance, memory, threading, optimization, FlatList, windowSize, concurrency
 
 Memory analysis, optimization strategies, and threading safety patterns with industry benchmarks.
 
 ## Related Documentation
+
 - [`CLAUDE-components.md`](./CLAUDE-components.md) - Component optimizations
 - [`CLAUDE-patterns.md`](./CLAUDE-patterns.md) - Performance patterns
 
@@ -20,11 +22,13 @@ Memory analysis, optimization strategies, and threading safety patterns with ind
 ## Memory Breakdown (Actual Contributors)
 
 ### Baseline (~100-150MB)
+
 - React Native Runtime: ~50-80MB
 - Expo Framework + Modules: ~30-50MB
 - JavaScript Heap: ~20-40MB
 
 ### During Video Grid Browsing (+100-150MB)
+
 1. **JSON Video Data**: ~10-20MB
    - 100 videos × ~100-200KB each (with MediaStreams arrays)
 
@@ -46,6 +50,7 @@ Memory analysis, optimization strategies, and threading safety patterns with ind
    - ~10-15 visible at once
 
 ### During Video Playback (+100-200MB spike)
+
 1. **Video Player Instance**: ~30-50MB
 2. **HLS Buffer Segments**: ~50-150MB
    - Varies by bitrate and buffer size
@@ -59,6 +64,7 @@ Memory analysis, optimization strategies, and threading safety patterns with ind
 ## Completed Optimizations
 
 ### VideoGridItem (`components/video-grid-item.tsx`)
+
 - ✅ Lazy metadata computation (useEffect with isFocused dependency)
 - ✅ Conditional BlurView (rendered only when focused)
 - ✅ Disk-only image caching (cachePolicy="disk")
@@ -68,6 +74,7 @@ Memory analysis, optimization strategies, and threading safety patterns with ind
 - ✅ Platform value caching (POSTER_WIDTH/HEIGHT constants)
 
 ### FlatList (`app/(tabs)/index.tsx`)
+
 - ✅ Correct getItemLayout (getItemLayout function in VideoLibraryScreen)
 - ✅ Memoized renderItem (renderItem callback with useCallback)
 - ✅ `removeClippedSubviews={true}` (FlatList prop)
@@ -75,6 +82,7 @@ Memory analysis, optimization strategies, and threading safety patterns with ind
 - ✅ All callbacks memoized
 
 ### API (`services/jellyfinApi.ts`)
+
 - ✅ Reduced payload fields (fetchLibraryVideos function with Fields parameter)
 - ✅ Removed unused: Overview, PremiereDate, Ratings
 
@@ -85,11 +93,13 @@ Memory analysis, optimization strategies, and threading safety patterns with ind
 **Location**: VideoLibraryScreen FlatList component in `app/(tabs)/index.tsx`
 
 **Current**:
+
 ```typescript
 windowSize={5}
 ```
 
 **Problem**:
+
 - 5-column grid × 2 rows/screen = 10 items per screen
 - windowSize=5 = render 5 screens above + 1 current + 5 below
 - Total: 11 screens × 10 items = **110 items rendered**
@@ -97,6 +107,7 @@ windowSize={5}
 - No recycling benefits from FlatList
 
 **Fix**:
+
 ```typescript
 windowSize={3} // Render 3 screens above + 1 current + 3 below = 70 items
 ```
@@ -110,6 +121,7 @@ windowSize={3} // Render 3 screens above + 1 current + 3 below = 70 items
 **Location**: LoadingProvider component in `contexts/LoadingContext.tsx`
 
 **Current**:
+
 ```typescript
 <LoadingContext.Provider value={{ showGlobalLoader, hideGlobalLoader, isLoading }}>
 ```
@@ -117,6 +129,7 @@ windowSize={3} // Render 3 screens above + 1 current + 3 below = 70 items
 Creates new object reference on every `isLoading` change, causing all consumers to re-render.
 
 **Fix**:
+
 ```typescript
 const value = useMemo(
   () => ({ showGlobalLoader, hideGlobalLoader, isLoading }),
@@ -132,12 +145,12 @@ const value = useMemo(
 
 ## Memory Comparison: Industry Standard
 
-| App | Browsing | Playback |
-|-----|----------|----------|
-| Netflix iOS | ~250-400MB | ~350-600MB |
-| YouTube iOS | ~200-350MB | ~300-500MB |
-| Plex iOS | ~180-320MB | ~280-450MB |
-| **TomoTV** | **~250-300MB** | **~300-350MB** |
+| App         | Browsing       | Playback       |
+| ----------- | -------------- | -------------- |
+| Netflix iOS | ~250-400MB     | ~350-600MB     |
+| YouTube iOS | ~200-350MB     | ~300-500MB     |
+| Plex iOS    | ~180-320MB     | ~280-450MB     |
+| **TomoTV**  | **~250-300MB** | **~300-350MB** |
 
 **Conclusion**: Your app is performing **within normal bounds** for video streaming apps.
 
@@ -146,23 +159,27 @@ const value = useMemo(
 ## Recommended Actions (Priority Order)
 
 ### 1. Reduce windowSize (HIGH - Implement Now)
+
 **File**: VideoLibraryScreen FlatList in `app/(tabs)/index.tsx`
+
 ```typescript
 windowSize={3} // Change from 5
 ```
+
 **Expected**: 20-30MB reduction
 
 ### 2. Memoize LoadingContext (MEDIUM - Good Practice)
+
 **File**: LoadingProvider component in `contexts/LoadingContext.tsx`
+
 ```typescript
-const value = useMemo(
-  () => ({ showGlobalLoader, hideGlobalLoader, isLoading }),
-  [isLoading]
-);
+const value = useMemo(() => ({ showGlobalLoader, hideGlobalLoader, isLoading }), [isLoading]);
 ```
+
 **Expected**: Prevents re-renders, minimal memory impact
 
 ### 3. Consider Pagination (FUTURE - For 500+ Videos)
+
 Only load 50-100 videos at a time for very large libraries.
 
 ---
@@ -170,6 +187,7 @@ Only load 50-100 videos at a time for very large libraries.
 ## Memory is Acceptable
 
 The 250-350MB usage is **expected and normal** for:
+
 - 100 video items with metadata
 - Native video player with buffering
 - React Native + Expo framework
@@ -188,6 +206,7 @@ All major optimizations are already in place. The primary remaining opportunity 
 #### 1. Video Playback (`useVideoPlayback` hook)
 
 **Thread Safety Patterns:**
+
 - ✅ `isMountedRef` prevents post-unmount state updates
 - ✅ `requestIdRef` prevents stale data from overwriting current state
 - ✅ State checks before async callbacks (`if (!isMountedRef.current) return`)
@@ -203,6 +222,7 @@ All major optimizations are already in place. The primary remaining opportunity 
 #### 2. Library Context (`LibraryManager`)
 
 **Thread Safety Patterns:**
+
 - ✅ Singleton pattern prevents multiple instances
 - ✅ Pub/sub subscribers managed safely (Set data structure)
 - ✅ Cache invalidation is atomic (single `clearCache()` call)
@@ -218,6 +238,7 @@ All major optimizations are already in place. The primary remaining opportunity 
 #### 3. Folder Navigation (`FolderNavigationManager`)
 
 **Thread Safety Patterns:**
+
 - ✅ Stack operations use array immutability (spread operator)
 - ✅ Navigation state updated atomically (single setState call)
 - ✅ Per-folder caching with TTL prevents race conditions
@@ -232,6 +253,7 @@ All major optimizations are already in place. The primary remaining opportunity 
 #### 4. Multi-Audio Track Switching (`multiAudioLoader.ts`)
 
 **Thread Safety Patterns:**
+
 - ✅ Plugin registration is one-time at app startup
 - ✅ Track configuration sent to Swift atomically
 - ✅ No shared mutable state between invocations
@@ -246,6 +268,7 @@ All major optimizations are already in place. The primary remaining opportunity 
 ### Concurrency Best Practices Observed
 
 **Pattern 1: Request ID for Async Operations**
+
 ```typescript
 const requestIdRef = useRef(0);
 
@@ -261,17 +284,21 @@ if (requestIdRef.current !== currentRequestId) {
 ```
 
 **Pattern 2: Mounted Check**
+
 ```typescript
 const isMountedRef = useRef(true);
 
 useEffect(() => {
-  return () => { isMountedRef.current = false; };
+  return () => {
+    isMountedRef.current = false;
+  };
 }, []);
 
 if (!isMountedRef.current) return; // Skip state updates after unmount
 ```
 
 **Pattern 3: InteractionManager for Main Thread**
+
 ```typescript
 InteractionManager.runAfterInteractions(() => {
   if (!isMountedRef.current) return;

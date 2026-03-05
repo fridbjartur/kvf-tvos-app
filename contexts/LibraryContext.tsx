@@ -1,13 +1,4 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  ReactNode,
-  useMemo,
-  useCallback,
-  useEffect,
-  useRef,
-} from "react";
+import React, { createContext, useContext, useState, ReactNode, useMemo, useCallback, useEffect, useRef } from "react";
 import { libraryManager } from "@/services/libraryManager";
 import { JellyfinVideoItem } from "@/types/jellyfin";
 import { logger } from "@/utils/logger";
@@ -25,24 +16,18 @@ interface LibraryContextType {
   loadMore: () => Promise<void>;
 }
 
-const LibraryContext = createContext<LibraryContextType | undefined>(
-  undefined,
-);
+const LibraryContext = createContext<LibraryContextType | undefined>(undefined);
 
 export function LibraryProvider({ children }: { children: ReactNode }) {
   // Get initial state from singleton
   const initialState = libraryManager.getState();
 
-  const [videos, setVideos] = useState<JellyfinVideoItem[]>(
-    initialState.videos,
-  );
+  const [videos, setVideos] = useState<JellyfinVideoItem[]>(initialState.videos);
   const [isLoading, setIsLoading] = useState(initialState.isLoading);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMoreResults, setHasMoreResults] = useState(false);
   const [error, setError] = useState<string | null>(initialState.error);
-  const [libraryName, setLibraryName] = useState<string>(
-    initialState.libraryName,
-  );
+  const [libraryName, setLibraryName] = useState<string>(initialState.libraryName);
 
   // Use ref for isFirstCall to handle both sync and async subscription callbacks
   const isFirstCallRef = useRef(true);
@@ -93,12 +78,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   useAppStateRefresh(handleForegroundRefresh, "LibraryContext");
 
   // Stable function references (no dependencies needed)
-  const loadLibrary = useCallback(
-    async (force = false) => {
-      await libraryManager.loadLibrary(force);
-    },
-    [],
-  );
+  const loadLibrary = useCallback(async (force = false) => {
+    await libraryManager.loadLibrary(force);
+  }, []);
 
   const refreshLibrary = useCallback(async () => {
     logger.debug("refreshLibrary called", { context: "LibraryContext" });
@@ -129,9 +111,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     [videos, isLoading, isLoadingMore, hasMoreResults, error, libraryName, refreshLibrary, loadLibrary, loadMore],
   );
 
-  return (
-    <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>
-  );
+  return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>;
 }
 
 export function useLibrary() {

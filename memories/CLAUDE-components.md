@@ -3,12 +3,14 @@
 **Last Updated:** January 24, 2026
 
 ## Quick Reference
+
 **Category:** Implementation
 **Keywords:** components, UI, VideoGridItem, FolderGridItem, performance, React.memo, FlatList
 
 All reusable UI components in TomoTV with optimization patterns, props, and performance considerations.
 
 ## Related Documentation
+
 - [`CLAUDE-testing.md`](./CLAUDE-testing.md) - Component tests
 - [`CLAUDE-patterns.md`](./CLAUDE-patterns.md) - Component patterns
 - [`CLAUDE-app-performance.md`](./CLAUDE-app-performance.md) - Performance optimizations
@@ -32,6 +34,7 @@ TomoTV uses a small set of highly optimized components designed for TV platforms
 **Purpose:** Display video card with poster, title, and metadata overlay.
 
 **Props:**
+
 ```typescript
 {
   video: JellyfinVideoItem;
@@ -45,6 +48,7 @@ TomoTV uses a small set of highly optimized components designed for TV platforms
 ```
 
 **Features:**
+
 - React.memo with custom comparison (prevents unnecessary re-renders)
 - Lazy metadata computation (only when focused)
 - Platform-specific sizing (TV: larger, phone: smaller)
@@ -53,11 +57,13 @@ TomoTV uses a small set of highly optimized components designed for TV platforms
 - No scale animations (instant border feedback only) - **PERFORMANCE:** Eliminates UI jumpiness during rapid navigation and app startup by avoiding GPU overhead for 60+ simultaneous animations
 
 **Optimizations:**
+
 - Custom `getItemLayout` for FlatList performance
 - Computed dimensions based on grid columns and screen width
 - Memoized focus handlers
 
 **Usage:**
+
 ```typescript
 <VideoGridItem
   video={item}
@@ -76,6 +82,7 @@ TomoTV uses a small set of highly optimized components designed for TV platforms
 **Purpose:** Display folder, playlist, or collection card with icon.
 
 **Props:**
+
 ```typescript
 {
   folder: JellyfinItem;
@@ -86,6 +93,7 @@ TomoTV uses a small set of highly optimized components designed for TV platforms
 ```
 
 **Features:**
+
 - Golden folder icon from Ionicons (`folder`)
 - Thumbnail fallback for folders with poster images
 - Folder badge indicator always visible
@@ -93,6 +101,7 @@ TomoTV uses a small set of highly optimized components designed for TV platforms
 
 **Icon Handling:**
 Uses Ionicons from @expo/vector-icons:
+
 ```typescript
 <Ionicons name="folder" size={IS_TV ? 80 : 50} color="#FFC312" />
 ```
@@ -106,6 +115,7 @@ Uses Ionicons from @expo/vector-icons:
 **Purpose:** Navigate to parent folder in breadcrumb trail.
 
 **Props:**
+
 ```typescript
 {
   onPress: () => void;
@@ -114,12 +124,14 @@ Uses Ionicons from @expo/vector-icons:
 ```
 
 **Features:**
+
 - Always appears first in grid when in subfolder
 - Return icon from Ionicons (`return-up-back` main, `arrow-back` badge)
 - Same dimensions and styling as other grid items
 - Auto-focus when `hasTVPreferredFocus` is true
 
 **Usage:**
+
 ```typescript
 {folderStack.length > 1 && (
   <BackGridItem onPress={navigateBack} hasTVPreferredFocus />
@@ -137,6 +149,7 @@ Uses Ionicons from @expo/vector-icons:
 **Purpose:** Display vertical breadcrumb trail on left screen edge.
 
 **Props:**
+
 ```typescript
 {
   folderStack: FolderStackEntry[];
@@ -145,22 +158,25 @@ Uses Ionicons from @expo/vector-icons:
 ```
 
 **Features:**
+
 - Rotated text (-90 degrees) for vertical layout
 - Scrollable when stack exceeds screen height
 - Interactive - tap to jump to any breadcrumb level
 - Visual hierarchy (current folder highlighted)
 
 **Design:**
+
 - Fixed 60px width on left edge
 - Semi-transparent background
 - Golden accent for current folder
 
 **FolderStackEntry:**
+
 ```typescript
 {
   id: string;
   name: string;
-  type: 'root' | 'folder' | 'playlist';
+  type: "root" | "folder" | "playlist";
 }
 ```
 
@@ -175,6 +191,7 @@ Uses Ionicons from @expo/vector-icons:
 **Purpose:** Accessible button component with TV remote focus support.
 
 **Props:**
+
 ```typescript
 {
   onPress: () => void;
@@ -185,12 +202,14 @@ Uses Ionicons from @expo/vector-icons:
 ```
 
 **Features:**
+
 - Proper focus handling on TV platforms
 - Accessible to screen readers
 - Customizable styling
 - Used in Settings screen for action buttons
 
 **Focus States:**
+
 - Normal: Default appearance
 - Focused: Border highlight (golden accent)
 - Pressed: Scale animation feedback
@@ -206,6 +225,7 @@ Uses Ionicons from @expo/vector-icons:
 **Purpose:** Full-screen loading overlay with spinner.
 
 **Usage:**
+
 ```typescript
 const { showGlobalLoader, hideGlobalLoader } = useLoading();
 
@@ -215,6 +235,7 @@ hideGlobalLoader();
 ```
 
 **Features:**
+
 - Modal overlay (blocks interaction)
 - Semi-transparent black background
 - Centered ActivityIndicator
@@ -237,6 +258,7 @@ All grid items (Video, Folder, Back) follow these patterns:
 ### FlatList Configuration
 
 When using grid items in FlatList:
+
 ```typescript
 <FlatList
   data={items}
@@ -254,10 +276,15 @@ When using grid items in FlatList:
 
 ---
 
-## Design System Alignment
+## Design System / Color Palette
 
-All components follow the color palette in `CLAUDE.md`:
-- Focus borders: `#FFC312` (Primary Gold)
-- Backgrounds: `#1C1C1E` (Background)
-- Cards: `#2C2C2E` (Card/Section)
-- Text: `#FFFFFF` (Primary), `#8E8E93` (Secondary)
+| Color          | Hex       | Usage                                    |
+| -------------- | --------- | ---------------------------------------- |
+| Background     | `#1C1C1E` | All screen backgrounds                   |
+| Card/Section   | `#2C2C2E` | Settings sections, elevated surfaces     |
+| Card Focused   | `#3A3A3C` | Focused card background                  |
+| Primary/Gold   | `#FFC312` | Icons, focus borders, accents            |
+| Success/Green  | `#34C759` | URLs, Jellyfin highlight, success states |
+| Text Primary   | `#FFFFFF` | Headings, important text                 |
+| Text Secondary | `#8E8E93` | Subtitles, labels                        |
+| Text Tertiary  | `#636366` | Captions, hints                          |

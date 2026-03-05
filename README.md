@@ -1,6 +1,6 @@
 # Tomo TV - Jellyfin Client for Apple TV
 
-[![Version](https://img.shields.io/badge/version-1.3.1-blue.svg)](https://github.com/keiver/tomotv/releases)
+[![Version](https://img.shields.io/badge/version-1.3.2-blue.svg)](https://github.com/keiver/tomotv/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-tvOS-lightgrey.svg)](https://apps.apple.com/us/app/tomo-tv/id6755077888)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](package.json)
@@ -139,7 +139,7 @@ Screens live in `app/` using Expo Router's file-based routing with native tvOS t
 
 - **React Native TVOS** — TV-optimized fork of React Native
 - **Expo Router 6.0** — File-based routing with native tabs
-- **Expo Video 3.0** — Native video playback (AVPlayer)
+- **react-native-video 6.19** — Native video playback (AVPlayer)
 - **React Native Reanimated 4.1** — GPU-accelerated animations
 - **TypeScript 5.9** — Strict type checking
 - **Jest 29.7** — Unit and integration tests

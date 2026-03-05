@@ -177,7 +177,7 @@ For iOS/Android:
 
 - **React Native TVOS** (`npm:react-native-tvos@0.81.4-0`) - TV-optimized React Native
 - **Expo Router** 6.0.14 - File-based routing with typed routes
-- **Expo Video** 3.0.14 - Native video playback with full codec support
+- **react-native-video** 6.19.x - Native video playback with full codec support
 - **React Native Reanimated** 4.1.0 - GPU-accelerated animations
 - **TypeScript** 5.9.2 - Full type safety
 - **Jest** 29.7.0 - Testing framework

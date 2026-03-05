@@ -1,13 +1,4 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  ReactNode,
-  useMemo,
-  useCallback,
-  useEffect,
-  useRef,
-} from "react";
+import React, { createContext, useContext, useState, ReactNode, useMemo, useCallback, useEffect, useRef } from "react";
 import { playQueueManager } from "@/services/playQueueManager";
 import { JellyfinVideoItem } from "@/types/jellyfin";
 import { logger } from "@/utils/logger";
@@ -19,12 +10,7 @@ interface PlayQueueContextType {
   hasNext: boolean;
   nextVideo: JellyfinVideoItem | null;
   progress: string;
-  buildQueue: (
-    folderId: string,
-    folderName: string,
-    startVideoId: string,
-    folderType?: "folder" | "playlist"
-  ) => Promise<void>;
+  buildQueue: (folderId: string, folderName: string, startVideoId: string, folderType?: "folder" | "playlist") => Promise<void>;
   advanceToNext: () => JellyfinVideoItem | null;
   clear: () => void;
 }
@@ -81,17 +67,9 @@ export function PlayQueueProvider({ children }: { children: ReactNode }) {
     return `${currentIndex + 1} of ${queue.length}`;
   }, [queue.length, currentIndex]);
 
-  const buildQueue = useCallback(
-    async (
-      folderId: string,
-      folderName: string,
-      startVideoId: string,
-      folderType: "folder" | "playlist" = "folder"
-    ) => {
-      await playQueueManager.buildQueue(folderId, folderName, startVideoId, folderType);
-    },
-    []
-  );
+  const buildQueue = useCallback(async (folderId: string, folderName: string, startVideoId: string, folderType: "folder" | "playlist" = "folder") => {
+    await playQueueManager.buildQueue(folderId, folderName, startVideoId, folderType);
+  }, []);
 
   const advanceToNext = useCallback(() => {
     return playQueueManager.advanceToNext();
@@ -113,12 +91,10 @@ export function PlayQueueProvider({ children }: { children: ReactNode }) {
       advanceToNext,
       clear,
     }),
-    [queue, currentIndex, isLoading, hasNext, nextVideo, progress, buildQueue, advanceToNext, clear]
+    [queue, currentIndex, isLoading, hasNext, nextVideo, progress, buildQueue, advanceToNext, clear],
   );
 
-  return (
-    <PlayQueueContext.Provider value={value}>{children}</PlayQueueContext.Provider>
-  );
+  return <PlayQueueContext.Provider value={value}>{children}</PlayQueueContext.Provider>;
 }
 
 export function usePlayQueue() {

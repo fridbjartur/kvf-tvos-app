@@ -1,59 +1,54 @@
-import { fetchRecursiveVideos, fetchPlaylistContents } from "@/services/jellyfinApi"
-import { JellyfinVideoItem } from "@/types/jellyfin"
-import { logger } from "@/utils/logger"
+import { fetchRecursiveVideos, fetchPlaylistContents } from "@/services/jellyfinApi";
+import { JellyfinVideoItem } from "@/types/jellyfin";
+import { logger } from "@/utils/logger";
 
-type PlayQueueListener = (data: {
-  queue: JellyfinVideoItem[]
-  currentIndex: number
-  isLoading: boolean
-  sourceFolderId: string | null
-}) => void
+type PlayQueueListener = (data: { queue: JellyfinVideoItem[]; currentIndex: number; isLoading: boolean; sourceFolderId: string | null }) => void;
 
 /**
  * Singleton service for managing the auto-play queue
  * Follows the same singleton + subscribe/notify pattern as FolderNavigationManager
  */
 class PlayQueueManager {
-  private static instance: PlayQueueManager
+  private static instance: PlayQueueManager;
 
-  private queue: JellyfinVideoItem[] = []
-  private currentIndex: number = -1
-  private isLoading: boolean = false
-  private sourceFolderId: string | null = null
+  private queue: JellyfinVideoItem[] = [];
+  private currentIndex: number = -1;
+  private isLoading: boolean = false;
+  private sourceFolderId: string | null = null;
 
-  private listeners: Set<PlayQueueListener> = new Set()
+  private listeners: Set<PlayQueueListener> = new Set();
 
   private constructor() {}
 
   static getInstance(): PlayQueueManager {
     if (!PlayQueueManager.instance) {
-      PlayQueueManager.instance = new PlayQueueManager()
+      PlayQueueManager.instance = new PlayQueueManager();
     }
-    return PlayQueueManager.instance
+    return PlayQueueManager.instance;
   }
 
   subscribe(listener: PlayQueueListener): () => void {
-    this.listeners.add(listener)
+    this.listeners.add(listener);
 
     logger.debug("Play queue subscriber added", {
       service: "PlayQueueManager",
       totalSubscribers: this.listeners.size,
-    })
+    });
 
-    listener(this.getState())
+    listener(this.getState());
 
     return () => {
-      this.listeners.delete(listener)
+      this.listeners.delete(listener);
       logger.debug("Play queue subscriber removed", {
         service: "PlayQueueManager",
         totalSubscribers: this.listeners.size,
-      })
-    }
+      });
+    };
   }
 
   private notifyListeners(): void {
-    const state = this.getState()
-    this.listeners.forEach((listener) => listener(state))
+    const state = this.getState();
+    this.listeners.forEach((listener) => listener(state));
   }
 
   getState() {
@@ -62,7 +57,7 @@ class PlayQueueManager {
       currentIndex: this.currentIndex,
       isLoading: this.isLoading,
       sourceFolderId: this.sourceFolderId,
-    }
+    };
   }
 
   /**
@@ -74,33 +69,28 @@ class PlayQueueManager {
    * @param startVideoId - The video the user tapped (queue starts here)
    * @param folderType - "folder" or "playlist" to use correct API
    */
-  async buildQueue(
-    folderId: string,
-    folderName: string,
-    startVideoId: string,
-    folderType: "folder" | "playlist" = "folder"
-  ): Promise<void> {
+  async buildQueue(folderId: string, folderName: string, startVideoId: string, folderType: "folder" | "playlist" = "folder"): Promise<void> {
     logger.info("Building play queue", {
       service: "PlayQueueManager",
       folderId,
       folderName,
       startVideoId,
       folderType,
-    })
+    });
 
-    this.isLoading = true
-    this.sourceFolderId = folderId
-    this.notifyListeners()
+    this.isLoading = true;
+    this.sourceFolderId = folderId;
+    this.notifyListeners();
 
     try {
-      let items: JellyfinVideoItem[]
+      let items: JellyfinVideoItem[];
 
       if (folderType === "playlist") {
         // Playlists are flat — fetch all items via playlist API
-        const result = await fetchPlaylistContents(folderId, { limit: 500, startIndex: 0 })
-        items = result.items as JellyfinVideoItem[]
+        const result = await fetchPlaylistContents(folderId, { limit: 500, startIndex: 0 });
+        items = result.items as JellyfinVideoItem[];
       } else {
-        items = await fetchRecursiveVideos(folderId)
+        items = await fetchRecursiveVideos(folderId);
       }
 
       if (items.length === 0) {
@@ -108,38 +98,38 @@ class PlayQueueManager {
           service: "PlayQueueManager",
           folderId,
           folderName,
-        })
-        this.queue = []
-        this.currentIndex = -1
-        this.isLoading = false
-        this.notifyListeners()
-        return
+        });
+        this.queue = [];
+        this.currentIndex = -1;
+        this.isLoading = false;
+        this.notifyListeners();
+        return;
       }
 
       // Find the index of the video the user tapped
-      const startIndex = items.findIndex((item) => item.Id === startVideoId)
+      const startIndex = items.findIndex((item) => item.Id === startVideoId);
 
-      this.queue = items
-      this.currentIndex = startIndex >= 0 ? startIndex : 0
-      this.isLoading = false
-      this.notifyListeners()
+      this.queue = items;
+      this.currentIndex = startIndex >= 0 ? startIndex : 0;
+      this.isLoading = false;
+      this.notifyListeners();
 
       logger.info("Play queue built", {
         service: "PlayQueueManager",
         totalVideos: items.length,
         startIndex: this.currentIndex,
         startVideoName: items[this.currentIndex]?.Name,
-      })
+      });
     } catch (error) {
       logger.error("Failed to build play queue", error, {
         service: "PlayQueueManager",
         folderId,
         folderName,
-      })
-      this.queue = []
-      this.currentIndex = -1
-      this.isLoading = false
-      this.notifyListeners()
+      });
+      this.queue = [];
+      this.currentIndex = -1;
+      this.isLoading = false;
+      this.notifyListeners();
     }
   }
 
@@ -149,28 +139,28 @@ class PlayQueueManager {
    */
   advanceToNext(): JellyfinVideoItem | null {
     if (!this.hasNext()) {
-      return null
+      return null;
     }
 
-    this.currentIndex += 1
-    const next = this.queue[this.currentIndex]
-    this.notifyListeners()
+    this.currentIndex += 1;
+    const next = this.queue[this.currentIndex];
+    this.notifyListeners();
 
     logger.info("Advanced to next in queue", {
       service: "PlayQueueManager",
       index: this.currentIndex,
       videoName: next?.Name,
       progress: this.getProgress(),
-    })
+    });
 
-    return next || null
+    return next || null;
   }
 
   /**
    * Check if there's a next video after the current one
    */
   hasNext(): boolean {
-    return this.currentIndex >= 0 && this.currentIndex < this.queue.length - 1
+    return this.currentIndex >= 0 && this.currentIndex < this.queue.length - 1;
   }
 
   /**
@@ -178,9 +168,9 @@ class PlayQueueManager {
    */
   peekNext(): JellyfinVideoItem | null {
     if (!this.hasNext()) {
-      return null
+      return null;
     }
-    return this.queue[this.currentIndex + 1] || null
+    return this.queue[this.currentIndex + 1] || null;
   }
 
   /**
@@ -188,9 +178,9 @@ class PlayQueueManager {
    */
   getProgress(): string {
     if (this.queue.length === 0 || this.currentIndex < 0) {
-      return ""
+      return "";
     }
-    return `${this.currentIndex + 1} of ${this.queue.length}`
+    return `${this.currentIndex + 1} of ${this.queue.length}`;
   }
 
   /**
@@ -200,14 +190,14 @@ class PlayQueueManager {
     logger.info("Clearing play queue", {
       service: "PlayQueueManager",
       hadItems: this.queue.length,
-    })
+    });
 
-    this.queue = []
-    this.currentIndex = -1
-    this.isLoading = false
-    this.sourceFolderId = null
-    this.notifyListeners()
+    this.queue = [];
+    this.currentIndex = -1;
+    this.isLoading = false;
+    this.sourceFolderId = null;
+    this.notifyListeners();
   }
 }
 
-export const playQueueManager = PlayQueueManager.getInstance()
+export const playQueueManager = PlayQueueManager.getInstance();

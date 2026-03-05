@@ -3,7 +3,7 @@
  * Automatically retries failed operations with increasing delays
  */
 
-import {logger} from './logger';
+import { logger } from "./logger";
 
 export interface RetryOptions {
   maxAttempts?: number;
@@ -39,7 +39,7 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
   initialDelayMs: 1000, // 1 second
   maxDelayMs: 10000, // 10 seconds
   backoffMultiplier: 2,
-  retryableErrors: [] // Kept for backward compatibility but patterns are now preferred
+  retryableErrors: [], // Kept for backward compatibility but patterns are now preferred
 };
 
 /**
@@ -49,9 +49,7 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
 function isRetryableError(error: unknown, retryableErrors: string[]): boolean {
   if (!error) return false;
 
-  const errorMessage = error instanceof Error
-    ? error.message.toLowerCase()
-    : String(error).toLowerCase();
+  const errorMessage = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
 
   // First check against specific patterns (preferred)
   const matchesPattern = RETRYABLE_PATTERNS.some((pattern) => pattern.test(errorMessage));
@@ -90,11 +88,8 @@ function sleep(ms: number): Promise<void> {
  *   { maxAttempts: 3 }
  * );
  */
-export async function retryWithBackoff<T>(
-  operation: () => Promise<T>,
-  options: RetryOptions = {}
-): Promise<T> {
-  const opts = {...DEFAULT_OPTIONS, ...options};
+export async function retryWithBackoff<T>(operation: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
+  const opts = { ...DEFAULT_OPTIONS, ...options };
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= opts.maxAttempts; attempt++) {
@@ -102,10 +97,10 @@ export async function retryWithBackoff<T>(
       const result = await operation();
 
       if (attempt > 1) {
-        logger.info('Operation succeeded after retry', {
-          service: 'RetryUtil',
+        logger.info("Operation succeeded after retry", {
+          service: "RetryUtil",
           attempt,
-          totalAttempts: opts.maxAttempts
+          totalAttempts: opts.maxAttempts,
         });
       }
 
@@ -117,29 +112,29 @@ export async function retryWithBackoff<T>(
       const isLastAttempt = attempt === opts.maxAttempts;
 
       if (!isRetryable) {
-        logger.warn('Error is not retryable, failing immediately', {
-          service: 'RetryUtil',
-          error: error instanceof Error ? error.message : String(error)
+        logger.warn("Error is not retryable, failing immediately", {
+          service: "RetryUtil",
+          error: error instanceof Error ? error.message : String(error),
         });
         throw error;
       }
 
       if (isLastAttempt) {
-        logger.error('All retry attempts exhausted', error, {
-          service: 'RetryUtil',
-          attempts: opts.maxAttempts
+        logger.error("All retry attempts exhausted", error, {
+          service: "RetryUtil",
+          attempts: opts.maxAttempts,
         });
         throw error;
       }
 
       const delay = calculateDelay(attempt, opts.initialDelayMs, opts.maxDelayMs, opts.backoffMultiplier);
 
-      logger.warn('Operation failed, retrying with backoff', {
-        service: 'RetryUtil',
+      logger.warn("Operation failed, retrying with backoff", {
+        service: "RetryUtil",
         attempt,
         totalAttempts: opts.maxAttempts,
         delayMs: delay,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
 
       await sleep(delay);

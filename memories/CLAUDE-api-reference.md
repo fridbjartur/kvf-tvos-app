@@ -3,12 +3,14 @@
 **Last Updated:** January 24, 2026
 
 ## Quick Reference
+
 **Category:** Implementation
 **Keywords:** API, Jellyfin, retry, configuration, streaming, transcoding, library, search
 
 Complete reference for all `services/jellyfinApi.ts` functions including server connection, video streaming, library navigation, and retry logic.
 
 ## Related Documentation
+
 - [`CLAUDE-state-management.md`](./CLAUDE-state-management.md) - State managers using these APIs
 - [`CLAUDE-configuration.md`](./CLAUDE-configuration.md) - Configuration management functions
 - [`CLAUDE-patterns.md`](./CLAUDE-patterns.md) - Common API usage patterns
@@ -21,68 +23,68 @@ This document provides a complete reference for all `services/jellyfinApi.ts` fu
 
 ## Configuration Management
 
-| Function | Purpose | Returns |
-|----------|---------|---------|
+| Function          | Purpose                         | Returns         |
+| ----------------- | ------------------------------- | --------------- |
 | `refreshConfig()` | Reload from SecureStore (async) | `Promise<void>` |
-| `waitForConfig()` | Wait for initialization | `Promise<void>` |
-| `isConfigReady()` | Check if config initialized | `boolean` |
+| `waitForConfig()` | Wait for initialization         | `Promise<void>` |
+| `isConfigReady()` | Check if config initialized     | `boolean`       |
 
 ## Server Connection
 
-| Function | Purpose | Returns |
-|----------|---------|---------|
-| `connectToDemoServer(clearCaches?)` | Connect to Jellyfin demo server | `Promise<void>` |
-| `disconnectFromDemo()` | Disconnect and clear credentials | `Promise<void>` |
-| `isDemoMode()` | Check if using demo server | `boolean` |
-| `syncDevCredentials()` | Sync .env.local to SecureStore | `Promise<void>` |
+| Function                            | Purpose                          | Returns         |
+| ----------------------------------- | -------------------------------- | --------------- |
+| `connectToDemoServer(clearCaches?)` | Connect to Jellyfin demo server  | `Promise<void>` |
+| `disconnectFromDemo()`              | Disconnect and clear credentials | `Promise<void>` |
+| `isDemoMode()`                      | Check if using demo server       | `boolean`       |
+| `syncDevCredentials()`              | Sync .env.local to SecureStore   | `Promise<void>` |
 
 ## Library & Content
 
-| Function | Purpose | Returns |
-|----------|---------|---------|
-| `fetchLibraryVideos(startIndex, limit)` | Get paginated videos | `Promise<{items, total}>` |
-| `fetchFolderContents(folderId, startIndex, limit)` | Get folder items | `Promise<{items, total}>` |
-| `fetchPlaylistContents(playlistId, startIndex, limit)` | Get playlist items | `Promise<{items, total}>` |
-| `fetchVideoDetails(videoId)` | Get video metadata | `Promise<VideoMetadata>` |
-| `fetchUserViews()` | Get root library views | `Promise<JellyfinItem[]>` |
+| Function                                               | Purpose                | Returns                   |
+| ------------------------------------------------------ | ---------------------- | ------------------------- |
+| `fetchLibraryVideos(startIndex, limit)`                | Get paginated videos   | `Promise<{items, total}>` |
+| `fetchFolderContents(folderId, startIndex, limit)`     | Get folder items       | `Promise<{items, total}>` |
+| `fetchPlaylistContents(playlistId, startIndex, limit)` | Get playlist items     | `Promise<{items, total}>` |
+| `fetchVideoDetails(videoId)`                           | Get video metadata     | `Promise<VideoMetadata>`  |
+| `fetchUserViews()`                                     | Get root library views | `Promise<JellyfinItem[]>` |
 
 ## Search
 
-| Function | Purpose | Returns |
-|----------|---------|---------|
+| Function                                 | Purpose                    | Returns                   |
+| ---------------------------------------- | -------------------------- | ------------------------- |
 | `searchVideos(query, startIndex, limit)` | Search with year filtering | `Promise<{items, total}>` |
 
 ## Streaming & URLs
 
-| Function | Purpose | Returns |
-|----------|---------|---------|
-| `getVideoStreamUrl(itemId)` | Direct download URL | `string` |
-| `getTranscodingStreamUrl(itemId, videoItem?)` | HLS transcode URL (async) | `Promise<string>` |
-| `getPosterUrl(itemId, maxHeight?)` | Poster image URL | `string` |
-| `getFolderThumbnailUrl(itemId, maxHeight?)` | Folder/collection thumbnail | `string` |
-| `getSubtitleUrl(itemId, streamIndex, format?)` | Subtitle stream URL | `string` |
+| Function                                       | Purpose                     | Returns           |
+| ---------------------------------------------- | --------------------------- | ----------------- |
+| `getVideoStreamUrl(itemId)`                    | Direct download URL         | `string`          |
+| `getTranscodingStreamUrl(itemId, videoItem?)`  | HLS transcode URL (async)   | `Promise<string>` |
+| `getPosterUrl(itemId, maxHeight?)`             | Poster image URL            | `string`          |
+| `getFolderThumbnailUrl(itemId, maxHeight?)`    | Folder/collection thumbnail | `string`          |
+| `getSubtitleUrl(itemId, streamIndex, format?)` | Subtitle stream URL         | `string`          |
 
 ## Utilities
 
-| Function | Purpose | Returns |
-|----------|---------|---------|
-| `isCodecSupported(codec)` | Check native codec support | `boolean` |
-| `needsTranscoding(videoItem)` | Determine if transcode needed | `boolean` |
-| `isFolder(item)` | Check if item is navigable | `boolean` |
-| `isAudioOnly(videoItem)` | Detect audio-only media | `boolean` |
-| `hasPoster(item)` | Check if item has poster | `boolean` |
-| `formatDuration(ticks)` | Ticks to human-readable | `string` |
-| `getSubtitleTracks(videoItem)` | Get subtitle metadata | `SubtitleTrack[]` |
+| Function                       | Purpose                       | Returns           |
+| ------------------------------ | ----------------------------- | ----------------- |
+| `isCodecSupported(codec)`      | Check native codec support    | `boolean`         |
+| `needsTranscoding(videoItem)`  | Determine if transcode needed | `boolean`         |
+| `isFolder(item)`               | Check if item is navigable    | `boolean`         |
+| `isAudioOnly(videoItem)`       | Detect audio-only media       | `boolean`         |
+| `hasPoster(item)`              | Check if item has poster      | `boolean`         |
+| `formatDuration(ticks)`        | Ticks to human-readable       | `string`          |
+| `getSubtitleTracks(videoItem)` | Get subtitle metadata         | `SubtitleTrack[]` |
 
 ## Video Quality Presets
 
-| Preset | Resolution | Bitrate | Use Case |
-|--------|-----------|---------|----------|
-| 480p | 854×480 | 1.5 Mbps | Slow connections, data saving |
-| 540p | 960×540 | 2.5 Mbps | Balanced quality |
-| 720p | 1280×720 | 4 Mbps | HD quality, good bandwidth |
-| 1080p | 1920×1080 | 8 Mbps | Full HD, fast connections |
-| 4K | 3840×2160 | 20 Mbps | Ultra HD, high bandwidth |
+| Preset | Resolution | Bitrate  | Use Case                      |
+| ------ | ---------- | -------- | ----------------------------- |
+| 480p   | 854×480    | 1.5 Mbps | Slow connections, data saving |
+| 540p   | 960×540    | 2.5 Mbps | Balanced quality              |
+| 720p   | 1280×720   | 4 Mbps   | HD quality, good bandwidth    |
+| 1080p  | 1920×1080  | 8 Mbps   | Full HD, fast connections     |
+| 4K     | 3840×2160  | 20 Mbps  | Ultra HD, high bandwidth      |
 
 **Note:** Bitrates are optimized for quality (increased from original 1/1.5/3/5 Mbps values). 4K uses H.264 level 5.1 for optimal encoding at 2160p resolution.
 

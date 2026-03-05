@@ -9,6 +9,7 @@ Add 10 blank lines BEFORE and AFTER response text for visual breathing room in t
 ## First Message Protocol
 
 On every new task:
+
 1. Restate it, identify affected files/systems, ask if ambiguous
 2. Check prerequisites: files to read, CLAUDE-\*.md files to load
 3. Present approach with file list, ask for confirmation
@@ -54,6 +55,7 @@ Be aggressive with Task (Explore) for codebase questions. Don't ask permission, 
 Load these files automatically when mentioned:
 
 **Implementation:**
+
 - "API" / "jellyfinApi" / "functions" -> `memories/CLAUDE-api-reference.md`
 - "state" / "manager" / "context" -> `memories/CLAUDE-state-management.md`
 - "audio tracks" / "multi-audio" -> `memories/CLAUDE-multi-audio.md`
@@ -63,20 +65,24 @@ Load these files automatically when mentioned:
 - "lessons" / "bug" / "debugging" -> `memories/CLAUDE-lessons-learned.md`
 
 **Testing and Components:**
+
 - "testing" / "tests" / "coverage" / "jest" -> `memories/CLAUDE-testing.md`
 - "components" / "UI" / "design system" -> `memories/CLAUDE-components.md`
 
 **Security and Performance:**
+
 - "security" / "audit" / "vulnerability" -> `memories/CLAUDE-security.md`
 - "performance" / "optimization" / "slow" -> `memories/CLAUDE-app-performance.md`
 
 **Development and Deployment:**
+
 - "setup" / "install" / "development" -> `memories/CLAUDE-development.md`
 - "icons" / "tvOS icons" / "top shelf" -> `memories/CLAUDE-tvos-icons.md`
 - "App Store" / "metadata" / "screenshots" -> `memories/CLAUDE-apple-store-metadata.md`
 - "submission" / "checklist" / "release" -> `memories/CLAUDE-apple-store-checklist.md`
 
 **Other:**
+
 - "image" / "vision" / "screenshot analysis" -> `memories/CLAUDE-image-analysis.md`
 - "Jellyfin API" / "server API" -> Official API docs at <https://api.jellyfin.org/openapi/jellyfin-openapi-stable.json>
 - "architecture" / "tech stack" / "folder structure" -> `memories/CLAUDE-patterns.md` (Architecture Reference section)

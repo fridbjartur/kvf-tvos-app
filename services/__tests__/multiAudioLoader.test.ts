@@ -438,7 +438,7 @@ describe("multiAudioLoader", () => {
   });
 
   describe("Platform and native module checks", () => {
-    it("should recognize iOS vs Android platform",  () => {
+    it("should recognize iOS vs Android platform", () => {
       jest.isolateModules(() => {
         jest.doMock("react-native", () => ({
           Platform: { OS: "android" },
@@ -530,14 +530,10 @@ describe("multiAudioLoader", () => {
         const { prepareMultiAudioPlayback } = require("../multiAudioLoader");
 
         const videoItem = createMockVideoItem({
-          MediaStreams: [
-            { Type: "Audio", Index: 1, Language: "eng", Codec: "aac", Channels: 2 },
-          ],
+          MediaStreams: [{ Type: "Audio", Index: 1, Language: "eng", Codec: "aac", Channels: 2 }],
         });
 
-        await expect(
-          prepareMultiAudioPlayback("test-video", videoItem, "http://test", "api-key")
-        ).rejects.toThrow("Multi-audio native module not available");
+        await expect(prepareMultiAudioPlayback("test-video", videoItem, "http://test", "api-key")).rejects.toThrow("Multi-audio native module not available");
       });
     });
   });

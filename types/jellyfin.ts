@@ -10,12 +10,12 @@ export interface JellyfinMediaStream {
   Language?: string;
 
   // Audio-specific fields
-  Channels?: number;           // Audio channel count (e.g., 2 for stereo, 6 for 5.1)
-  ChannelLayout?: string;      // Audio channel layout (e.g., "5.1", "stereo")
+  Channels?: number; // Audio channel count (e.g., 2 for stereo, 6 for 5.1)
+  ChannelLayout?: string; // Audio channel layout (e.g., "5.1", "stereo")
 
   // Subtitle-specific fields
-  IsDefault?: boolean;         // Whether this is the default track
-  IsForced?: boolean;          // Whether this is a forced subtitle track
+  IsDefault?: boolean; // Whether this is the default track
+  IsForced?: boolean; // Whether this is a forced subtitle track
 }
 
 export interface JellyfinMediaSource {
@@ -69,7 +69,7 @@ export interface FolderStackEntry {
   id: string;
   name: string;
   parentId?: string;
-  type?: "folder" | "playlist";  // Track item type for correct API routing
+  type?: "folder" | "playlist"; // Track item type for correct API routing
 }
 
 // API response for folder contents

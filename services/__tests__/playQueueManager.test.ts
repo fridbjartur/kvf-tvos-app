@@ -1,16 +1,12 @@
-import { playQueueManager } from "../playQueueManager"
-import * as jellyfinApi from "../jellyfinApi"
-import { JellyfinVideoItem } from "@/types/jellyfin"
+import { playQueueManager } from "../playQueueManager";
+import * as jellyfinApi from "../jellyfinApi";
+import { JellyfinVideoItem } from "@/types/jellyfin";
 
-jest.mock("../jellyfinApi")
-jest.mock("@/utils/logger")
+jest.mock("../jellyfinApi");
+jest.mock("@/utils/logger");
 
-const mockFetchRecursiveVideos = jellyfinApi.fetchRecursiveVideos as jest.MockedFunction<
-  typeof jellyfinApi.fetchRecursiveVideos
->
-const mockFetchPlaylistContents = jellyfinApi.fetchPlaylistContents as jest.MockedFunction<
-  typeof jellyfinApi.fetchPlaylistContents
->
+const mockFetchRecursiveVideos = jellyfinApi.fetchRecursiveVideos as jest.MockedFunction<typeof jellyfinApi.fetchRecursiveVideos>;
+const mockFetchPlaylistContents = jellyfinApi.fetchPlaylistContents as jest.MockedFunction<typeof jellyfinApi.fetchPlaylistContents>;
 
 describe("PlayQueueManager", () => {
   const mockVideos: JellyfinVideoItem[] = [
@@ -35,270 +31,270 @@ describe("PlayQueueManager", () => {
       RunTimeTicks: 39000000000,
       Path: "/media/ep3.mp4",
     },
-  ]
+  ];
 
   beforeEach(() => {
-    jest.clearAllMocks()
-    playQueueManager.clear()
+    jest.clearAllMocks();
+    playQueueManager.clear();
 
-    mockFetchRecursiveVideos.mockResolvedValue(mockVideos)
+    mockFetchRecursiveVideos.mockResolvedValue(mockVideos);
     mockFetchPlaylistContents.mockResolvedValue({
       items: mockVideos,
       total: 3,
-    })
-  })
+    });
+  });
 
   describe("singleton pattern", () => {
     it("should return same instance", () => {
-      const instance1 = playQueueManager
-      const instance2 = playQueueManager
-      expect(instance1).toBe(instance2)
-    })
-  })
+      const instance1 = playQueueManager;
+      const instance2 = playQueueManager;
+      expect(instance1).toBe(instance2);
+    });
+  });
 
   describe("buildQueue", () => {
     it("should fetch recursive videos and set queue", async () => {
-      await playQueueManager.buildQueue("folder1", "Movies", "video1")
+      await playQueueManager.buildQueue("folder1", "Movies", "video1");
 
-      expect(mockFetchRecursiveVideos).toHaveBeenCalledWith("folder1")
+      expect(mockFetchRecursiveVideos).toHaveBeenCalledWith("folder1");
 
-      const state = playQueueManager.getState()
-      expect(state.queue).toEqual(mockVideos)
-      expect(state.currentIndex).toBe(0)
-      expect(state.isLoading).toBe(false)
-      expect(state.sourceFolderId).toBe("folder1")
-    })
+      const state = playQueueManager.getState();
+      expect(state.queue).toEqual(mockVideos);
+      expect(state.currentIndex).toBe(0);
+      expect(state.isLoading).toBe(false);
+      expect(state.sourceFolderId).toBe("folder1");
+    });
 
     it("should find startVideoId in results and set currentIndex", async () => {
-      await playQueueManager.buildQueue("folder1", "Movies", "video2")
+      await playQueueManager.buildQueue("folder1", "Movies", "video2");
 
-      const state = playQueueManager.getState()
-      expect(state.currentIndex).toBe(1) // video2 is at index 1
-    })
+      const state = playQueueManager.getState();
+      expect(state.currentIndex).toBe(1); // video2 is at index 1
+    });
 
     it("should default to index 0 if startVideoId not found", async () => {
-      await playQueueManager.buildQueue("folder1", "Movies", "nonexistent")
+      await playQueueManager.buildQueue("folder1", "Movies", "nonexistent");
 
-      const state = playQueueManager.getState()
-      expect(state.currentIndex).toBe(0)
-    })
+      const state = playQueueManager.getState();
+      expect(state.currentIndex).toBe(0);
+    });
 
     it("should use playlist API for playlist type", async () => {
-      await playQueueManager.buildQueue("playlist1", "Favorites", "video1", "playlist")
+      await playQueueManager.buildQueue("playlist1", "Favorites", "video1", "playlist");
 
       expect(mockFetchPlaylistContents).toHaveBeenCalledWith("playlist1", {
         limit: 500,
         startIndex: 0,
-      })
-      expect(mockFetchRecursiveVideos).not.toHaveBeenCalled()
-    })
+      });
+      expect(mockFetchRecursiveVideos).not.toHaveBeenCalled();
+    });
 
     it("should handle empty results", async () => {
-      mockFetchRecursiveVideos.mockResolvedValueOnce([])
+      mockFetchRecursiveVideos.mockResolvedValueOnce([]);
 
-      await playQueueManager.buildQueue("folder1", "Empty", "video1")
+      await playQueueManager.buildQueue("folder1", "Empty", "video1");
 
-      const state = playQueueManager.getState()
-      expect(state.queue).toEqual([])
-      expect(state.currentIndex).toBe(-1)
-      expect(state.isLoading).toBe(false)
-    })
+      const state = playQueueManager.getState();
+      expect(state.queue).toEqual([]);
+      expect(state.currentIndex).toBe(-1);
+      expect(state.isLoading).toBe(false);
+    });
 
     it("should handle fetch errors gracefully", async () => {
-      mockFetchRecursiveVideos.mockRejectedValueOnce(new Error("Network error"))
+      mockFetchRecursiveVideos.mockRejectedValueOnce(new Error("Network error"));
 
-      await playQueueManager.buildQueue("folder1", "Movies", "video1")
+      await playQueueManager.buildQueue("folder1", "Movies", "video1");
 
-      const state = playQueueManager.getState()
-      expect(state.queue).toEqual([])
-      expect(state.currentIndex).toBe(-1)
-      expect(state.isLoading).toBe(false)
-    })
+      const state = playQueueManager.getState();
+      expect(state.queue).toEqual([]);
+      expect(state.currentIndex).toBe(-1);
+      expect(state.isLoading).toBe(false);
+    });
 
     it("should set isLoading during fetch", async () => {
-      let resolvePromise: (value: JellyfinVideoItem[]) => void
+      let resolvePromise: (value: JellyfinVideoItem[]) => void;
       const promise = new Promise<JellyfinVideoItem[]>((resolve) => {
-        resolvePromise = resolve
-      })
-      mockFetchRecursiveVideos.mockReturnValue(promise)
+        resolvePromise = resolve;
+      });
+      mockFetchRecursiveVideos.mockReturnValue(promise);
 
-      const buildPromise = playQueueManager.buildQueue("folder1", "Movies", "video1")
+      const buildPromise = playQueueManager.buildQueue("folder1", "Movies", "video1");
 
       // During fetch
-      expect(playQueueManager.getState().isLoading).toBe(true)
+      expect(playQueueManager.getState().isLoading).toBe(true);
 
-      resolvePromise!(mockVideos)
-      await buildPromise
+      resolvePromise!(mockVideos);
+      await buildPromise;
 
       // After fetch
-      expect(playQueueManager.getState().isLoading).toBe(false)
-    })
-  })
+      expect(playQueueManager.getState().isLoading).toBe(false);
+    });
+  });
 
   describe("advanceToNext", () => {
     beforeEach(async () => {
-      await playQueueManager.buildQueue("folder1", "Movies", "video1")
-    })
+      await playQueueManager.buildQueue("folder1", "Movies", "video1");
+    });
 
     it("should advance to next video", () => {
-      const next = playQueueManager.advanceToNext()
+      const next = playQueueManager.advanceToNext();
 
-      expect(next).toEqual(mockVideos[1])
-      expect(playQueueManager.getState().currentIndex).toBe(1)
-    })
+      expect(next).toEqual(mockVideos[1]);
+      expect(playQueueManager.getState().currentIndex).toBe(1);
+    });
 
     it("should return null when at end of queue", () => {
-      playQueueManager.advanceToNext() // -> video2 (index 1)
-      playQueueManager.advanceToNext() // -> video3 (index 2)
-      const result = playQueueManager.advanceToNext() // no next
+      playQueueManager.advanceToNext(); // -> video2 (index 1)
+      playQueueManager.advanceToNext(); // -> video3 (index 2)
+      const result = playQueueManager.advanceToNext(); // no next
 
-      expect(result).toBeNull()
-      expect(playQueueManager.getState().currentIndex).toBe(2) // still at last
-    })
-  })
+      expect(result).toBeNull();
+      expect(playQueueManager.getState().currentIndex).toBe(2); // still at last
+    });
+  });
 
   describe("hasNext", () => {
     it("should return true when not at end", async () => {
-      await playQueueManager.buildQueue("folder1", "Movies", "video1")
+      await playQueueManager.buildQueue("folder1", "Movies", "video1");
 
-      expect(playQueueManager.hasNext()).toBe(true)
-    })
+      expect(playQueueManager.hasNext()).toBe(true);
+    });
 
     it("should return false at last item", async () => {
-      await playQueueManager.buildQueue("folder1", "Movies", "video3")
+      await playQueueManager.buildQueue("folder1", "Movies", "video3");
 
-      expect(playQueueManager.hasNext()).toBe(false)
-    })
+      expect(playQueueManager.hasNext()).toBe(false);
+    });
 
     it("should return false when queue is empty", () => {
-      expect(playQueueManager.hasNext()).toBe(false)
-    })
-  })
+      expect(playQueueManager.hasNext()).toBe(false);
+    });
+  });
 
   describe("peekNext", () => {
     it("should return next video without advancing", async () => {
-      await playQueueManager.buildQueue("folder1", "Movies", "video1")
+      await playQueueManager.buildQueue("folder1", "Movies", "video1");
 
-      const peeked = playQueueManager.peekNext()
+      const peeked = playQueueManager.peekNext();
 
-      expect(peeked).toEqual(mockVideos[1])
-      expect(playQueueManager.getState().currentIndex).toBe(0) // unchanged
-    })
+      expect(peeked).toEqual(mockVideos[1]);
+      expect(playQueueManager.getState().currentIndex).toBe(0); // unchanged
+    });
 
     it("should return null at end of queue", async () => {
-      await playQueueManager.buildQueue("folder1", "Movies", "video3")
+      await playQueueManager.buildQueue("folder1", "Movies", "video3");
 
-      expect(playQueueManager.peekNext()).toBeNull()
-    })
-  })
+      expect(playQueueManager.peekNext()).toBeNull();
+    });
+  });
 
   describe("getProgress", () => {
     it("should return progress string", async () => {
-      await playQueueManager.buildQueue("folder1", "Movies", "video1")
+      await playQueueManager.buildQueue("folder1", "Movies", "video1");
 
-      expect(playQueueManager.getProgress()).toBe("1 of 3")
-    })
+      expect(playQueueManager.getProgress()).toBe("1 of 3");
+    });
 
     it("should update after advance", async () => {
-      await playQueueManager.buildQueue("folder1", "Movies", "video1")
-      playQueueManager.advanceToNext()
+      await playQueueManager.buildQueue("folder1", "Movies", "video1");
+      playQueueManager.advanceToNext();
 
-      expect(playQueueManager.getProgress()).toBe("2 of 3")
-    })
+      expect(playQueueManager.getProgress()).toBe("2 of 3");
+    });
 
     it("should return empty string when queue is empty", () => {
-      expect(playQueueManager.getProgress()).toBe("")
-    })
-  })
+      expect(playQueueManager.getProgress()).toBe("");
+    });
+  });
 
   describe("clear", () => {
     it("should reset all state", async () => {
-      await playQueueManager.buildQueue("folder1", "Movies", "video1")
+      await playQueueManager.buildQueue("folder1", "Movies", "video1");
 
-      playQueueManager.clear()
+      playQueueManager.clear();
 
-      const state = playQueueManager.getState()
-      expect(state.queue).toEqual([])
-      expect(state.currentIndex).toBe(-1)
-      expect(state.isLoading).toBe(false)
-      expect(state.sourceFolderId).toBeNull()
-    })
-  })
+      const state = playQueueManager.getState();
+      expect(state.queue).toEqual([]);
+      expect(state.currentIndex).toBe(-1);
+      expect(state.isLoading).toBe(false);
+      expect(state.sourceFolderId).toBeNull();
+    });
+  });
 
   describe("subscribe", () => {
     it("should notify listener immediately with current state", () => {
-      const listener = jest.fn()
+      const listener = jest.fn();
 
-      playQueueManager.subscribe(listener)
+      playQueueManager.subscribe(listener);
 
       expect(listener).toHaveBeenCalledWith({
         queue: [],
         currentIndex: -1,
         isLoading: false,
         sourceFolderId: null,
-      })
-    })
+      });
+    });
 
     it("should notify on state changes", async () => {
-      const listener = jest.fn()
-      playQueueManager.subscribe(listener)
-      listener.mockClear()
+      const listener = jest.fn();
+      playQueueManager.subscribe(listener);
+      listener.mockClear();
 
-      await playQueueManager.buildQueue("folder1", "Movies", "video1")
+      await playQueueManager.buildQueue("folder1", "Movies", "video1");
 
       // Should have been called during loading + after completion
-      expect(listener).toHaveBeenCalled()
+      expect(listener).toHaveBeenCalled();
 
-      const lastCall = listener.mock.calls[listener.mock.calls.length - 1][0]
-      expect(lastCall.queue).toEqual(mockVideos)
-      expect(lastCall.currentIndex).toBe(0)
-      expect(lastCall.isLoading).toBe(false)
-    })
+      const lastCall = listener.mock.calls[listener.mock.calls.length - 1][0];
+      expect(lastCall.queue).toEqual(mockVideos);
+      expect(lastCall.currentIndex).toBe(0);
+      expect(lastCall.isLoading).toBe(false);
+    });
 
     it("should return unsubscribe function", () => {
-      const listener = jest.fn()
-      const unsubscribe = playQueueManager.subscribe(listener)
+      const listener = jest.fn();
+      const unsubscribe = playQueueManager.subscribe(listener);
 
-      expect(typeof unsubscribe).toBe("function")
+      expect(typeof unsubscribe).toBe("function");
 
-      unsubscribe()
-      listener.mockClear()
+      unsubscribe();
+      listener.mockClear();
 
-      playQueueManager.clear()
-      expect(listener).not.toHaveBeenCalled()
-    })
+      playQueueManager.clear();
+      expect(listener).not.toHaveBeenCalled();
+    });
 
     it("should notify on advanceToNext", async () => {
-      await playQueueManager.buildQueue("folder1", "Movies", "video1")
+      await playQueueManager.buildQueue("folder1", "Movies", "video1");
 
-      const listener = jest.fn()
-      playQueueManager.subscribe(listener)
-      listener.mockClear()
+      const listener = jest.fn();
+      playQueueManager.subscribe(listener);
+      listener.mockClear();
 
-      playQueueManager.advanceToNext()
+      playQueueManager.advanceToNext();
 
       expect(listener).toHaveBeenCalledWith(
         expect.objectContaining({
           currentIndex: 1,
-        })
-      )
-    })
+        }),
+      );
+    });
 
     it("should notify on clear", async () => {
-      await playQueueManager.buildQueue("folder1", "Movies", "video1")
+      await playQueueManager.buildQueue("folder1", "Movies", "video1");
 
-      const listener = jest.fn()
-      playQueueManager.subscribe(listener)
-      listener.mockClear()
+      const listener = jest.fn();
+      playQueueManager.subscribe(listener);
+      listener.mockClear();
 
-      playQueueManager.clear()
+      playQueueManager.clear();
 
       expect(listener).toHaveBeenCalledWith(
         expect.objectContaining({
           queue: [],
           currentIndex: -1,
-        })
-      )
-    })
-  })
-})
+        }),
+      );
+    });
+  });
+});

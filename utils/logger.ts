@@ -8,7 +8,7 @@
  *   logger.debug('Processing', { step: 1 })
  */
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+type LogLevel = "debug" | "info" | "warn" | "error";
 
 interface LogContext {
   [key: string]: unknown;
@@ -19,11 +19,7 @@ interface LogContext {
  * More reliable than checking for 'message' property which can exist on regular objects
  */
 function isErrorObject(value: unknown): value is Error {
-  return value instanceof Error ||
-    (typeof value === 'object' &&
-     value !== null &&
-     'stack' in value &&
-     typeof (value as Error).stack === 'string');
+  return value instanceof Error || (typeof value === "object" && value !== null && "stack" in value && typeof (value as Error).stack === "string");
 }
 
 class Logger {
@@ -33,11 +29,11 @@ class Logger {
   constructor() {
     this.isDevelopment = __DEV__;
     // In production, only log warnings and errors
-    this.minLevel = this.isDevelopment ? 'debug' : 'warn';
+    this.minLevel = this.isDevelopment ? "debug" : "warn";
   }
 
   private shouldLog(level: LogLevel): boolean {
-    const levels: LogLevel[] = ['debug', 'info', 'warn', 'error'];
+    const levels: LogLevel[] = ["debug", "info", "warn", "error"];
     const currentLevelIndex = levels.indexOf(level);
     const minLevelIndex = levels.indexOf(this.minLevel);
     return currentLevelIndex >= minLevelIndex;
@@ -64,20 +60,20 @@ class Logger {
     const formattedMessage = this.formatMessage(level, message, context);
 
     switch (level) {
-      case 'debug':
-      case 'info':
+      case "debug":
+      case "info":
         console.log(formattedMessage);
         if (error) {
           console.log(error);
         }
         break;
-      case 'warn':
+      case "warn":
         console.warn(formattedMessage);
         if (error) {
           console.warn(error);
         }
         break;
-      case 'error':
+      case "error":
         console.error(formattedMessage);
         if (error) {
           console.error(error);
@@ -90,7 +86,7 @@ class Logger {
    * Log debug information (only in development)
    */
   debug(message: string, context?: LogContext): void {
-    this.log('debug', message, undefined, context);
+    this.log("debug", message, undefined, context);
   }
 
   /**
@@ -102,11 +98,11 @@ class Logger {
     // Use isErrorObject for reliable detection - checks for 'stack' property
     // which is more reliable than 'message' (which regular objects may have)
     if (isErrorObject(errorOrContext)) {
-      this.log('info', message, errorOrContext, context);
-    } else if (errorOrContext && typeof errorOrContext === 'object' && !isErrorObject(errorOrContext)) {
-      this.log('info', message, undefined, errorOrContext as LogContext);
+      this.log("info", message, errorOrContext, context);
+    } else if (errorOrContext && typeof errorOrContext === "object" && !isErrorObject(errorOrContext)) {
+      this.log("info", message, undefined, errorOrContext as LogContext);
     } else {
-      this.log('info', message, errorOrContext, context);
+      this.log("info", message, errorOrContext, context);
     }
   }
 
@@ -118,11 +114,11 @@ class Logger {
   warn(message: string, errorOrContext?: Error | LogContext | unknown, context?: LogContext): void {
     // Use isErrorObject for reliable detection - checks for 'stack' property
     if (isErrorObject(errorOrContext)) {
-      this.log('warn', message, errorOrContext, context);
-    } else if (errorOrContext && typeof errorOrContext === 'object' && !isErrorObject(errorOrContext)) {
-      this.log('warn', message, undefined, errorOrContext as LogContext);
+      this.log("warn", message, errorOrContext, context);
+    } else if (errorOrContext && typeof errorOrContext === "object" && !isErrorObject(errorOrContext)) {
+      this.log("warn", message, undefined, errorOrContext as LogContext);
     } else {
-      this.log('warn', message, errorOrContext, context);
+      this.log("warn", message, errorOrContext, context);
     }
   }
 
@@ -130,7 +126,7 @@ class Logger {
    * Log error messages with optional error object
    */
   error(message: string, error?: Error | unknown, context?: LogContext): void {
-    this.log('error', message, error, context);
+    this.log("error", message, error, context);
   }
 }
 

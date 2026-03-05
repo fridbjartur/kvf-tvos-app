@@ -1,10 +1,4 @@
-import {
-  getProgress,
-  saveProgress,
-  clearProgress,
-  clearAllProgress,
-  _resetForTesting,
-} from "../watchProgressService";
+import { getProgress, saveProgress, clearProgress, clearAllProgress, _resetForTesting } from "../watchProgressService";
 
 // Mock expo-secure-store
 const mockStore: Record<string, string> = {};
@@ -164,11 +158,7 @@ describe("watchProgressService", () => {
       });
 
       // Fire multiple concurrent reads
-      const [r1, r2, r3] = await Promise.all([
-        getProgress("video-1"),
-        getProgress("video-1"),
-        getProgress("video-1"),
-      ]);
+      const [r1, r2, r3] = await Promise.all([getProgress("video-1"), getProgress("video-1"), getProgress("video-1")]);
 
       expect(r1).not.toBeNull();
       expect(r2).not.toBeNull();
@@ -247,10 +237,7 @@ describe("watchProgressService", () => {
     it("persists to SecureStore on save", async () => {
       await saveProgress("video-1", 120, 3600);
 
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-        "watch_progress_data",
-        expect.any(String),
-      );
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith("watch_progress_data", expect.any(String));
 
       // Verify the persisted data is correct
       const persisted = JSON.parse(mockStore["watch_progress_data"]);

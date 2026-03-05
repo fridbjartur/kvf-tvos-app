@@ -1,4 +1,13 @@
-import { JellyfinAuthResult, JellyfinFolderResponse, JellyfinItem, JellyfinMediaStream, JellyfinPublicServerInfo, JellyfinVideoItem, JellyfinVideosResponse, QuickConnectResult } from "@/types/jellyfin";
+import {
+  JellyfinAuthResult,
+  JellyfinFolderResponse,
+  JellyfinItem,
+  JellyfinMediaStream,
+  JellyfinPublicServerInfo,
+  JellyfinVideoItem,
+  JellyfinVideosResponse,
+  QuickConnectResult,
+} from "@/types/jellyfin";
 import { logger } from "@/utils/logger";
 import { retryWithBackoff } from "@/utils/retry";
 import * as SecureStore from "expo-secure-store";
@@ -286,42 +295,42 @@ async function fetchDemoCredentials(demoServerUrl: string): Promise<{ apiKey: st
 
     clearTimeout(timeoutId);
 
-  if (!response.ok) {
-    if (response.status === 503 || response.status === 502) {
-      throw new Error("Demo server is temporarily unavailable. Please try again in a few moments.");
-    } else if (response.status >= 500) {
-      throw new Error("Demo server is experiencing technical difficulties. Please try again later.");
-    } else if (response.status === 401 || response.status === 403) {
-      throw new Error("Demo credentials are invalid. The demo server may have been reset.");
-    } else {
-      throw new Error(`Unable to connect to demo server (error ${response.status}). Please try again.`);
+    if (!response.ok) {
+      if (response.status === 503 || response.status === 502) {
+        throw new Error("Demo server is temporarily unavailable. Please try again in a few moments.");
+      } else if (response.status >= 500) {
+        throw new Error("Demo server is experiencing technical difficulties. Please try again later.");
+      } else if (response.status === 401 || response.status === 403) {
+        throw new Error("Demo credentials are invalid. The demo server may have been reset.");
+      } else {
+        throw new Error(`Unable to connect to demo server (error ${response.status}). Please try again.`);
+      }
     }
-  }
 
-  // Validate response is JSON before parsing
-  let data;
-  try {
-    const contentType = response.headers.get("content-type");
-    if (!contentType?.includes("application/json")) {
-      throw new Error("Demo server returned invalid response format. The server may be down or experiencing issues.");
+    // Validate response is JSON before parsing
+    let data;
+    try {
+      const contentType = response.headers.get("content-type");
+      if (!contentType?.includes("application/json")) {
+        throw new Error("Demo server returned invalid response format. The server may be down or experiencing issues.");
+      }
+      data = await response.json();
+    } catch (jsonError) {
+      if (jsonError instanceof Error && jsonError.message.includes("Demo server returned invalid")) {
+        throw jsonError;
+      }
+      throw new Error("Demo server returned invalid data. Please try again later.");
     }
-    data = await response.json();
-  } catch (jsonError) {
-    if (jsonError instanceof Error && jsonError.message.includes("Demo server returned invalid")) {
-      throw jsonError;
+
+    if (!data.AccessToken || !data.User?.Id) {
+      throw new Error("Invalid demo server response: missing credentials");
     }
-    throw new Error("Demo server returned invalid data. Please try again later.");
-  }
 
-  if (!data.AccessToken || !data.User?.Id) {
-    throw new Error("Invalid demo server response: missing credentials");
-  }
-
-  logger.info("Demo credentials fetched successfully", {
-    service: "JellyfinAPI",
-    userId: data.User.Id,
-    demoServer: demoServerUrl,
-  });
+    logger.info("Demo credentials fetched successfully", {
+      service: "JellyfinAPI",
+      userId: data.User.Id,
+      demoServer: demoServerUrl,
+    });
 
     return {
       apiKey: data.AccessToken,
@@ -373,8 +382,7 @@ export async function connectToDemoServer(clearCaches: boolean = true): Promise<
       error: error instanceof Error ? error.message : "unknown",
     });
 
-    const baseMessage = "Unable to connect to demo server. It may be temporarily down. " +
-      "Please try again later or configure your own Jellyfin server in Settings.";
+    const baseMessage = "Unable to connect to demo server. It may be temporarily down. " + "Please try again later or configure your own Jellyfin server in Settings.";
 
     // If we have a specific error from the server, throw that
     // Otherwise throw the generic helpful message
@@ -861,14 +869,7 @@ export async function authenticateByName(serverUrl: string, username: string, pa
  * Save auth credentials atomically and refresh the config cache.
  * Works for both Quick Connect and Username/Password auth results.
  */
-export async function saveAuthResult(
-  serverUrl: string,
-  accessToken: string,
-  userId: string,
-  userName: string,
-  serverName: string,
-  method: "quickconnect" | "password" | "apikey",
-): Promise<void> {
+export async function saveAuthResult(serverUrl: string, accessToken: string, userId: string, userName: string, serverName: string, method: "quickconnect" | "password" | "apikey"): Promise<void> {
   const cleanUrl = serverUrl.trim().replace(/\/+$/, "");
 
   // Save all credential keys atomically
@@ -1714,11 +1715,7 @@ export function getVideoStreamUrl(itemId: string, videoItem?: JellyfinVideoItem 
   }
 
   const mediaSourceId = videoItem?.MediaSources?.[0]?.Id || itemId;
-  const url =
-    `${cachedConfig.server}/Videos/${itemId}/stream` +
-    `?Static=true` +
-    `&MediaSourceId=${mediaSourceId}` +
-    `&api_key=${cachedConfig.apiKey}`;
+  const url = `${cachedConfig.server}/Videos/${itemId}/stream` + `?Static=true` + `&MediaSourceId=${mediaSourceId}` + `&api_key=${cachedConfig.apiKey}`;
 
   logger.debug("Generated direct play stream URL", {
     service: "JellyfinAPI",
@@ -1747,12 +1744,7 @@ export function getVideoStreamUrl(itemId: string, videoItem?: JellyfinVideoItem 
  * @param itemId - The video item ID
  * @param videoItem - Optional video item with MediaStreams for subtitle detection
  */
-export async function getTranscodingStreamUrl(
-  itemId: string,
-  videoItem?: JellyfinVideoItem | null,
-  audioStreamIndex?: number,
-  startTimeTicks?: number
-): Promise<string> {
+export async function getTranscodingStreamUrl(itemId: string, videoItem?: JellyfinVideoItem | null, audioStreamIndex?: number, startTimeTicks?: number): Promise<string> {
   if (!cachedConfig.server || !cachedConfig.apiKey) {
     logger.warn("getTranscodingStreamUrl called before config loaded", { service: "JellyfinAPI" });
     throw new Error("Configuration not loaded. Please wait for app to initialize.");
@@ -1791,16 +1783,14 @@ export async function getTranscodingStreamUrl(
   if (videoItem && videoItem.MediaStreams) {
     // Include ALL subtitle tracks (external .srt files AND embedded subtitles)
     // Previously only included IsExternal=true, which missed embedded subtitle streams
-    const subtitleStreams = videoItem.MediaStreams.filter(
-      (stream) => stream.Type === "Subtitle" && stream.Index !== undefined
-    );
+    const subtitleStreams = videoItem.MediaStreams.filter((stream) => stream.Type === "Subtitle" && stream.Index !== undefined);
 
     if (subtitleStreams.length > 0) {
       // Use SubtitleMethod=Hls to include all subtitles as separate WebVTT streams
       // DO NOT set SubtitleStreamIndex - this includes ALL subtitle tracks
       url += `&SubtitleMethod=Hls`;
 
-      const externalCount = subtitleStreams.filter(s => s.IsExternal).length;
+      const externalCount = subtitleStreams.filter((s) => s.IsExternal).length;
       const embeddedCount = subtitleStreams.length - externalCount;
 
       logger.info("Transcoding with HLS subtitle tracks", {
@@ -1810,7 +1800,7 @@ export async function getTranscodingStreamUrl(
         subtitleCount: subtitleStreams.length,
         externalSubtitles: externalCount,
         embeddedSubtitles: embeddedCount,
-        languages: subtitleStreams.map(s => s.Language || "und").join(", "),
+        languages: subtitleStreams.map((s) => s.Language || "und").join(", "),
         quality: quality.label,
         bitrate: `${quality.bitrate / 1000000}Mbps`,
         server: cachedConfig.server,
@@ -1827,16 +1817,14 @@ export async function getTranscodingStreamUrl(
     }
 
     // Include ALL audio tracks in HLS manifest
-    const audioStreams = videoItem.MediaStreams.filter(
-      (stream) => stream.Type === "Audio" && stream.Index !== undefined
-    );
+    const audioStreams = videoItem.MediaStreams.filter((stream) => stream.Type === "Audio" && stream.Index !== undefined);
 
     if (audioStreams.length > 1) {
       logger.info("Multiple audio tracks available", {
         service: "JellyfinAPI",
         itemId,
         audioTrackCount: audioStreams.length,
-        languages: audioStreams.map(s => s.Language || "und").join(", "),
+        languages: audioStreams.map((s) => s.Language || "und").join(", "),
       });
     }
   }

@@ -38,7 +38,7 @@ describe("Audio Track Mapping Logic", () => {
       ];
 
       // Build mapping using the CORRECT pattern (fixed in Bug #2)
-      const audioTrackMapping = sortedAudioTracks.map(track => track.Index);
+      const audioTrackMapping = sortedAudioTracks.map((track) => track.Index);
 
       // Verify mapping matches sorted order: [8, 1]
       expect(audioTrackMapping).toEqual([8, 1]);
@@ -74,9 +74,7 @@ describe("Audio Track Mapping Logic", () => {
       // OLD BUGGY PATTERN (fixed in Bug #2):
       // const audioStreams = MediaStreams.filter(...)
       // const mapping = audioStreams.map(stream => stream.Index!)
-      const buggyMapping = unsortedMediaStreams
-        .filter(s => s.Type === "Audio" && s.Index !== undefined)
-        .map(stream => stream.Index!);
+      const buggyMapping = unsortedMediaStreams.filter((s) => s.Type === "Audio" && s.Index !== undefined).map((stream) => stream.Index!);
 
       // This gives [1, 8] which is WRONG (doesn't match Swift's sorted order)
       expect(buggyMapping).toEqual([1, 8]);
@@ -129,7 +127,7 @@ describe("Audio Track Mapping Logic", () => {
       expect(sortedTracks[1].IsDefault).toBe(false);
 
       // Build mapping (CORRECT fix from Bug #2)
-      const mapping = sortedTracks.map(t => t.Index);
+      const mapping = sortedTracks.map((t) => t.Index);
 
       // Mapping should match sorted order: [1, 8] (UND first because IsDefault: true)
       expect(mapping).toEqual([1, 8]);
@@ -157,7 +155,7 @@ describe("Audio Track Mapping Logic", () => {
       expect(tracks.length).toBe(1);
       expect(tracks[0].Index).toBe(1);
 
-      const mapping = tracks.map(t => t.Index);
+      const mapping = tracks.map((t) => t.Index);
       expect(mapping).toEqual([1]);
     });
 
@@ -172,7 +170,7 @@ describe("Audio Track Mapping Logic", () => {
 
       expect(tracks).toEqual([]);
 
-      const mapping = tracks.map(t => t.Index);
+      const mapping = tracks.map((t) => t.Index);
       expect(mapping).toEqual([]);
     });
   });

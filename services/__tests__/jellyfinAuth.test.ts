@@ -59,9 +59,7 @@ describe("jellyfinAuth", () => {
     it("should throw on non-OK response", async () => {
       mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
 
-      await expect(checkServerInfo("http://bad-server:8096")).rejects.toThrow(
-        "Unable to reach Jellyfin server",
-      );
+      await expect(checkServerInfo("http://bad-server:8096")).rejects.toThrow("Unable to reach Jellyfin server");
     });
 
     it("should throw on missing ServerName", async () => {
@@ -70,19 +68,13 @@ describe("jellyfinAuth", () => {
         json: async () => ({ Id: "abc" }),
       });
 
-      await expect(
-        checkServerInfo("http://192.168.1.100:8096"),
-      ).rejects.toThrow("not a valid Jellyfin server");
+      await expect(checkServerInfo("http://192.168.1.100:8096")).rejects.toThrow("not a valid Jellyfin server");
     });
 
     it("should throw on timeout", async () => {
-      mockFetch.mockRejectedValueOnce(
-        Object.assign(new Error("AbortError"), { name: "AbortError" }),
-      );
+      mockFetch.mockRejectedValueOnce(Object.assign(new Error("AbortError"), { name: "AbortError" }));
 
-      await expect(
-        checkServerInfo("http://192.168.1.100:8096"),
-      ).rejects.toThrow("Connection timed out");
+      await expect(checkServerInfo("http://192.168.1.100:8096")).rejects.toThrow("Connection timed out");
     });
 
     it("should strip trailing slashes from server URL", async () => {
@@ -96,10 +88,7 @@ describe("jellyfinAuth", () => {
       });
 
       await checkServerInfo("http://192.168.1.100:8096///");
-      expect(mockFetch).toHaveBeenCalledWith(
-        "http://192.168.1.100:8096/System/Info/Public",
-        expect.any(Object),
-      );
+      expect(mockFetch).toHaveBeenCalledWith("http://192.168.1.100:8096/System/Info/Public", expect.any(Object));
     });
   });
 
@@ -110,9 +99,7 @@ describe("jellyfinAuth", () => {
         text: async () => "true",
       });
 
-      const result = await checkQuickConnectEnabled(
-        "http://192.168.1.100:8096",
-      );
+      const result = await checkQuickConnectEnabled("http://192.168.1.100:8096");
       expect(result).toBe(true);
     });
 
@@ -122,27 +109,21 @@ describe("jellyfinAuth", () => {
         text: async () => "false",
       });
 
-      const result = await checkQuickConnectEnabled(
-        "http://192.168.1.100:8096",
-      );
+      const result = await checkQuickConnectEnabled("http://192.168.1.100:8096");
       expect(result).toBe(false);
     });
 
     it("should return false on error", async () => {
       mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
 
-      const result = await checkQuickConnectEnabled(
-        "http://192.168.1.100:8096",
-      );
+      const result = await checkQuickConnectEnabled("http://192.168.1.100:8096");
       expect(result).toBe(false);
     });
 
     it("should return false on network failure", async () => {
       mockFetch.mockRejectedValueOnce(new Error("Network error"));
 
-      const result = await checkQuickConnectEnabled(
-        "http://192.168.1.100:8096",
-      );
+      const result = await checkQuickConnectEnabled("http://192.168.1.100:8096");
       expect(result).toBe(false);
     });
   });
@@ -150,9 +131,7 @@ describe("jellyfinAuth", () => {
   describe("authenticateByName", () => {
     it("should return auth result on success", async () => {
       // First call: getOrCreateDeviceId may call SecureStore
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce(
-        "test-device-id",
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce("test-device-id");
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -163,11 +142,7 @@ describe("jellyfinAuth", () => {
         }),
       });
 
-      const result = await authenticateByName(
-        "http://192.168.1.100:8096",
-        "testuser",
-        "password123",
-      );
+      const result = await authenticateByName("http://192.168.1.100:8096", "testuser", "password123");
 
       expect(result.AccessToken).toBe("token123");
       expect(result.User.Id).toBe("user-id-1");
@@ -175,47 +150,29 @@ describe("jellyfinAuth", () => {
     });
 
     it("should throw on 401 (invalid credentials)", async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce(
-        "test-device-id",
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce("test-device-id");
 
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
       });
 
-      await expect(
-        authenticateByName(
-          "http://192.168.1.100:8096",
-          "testuser",
-          "wrongpassword",
-        ),
-      ).rejects.toThrow("Invalid username or password");
+      await expect(authenticateByName("http://192.168.1.100:8096", "testuser", "wrongpassword")).rejects.toThrow("Invalid username or password");
     });
 
     it("should throw on non-OK response", async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce(
-        "test-device-id",
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce("test-device-id");
 
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
       });
 
-      await expect(
-        authenticateByName(
-          "http://192.168.1.100:8096",
-          "testuser",
-          "pass",
-        ),
-      ).rejects.toThrow("Authentication failed: 500");
+      await expect(authenticateByName("http://192.168.1.100:8096", "testuser", "pass")).rejects.toThrow("Authentication failed: 500");
     });
 
     it("should throw on missing AccessToken in response", async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce(
-        "test-device-id",
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce("test-device-id");
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -223,19 +180,11 @@ describe("jellyfinAuth", () => {
         json: async () => ({ User: { Id: "user-id", Name: "user" } }),
       });
 
-      await expect(
-        authenticateByName(
-          "http://192.168.1.100:8096",
-          "testuser",
-          "pass",
-        ),
-      ).rejects.toThrow("missing AccessToken or User");
+      await expect(authenticateByName("http://192.168.1.100:8096", "testuser", "pass")).rejects.toThrow("missing AccessToken or User");
     });
 
     it("should include Authorization header with device info", async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce(
-        "my-device-id",
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce("my-device-id");
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -249,23 +198,15 @@ describe("jellyfinAuth", () => {
       await authenticateByName("http://server:8096", "user", "pass");
 
       const fetchCall = mockFetch.mock.calls[0];
-      expect(fetchCall[0]).toBe(
-        "http://server:8096/Users/AuthenticateByName",
-      );
-      expect(fetchCall[1].headers.Authorization).toContain(
-        'DeviceId="my-device-id"',
-      );
-      expect(fetchCall[1].headers.Authorization).toContain(
-        'Client="TomoTV"',
-      );
+      expect(fetchCall[0]).toBe("http://server:8096/Users/AuthenticateByName");
+      expect(fetchCall[1].headers.Authorization).toContain('DeviceId="my-device-id"');
+      expect(fetchCall[1].headers.Authorization).toContain('Client="TomoTV"');
     });
   });
 
   describe("authenticateWithQuickConnect", () => {
     it("should return auth result on success", async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce(
-        "test-device-id",
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce("test-device-id");
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -276,19 +217,14 @@ describe("jellyfinAuth", () => {
         }),
       });
 
-      const result = await authenticateWithQuickConnect(
-        "http://192.168.1.100:8096",
-        "secret-123",
-      );
+      const result = await authenticateWithQuickConnect("http://192.168.1.100:8096", "secret-123");
 
       expect(result.AccessToken).toBe("qc-token");
       expect(result.User.Name).toBe("qcuser");
     });
 
     it("should send secret in request body", async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce(
-        "test-device-id",
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce("test-device-id");
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -299,15 +235,10 @@ describe("jellyfinAuth", () => {
         }),
       });
 
-      await authenticateWithQuickConnect(
-        "http://server:8096",
-        "my-secret",
-      );
+      await authenticateWithQuickConnect("http://server:8096", "my-secret");
 
       const fetchCall = mockFetch.mock.calls[0];
-      expect(fetchCall[0]).toBe(
-        "http://server:8096/Users/AuthenticateWithQuickConnect",
-      );
+      expect(fetchCall[0]).toBe("http://server:8096/Users/AuthenticateWithQuickConnect");
       expect(JSON.parse(fetchCall[1].body)).toEqual({
         Secret: "my-secret",
       });
@@ -316,70 +247,26 @@ describe("jellyfinAuth", () => {
 
   describe("saveAuthResult", () => {
     it("should save all credential keys to SecureStore", async () => {
-      await saveAuthResult(
-        "http://192.168.1.100:8096",
-        "access-token",
-        "user-id",
-        "TestUser",
-        "My Server",
-        "password",
-      );
+      await saveAuthResult("http://192.168.1.100:8096", "access-token", "user-id", "TestUser", "My Server", "password");
 
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-        "jellyfin_server_url",
-        "http://192.168.1.100:8096",
-      );
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-        "jellyfin_api_key",
-        "access-token",
-      );
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-        "jellyfin_user_id",
-        "user-id",
-      );
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-        "jellyfin_user_name",
-        "TestUser",
-      );
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-        "jellyfin_auth_method",
-        "password",
-      );
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-        "jellyfin_server_name",
-        "My Server",
-      );
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith("jellyfin_server_url", "http://192.168.1.100:8096");
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith("jellyfin_api_key", "access-token");
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith("jellyfin_user_id", "user-id");
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith("jellyfin_user_name", "TestUser");
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith("jellyfin_auth_method", "password");
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith("jellyfin_server_name", "My Server");
     });
 
     it("should strip trailing slashes from server URL", async () => {
-      await saveAuthResult(
-        "http://192.168.1.100:8096///",
-        "token",
-        "uid",
-        "User",
-        "Server",
-        "quickconnect",
-      );
+      await saveAuthResult("http://192.168.1.100:8096///", "token", "uid", "User", "Server", "quickconnect");
 
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-        "jellyfin_server_url",
-        "http://192.168.1.100:8096",
-      );
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith("jellyfin_server_url", "http://192.168.1.100:8096");
     });
 
     it("should clear demo mode flag", async () => {
-      await saveAuthResult(
-        "http://server:8096",
-        "token",
-        "uid",
-        "User",
-        "Server",
-        "password",
-      );
+      await saveAuthResult("http://server:8096", "token", "uid", "User", "Server", "password");
 
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith(
-        "jellyfin_is_demo_mode",
-      );
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith("jellyfin_is_demo_mode");
     });
   });
 
@@ -387,133 +274,87 @@ describe("jellyfinAuth", () => {
     it("should delete all credential keys from SecureStore", async () => {
       await signOut();
 
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith(
-        "jellyfin_server_url",
-      );
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith(
-        "jellyfin_api_key",
-      );
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith(
-        "jellyfin_user_id",
-      );
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith(
-        "jellyfin_user_name",
-      );
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith(
-        "jellyfin_auth_method",
-      );
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith(
-        "jellyfin_server_name",
-      );
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith(
-        "jellyfin_is_demo_mode",
-      );
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith("jellyfin_server_url");
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith("jellyfin_api_key");
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith("jellyfin_user_id");
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith("jellyfin_user_name");
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith("jellyfin_auth_method");
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith("jellyfin_server_name");
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith("jellyfin_is_demo_mode");
     });
   });
 
   describe("getStoredUserName", () => {
     it("should read from SecureStore", async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce(
-        "TestUser",
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce("TestUser");
 
       const result = await getStoredUserName();
       expect(result).toBe("TestUser");
-      expect(SecureStore.getItemAsync).toHaveBeenCalledWith(
-        "jellyfin_user_name",
-      );
+      expect(SecureStore.getItemAsync).toHaveBeenCalledWith("jellyfin_user_name");
     });
   });
 
   describe("getStoredAuthMethod", () => {
     it("should read from SecureStore", async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce(
-        "quickconnect",
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce("quickconnect");
 
       const result = await getStoredAuthMethod();
       expect(result).toBe("quickconnect");
-      expect(SecureStore.getItemAsync).toHaveBeenCalledWith(
-        "jellyfin_auth_method",
-      );
+      expect(SecureStore.getItemAsync).toHaveBeenCalledWith("jellyfin_auth_method");
     });
   });
 
   describe("getStoredServerName", () => {
     it("should read from SecureStore", async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce(
-        "My Jellyfin Server",
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce("My Jellyfin Server");
 
       const result = await getStoredServerName();
       expect(result).toBe("My Jellyfin Server");
-      expect(SecureStore.getItemAsync).toHaveBeenCalledWith(
-        "jellyfin_server_name",
-      );
+      expect(SecureStore.getItemAsync).toHaveBeenCalledWith("jellyfin_server_name");
     });
   });
 
   describe("initiateQuickConnect", () => {
     it("should throw on timeout (AbortError)", async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce(
-        "test-device-id",
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce("test-device-id");
 
-      mockFetch.mockRejectedValueOnce(
-        Object.assign(new Error("AbortError"), { name: "AbortError" }),
-      );
+      mockFetch.mockRejectedValueOnce(Object.assign(new Error("AbortError"), { name: "AbortError" }));
 
-      await expect(
-        initiateQuickConnect("http://192.168.1.100:8096"),
-      ).rejects.toThrow("Quick Connect request timed out.");
+      await expect(initiateQuickConnect("http://192.168.1.100:8096")).rejects.toThrow("Quick Connect request timed out.");
     });
 
     it("should throw on non-OK response", async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce(
-        "test-device-id",
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce("test-device-id");
 
       mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
 
-      await expect(
-        initiateQuickConnect("http://192.168.1.100:8096"),
-      ).rejects.toThrow("Quick Connect initiation failed: 500");
+      await expect(initiateQuickConnect("http://192.168.1.100:8096")).rejects.toThrow("Quick Connect initiation failed: 500");
     });
 
     it("should throw on missing Code in response", async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce(
-        "test-device-id",
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce("test-device-id");
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ Secret: "secret-123" }),
       });
 
-      await expect(
-        initiateQuickConnect("http://192.168.1.100:8096"),
-      ).rejects.toThrow("missing Code or Secret");
+      await expect(initiateQuickConnect("http://192.168.1.100:8096")).rejects.toThrow("missing Code or Secret");
     });
 
     it("should throw on missing Secret in response", async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce(
-        "test-device-id",
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce("test-device-id");
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ Code: "123456" }),
       });
 
-      await expect(
-        initiateQuickConnect("http://192.168.1.100:8096"),
-      ).rejects.toThrow("missing Code or Secret");
+      await expect(initiateQuickConnect("http://192.168.1.100:8096")).rejects.toThrow("missing Code or Secret");
     });
 
     it("should include Authorization header with device ID", async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce(
-        "my-device-id",
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce("my-device-id");
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -525,32 +366,22 @@ describe("jellyfinAuth", () => {
       const fetchCall = mockFetch.mock.calls[0];
       expect(fetchCall[0]).toBe("http://server:8096/QuickConnect/Initiate");
       expect(fetchCall[1].method).toBe("POST");
-      expect(fetchCall[1].headers.Authorization).toContain(
-        'DeviceId="my-device-id"',
-      );
-      expect(fetchCall[1].headers.Authorization).toContain(
-        'Client="TomoTV"',
-      );
+      expect(fetchCall[1].headers.Authorization).toContain('DeviceId="my-device-id"');
+      expect(fetchCall[1].headers.Authorization).toContain('Client="TomoTV"');
     });
   });
 
   describe("pollQuickConnect", () => {
     it("should throw on timeout (AbortError)", async () => {
-      mockFetch.mockRejectedValueOnce(
-        Object.assign(new Error("AbortError"), { name: "AbortError" }),
-      );
+      mockFetch.mockRejectedValueOnce(Object.assign(new Error("AbortError"), { name: "AbortError" }));
 
-      await expect(
-        pollQuickConnect("http://192.168.1.100:8096", "secret-123"),
-      ).rejects.toThrow("Quick Connect poll timed out.");
+      await expect(pollQuickConnect("http://192.168.1.100:8096", "secret-123")).rejects.toThrow("Quick Connect poll timed out.");
     });
 
     it("should throw on non-OK response", async () => {
       mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
 
-      await expect(
-        pollQuickConnect("http://192.168.1.100:8096", "secret-123"),
-      ).rejects.toThrow("Quick Connect poll failed: 404");
+      await expect(pollQuickConnect("http://192.168.1.100:8096", "secret-123")).rejects.toThrow("Quick Connect poll failed: 404");
     });
 
     it("should encode secret in query string", async () => {
@@ -563,15 +394,10 @@ describe("jellyfinAuth", () => {
         }),
       });
 
-      await pollQuickConnect(
-        "http://server:8096",
-        "secret&special=chars",
-      );
+      await pollQuickConnect("http://server:8096", "secret&special=chars");
 
       const fetchCall = mockFetch.mock.calls[0];
-      expect(fetchCall[0]).toBe(
-        "http://server:8096/QuickConnect/Connect?secret=secret%26special%3Dchars",
-      );
+      expect(fetchCall[0]).toBe("http://server:8096/QuickConnect/Connect?secret=secret%26special%3Dchars");
       expect(fetchCall[1].method).toBe("GET");
     });
 
@@ -585,10 +411,7 @@ describe("jellyfinAuth", () => {
         }),
       });
 
-      const result = await pollQuickConnect(
-        "http://server:8096",
-        "secret-abc",
-      );
+      const result = await pollQuickConnect("http://server:8096", "secret-abc");
 
       expect(result.Authenticated).toBe(true);
       expect(result.Secret).toBe("secret-abc");

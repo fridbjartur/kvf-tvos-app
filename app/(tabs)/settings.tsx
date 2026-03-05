@@ -296,7 +296,9 @@ export default function SettingsScreen() {
             />
           )}
 
-          {screenState === "CONNECTED" && <ConnectedSection serverName={connectedServerName} serverUrl={connectedServerUrl} userName={connectedUserName} authMethod={connectedAuthMethod} onSignOut={handleSignOut} />}
+          {screenState === "CONNECTED" && (
+            <ConnectedSection serverName={connectedServerName} serverUrl={connectedServerUrl} userName={connectedUserName} authMethod={connectedAuthMethod} onSignOut={handleSignOut} />
+          )}
 
           <View style={screenStyles.sectionHeader}>
             <Text style={screenStyles.sectionHeaderText}>VIDEO QUALITY</Text>

@@ -4,12 +4,14 @@
 **Security Audit Completed:** January 24, 2026 (Comprehensive 7-agent audit)
 
 ## Quick Reference
+
 **Category:** Security
 **Keywords:** security, credentials, SecureStore, HTTPS, validation, encryption, audit
 
 Security architecture with credential storage, network security, input validation, and comprehensive audit findings.
 
 ## Related Documentation
+
 - [`CLAUDE-configuration.md`](./CLAUDE-configuration.md) - Credential management
 - [`CLAUDE-api-reference.md`](./CLAUDE-api-reference.md) - API security
 - [`CLAUDE-testing.md`](./CLAUDE-testing.md) - Security testing
@@ -31,6 +33,7 @@ This document describes the security architecture, known limitations, and mitiga
 ### Native Secure Storage
 
 **Platform Implementation:**
+
 - **iOS/tvOS:** tvOS Keychain (device-local, AES-256 encrypted)
 - **Android:** Android Keystore (hardware-backed when available)
 - **Library:** `expo-secure-store` (official Expo module)
@@ -45,6 +48,7 @@ This document describes the security architecture, known limitations, and mitiga
 | `jellyfin_is_demo_mode` | String ("true"/null) | Demo server flag |
 
 **Security Features:**
+
 - ✅ Automatic encryption at rest
 - ✅ Keychain storage is device-local (tvOS does not support iCloud Keychain sync)
 - ✅ Cannot be accessed by other apps
@@ -54,6 +58,7 @@ This document describes the security architecture, known limitations, and mitiga
 ### No Hardcoded Secrets
 
 **Verified:**
+
 - ✅ Zero hardcoded credentials in source code
 - ✅ `.env.local` is git-ignored (development only)
 - ✅ Production builds require user configuration via Settings
@@ -66,11 +71,13 @@ This document describes the security architecture, known limitations, and mitiga
 ### Transport Layer Security
 
 **HTTPS Enforcement:**
+
 - ✅ HTTPS **required** for remote/internet Jellyfin servers
 - ✅ HTTP **allowed** for local network only (192.168.x.x, 10.x.x.x, etc.)
 - ✅ Configured via `NSAppTransportSecurity` in app.json
 
 **App Transport Security (iOS/tvOS):**
+
 ```json
 "NSAppTransportSecurity": {
   "NSAllowsLocalNetworking": true
@@ -78,6 +85,7 @@ This document describes the security architecture, known limitations, and mitiga
 ```
 
 **What This Means:**
+
 - Internet servers: Must use HTTPS (enforced by iOS)
 - Local network: HTTP allowed (common for home Jellyfin servers)
 - No certificate pinning (users may have self-signed certs)
@@ -85,12 +93,14 @@ This document describes the security architecture, known limitations, and mitiga
 ### Request Timeouts
 
 **Timeout Enforcement:**
+
 - Quick queries: 10 seconds
 - Normal requests: 15 seconds
 - Large data fetches: 30 seconds
 - All requests use `AbortController` for proper cancellation
 
 **Protection Against:**
+
 - Hanging connections
 - Slow loris attacks (indirect)
 - Resource exhaustion from stalled requests
@@ -103,11 +113,13 @@ This document describes the security architecture, known limitations, and mitiga
 
 **What Happens:**
 API keys appear in URLs for certain requests:
+
 - Image URLs: `https://server/Items/{id}/Images/Primary?api_key={key}`
 - Video streams: `https://server/Videos/{id}/stream?api_key={key}`
 - Subtitles: `https://server/Videos/{id}/Subtitles/{index}?api_key={key}`
 
 **Where Keys Are Visible:**
+
 - Development console logs (URL previews)
 - Server access logs
 - Browser history (web platform)
@@ -132,14 +144,17 @@ Native components (`<Image>`, `react-native-video` player) cannot add custom HTT
 ### Mitigations
 
 **Required:**
+
 - Use HTTPS for remote servers (encrypts URLs in transit)
 
 **Recommended:**
+
 - Create dedicated API key for TomoTV with minimal permissions
 - Rotate API keys periodically
 - Monitor Jellyfin server access logs
 
 **For Maximum Security:**
+
 - Use Jellyfin server on local network only
 - Enable Jellyfin's IP whitelist feature
 - Use VPN for remote access instead of exposing server to internet
@@ -160,6 +175,7 @@ if (!parsedUrl.protocol.startsWith("http")) {
 ```
 
 **Validates:**
+
 - ✅ Protocol must be HTTP or HTTPS
 - ✅ URL must be parseable
 - ✅ Trims whitespace
@@ -170,6 +186,7 @@ if (!parsedUrl.protocol.startsWith("http")) {
 **Regex:** `^[a-zA-Z0-9]{16,64}$`
 
 **Validates:**
+
 - ✅ Only alphanumeric characters
 - ✅ 16-64 character length
 - ✅ Prevents special characters that could cause injection
@@ -179,6 +196,7 @@ if (!parsedUrl.protocol.startsWith("http")) {
 **Regex:** GUID format with/without dashes
 
 **Validates:**
+
 - ✅ Standard GUID format: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
 - ✅ Compact format: `xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
 - ✅ Only hex characters (0-9, a-f)
@@ -188,12 +206,14 @@ if (!parsedUrl.protocol.startsWith("http")) {
 **Implementation:** `services/jellyfinApi.ts` (parseYearsFromQuery)
 
 **Validates:**
+
 - ✅ Year formats: 4-digit years only
 - ✅ Date ranges: validates start < end
 - ✅ Decade parsing: "90s", "2000s"
 - ✅ Prevents injection via regex pattern matching
 
 **API Usage:**
+
 - Uses `URLSearchParams` for proper encoding
 - Prevents SQL/NoSQL injection via query escaping
 
@@ -204,11 +224,13 @@ if (!parsedUrl.protocol.startsWith("http")) {
 ### Production vs. Development
 
 **Production Builds:**
+
 - ✅ No debug information in error messages
 - ✅ No stack traces shown to users
 - ✅ Generic error messages only
 
 **Development Builds (`__DEV__` mode):**
+
 - Debug info shown for troubleshooting
 - Full error details in console
 - Not included in App Store builds
@@ -216,11 +238,13 @@ if (!parsedUrl.protocol.startsWith("http")) {
 ### Sensitive Data in Errors
 
 **Protected:**
+
 - ✅ API keys never appear in user-facing errors
 - ✅ Server URLs shown only in Settings (intentional)
 - ✅ Credentials sanitized from logs
 
 **Example:** Demo server error handling (jellyfinApi.ts):
+
 ```typescript
 if (response.status === 503) {
   throw new Error("Demo server is temporarily unavailable. Please try again in a few moments.");
@@ -236,6 +260,7 @@ User sees friendly message, not raw API response.
 ### Input Validation (Swift Layer)
 
 **Validation Enforced:**
+
 - ✅ URL scheme: Only HTTP/HTTPS image URLs accepted
 - ✅ String length: 500 character max for all text fields
 - ✅ Numeric ranges: All numeric props clamped to safe ranges
@@ -246,6 +271,7 @@ User sees friendly message, not raw API response.
 Non-fatal validation warnings emitted as events (not crashes).
 
 **Examples:**
+
 - Card dimensions: 50-1000 pixels (clamped)
 - Columns: 1-10 (clamped)
 - Font size: 8-72 points (clamped)
@@ -253,6 +279,7 @@ Non-fatal validation warnings emitted as events (not crashes).
 ### Image Loading
 
 **Security:**
+
 - ✅ Only HTTP/HTTPS URLs allowed
 - ✅ No file:// or javascript: scheme support
 - ✅ SwiftUI's AsyncImage handles downloads (system-level security)
@@ -264,12 +291,14 @@ Non-fatal validation warnings emitted as events (not crashes).
 ### Current Status (January 2026)
 
 **Security-Critical Packages:**
+
 - `expo-secure-store@15.0.7` - ✅ Current
 - `react-native-video@6.x` - ✅ Current
 - `react@19.1.0` - ✅ Latest
 - `react-native-tvos@0.81.4-0` - ✅ Maintained fork
 
 **Known Issues:**
+
 - None affecting security
 
 ---
@@ -279,37 +308,47 @@ Non-fatal validation warnings emitted as events (not crashes).
 ### Successfully Mitigated
 
 ✅ **Credential Injection via Settings Input**
+
 - Mitigation: Strict validation (regex, URL parsing)
 
 ✅ **URL Injection in Stream URLs**
+
 - Mitigation: URLSearchParams encoding, validation
 
 ✅ **Search Query Injection**
+
 - Mitigation: Year parsing with regex, parameter encoding
 
 ✅ **Man-in-the-Middle Attacks (Remote)**
+
 - Mitigation: HTTPS required for internet servers
 
 ✅ **Credential Exposure in Error Messages**
+
 - Mitigation: Generic errors in production, sanitized logs
 
 ✅ **Hardcoded Secrets**
+
 - Mitigation: All credentials in SecureStore, .env.local git-ignored
 
 ✅ **Demo Credentials Overwriting User Credentials**
+
 - Mitigation: IS_DEMO_MODE flag prevents dev credential sync
 
 ### Out of Scope (Not App Responsibility)
 
 ⚠️ **Local Network Interception**
+
 - User responsibility to secure home network
 - Recommend WPA3 encryption, strong WiFi password
 
 ⚠️ **Jellyfin Server Security**
+
 - External service beyond app control
 - User should keep Jellyfin updated
 
 ⚠️ **Device OS Security**
+
 - iOS/Android platform responsibility
 - App inherits platform security features
 
@@ -344,31 +383,33 @@ Non-fatal validation warnings emitted as events (not crashes).
 ### Trust Boundaries
 
 **Trusted:**
+
 - iOS/Android OS secure storage
 - User's device
 - User's Jellyfin server
 
 **Untrusted:**
+
 - Network (WiFi, internet)
 - Server logs
 - Third-party analytics (none used)
 
 ### Threat Scenarios
 
-| Threat | Likelihood | Impact | Mitigation |
-|--------|-----------|--------|------------|
-| Credential theft from device | LOW | HIGH | Secure storage, device encryption |
-| API key interception | LOW | MEDIUM | HTTPS required |
-| Jellyfin server compromise | MEDIUM | HIGH | Out of scope (user responsibility) |
-| Man-in-the-middle attack | LOW | MEDIUM | HTTPS for remote servers |
-| Malicious server URL injection | LOW | LOW | URL validation |
+| Threat                         | Likelihood | Impact | Mitigation                         |
+| ------------------------------ | ---------- | ------ | ---------------------------------- |
+| Credential theft from device   | LOW        | HIGH   | Secure storage, device encryption  |
+| API key interception           | LOW        | MEDIUM | HTTPS required                     |
+| Jellyfin server compromise     | MEDIUM     | HIGH   | Out of scope (user responsibility) |
+| Man-in-the-middle attack       | LOW        | MEDIUM | HTTPS for remote servers           |
+| Malicious server URL injection | LOW        | LOW    | URL validation                     |
 
 ---
 
 ## 11. Security Audit History
 
-| Date | Auditor | Findings | Status |
-|------|---------|----------|--------|
+| Date       | Auditor     | Findings           | Status    |
+| ---------- | ----------- | ------------------ | --------- |
 | 2026-01-22 | Claude Code | No critical issues | ✅ PASSED |
 
 ---
@@ -399,11 +440,11 @@ Non-fatal validation warnings emitted as events (not crashes).
 
 ### Summary of Findings
 
-| Severity | Count | Status |
-|----------|-------|--------|
-| CRITICAL | 3 | Needs improvement (not blocking) |
-| IMPORTANT | 6 | Recommended fixes |
-| **Total** | **9** | **Action plan provided** |
+| Severity  | Count | Status                           |
+| --------- | ----- | -------------------------------- |
+| CRITICAL  | 3     | Needs improvement (not blocking) |
+| IMPORTANT | 6     | Recommended fixes                |
+| **Total** | **9** | **Action plan provided**         |
 
 ---
 
@@ -417,6 +458,7 @@ Non-fatal validation warnings emitted as events (not crashes).
 **Reference:** See "API Key Exposure (Known Limitation)" section above for full mitigation strategy.
 
 This is a Jellyfin API requirement - native components (`<Image>`, `<Video>`) cannot add custom headers. The following mitigations are in place:
+
 - HTTPS enforced for remote servers (ATS policy)
 - API keys scoped to Jellyfin only (not system-level)
 - Documentation warns users about HTTPS requirement
@@ -427,11 +469,13 @@ This is a Jellyfin API requirement - native components (`<Image>`, `<Video>`) ca
 #### 2. No Server URL Validation (CRITICAL - Fix Recommended)
 
 **Current Behavior:**
+
 - Settings screen validates URL format (http/https protocol check)
 - Does NOT validate HTTPS enforcement for remote servers
 - Does NOT check for localhost/private IP ranges
 
 **Security Risk:**
+
 - Users could configure HTTP server on public internet (credentials in plaintext)
 - No warning for common misconfigurations
 - Potential SSRF if URL controlled by attacker
@@ -457,13 +501,13 @@ function validateServerUrl(url: string): { valid: boolean; error?: string } {
     const hostname = parsedUrl.hostname.toLowerCase();
 
     // Check for HTTPS on non-local servers
-    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+    const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1";
     const isPrivateIP = /^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)/.test(hostname);
 
-    if (!isLocalhost && !isPrivateIP && parsedUrl.protocol !== 'https:') {
+    if (!isLocalhost && !isPrivateIP && parsedUrl.protocol !== "https:") {
       return {
         valid: false,
-        error: 'Remote servers must use HTTPS for security. Local servers can use HTTP.'
+        error: "Remote servers must use HTTPS for security. Local servers can use HTTP.",
       };
     }
 
@@ -484,11 +528,13 @@ function validateServerUrl(url: string): { valid: boolean; error?: string } {
 #### 3. Error Message Information Disclosure (CRITICAL - Partially Fixed)
 
 **Current Status:**
+
 - Production builds hide debug info ✅
 - Generic error messages shown ✅
 - **ISSUE:** Some errors still expose server URLs and technical details
 
 **Examples Found:**
+
 - `jellyfinApi.ts:233` - "Failed to fetch user views from {server}"
 - `jellyfinApi.ts:503` - "Failed to connect to demo server at {url}"
 - Player error screens show full error messages from native layer
@@ -502,10 +548,10 @@ export function sanitizeErrorMessage(error: Error, context: string): string {
   let message = error.message;
 
   // Remove server URLs
-  message = message.replace(/https?:\/\/[^\s]+/g, '[server]');
+  message = message.replace(/https?:\/\/[^\s]+/g, "[server]");
 
   // Remove API keys (just in case)
-  message = message.replace(/api_key=[a-zA-Z0-9]+/g, 'api_key=[redacted]');
+  message = message.replace(/api_key=[a-zA-Z0-9]+/g, "api_key=[redacted]");
 
   // Generic fallback for production
   if (!__DEV__) {
@@ -517,12 +563,13 @@ export function sanitizeErrorMessage(error: Error, context: string): string {
 ```
 
 **Usage:**
+
 ```typescript
 try {
   const response = await fetch(url);
   // ... existing logic
 } catch (error) {
-  const sanitized = sanitizeErrorMessage(error as Error, 'API request');
+  const sanitized = sanitizeErrorMessage(error as Error, "API request");
   throw new Error(sanitized);
 }
 ```
@@ -536,11 +583,13 @@ try {
 #### 4. No HTTPS Certificate Validation (IMPORTANT - Document Only)
 
 **Current Behavior:**
+
 - iOS/tvOS rely on system-level ATS (App Transport Security)
 - ATS allows self-signed certs for local network (`NSAllowsLocalNetworking: true`)
 - No additional certificate pinning or validation
 
 **Risk Assessment:** LOW
+
 - System ATS provides baseline protection
 - Self-signed certs common for home Jellyfin servers
 - Implementing pinning would break user servers
@@ -548,6 +597,7 @@ try {
 **Recommendation:** Document only (no code change needed)
 
 Add to CLAUDE.md Known Issues:
+
 ```markdown
 4. **Self-Signed Certificates:** iOS allows self-signed certificates on local networks per App Transport Security policy. For production servers, use a valid SSL certificate from Let's Encrypt or similar CA.
 ```
@@ -561,6 +611,7 @@ Add to CLAUDE.md Known Issues:
 **No Action Required**
 
 The demo server credentials are:
+
 - Fetched from public API endpoint (Jellyfin's official demo)
 - Reset hourly by Jellyfin
 - Clearly documented as demo-only
@@ -571,10 +622,12 @@ The demo server credentials are:
 #### 6. No Rate Limiting (IMPORTANT - Recommend Implementation)
 
 **Current Behavior:**
+
 - Retry logic with exponential backoff (3 attempts max)
 - No protection against rapid-fire requests from bugs
 
 **Scenario:**
+
 - Infinite scroll bug triggers 100 simultaneous requests
 - Network timeout cascades (30 seconds × 100 = server overload)
 
@@ -583,7 +636,7 @@ The demo server credentials are:
 Add request queue with concurrency limit to `services/jellyfinApi.ts`:
 
 ```typescript
-import PQueue from 'p-queue';
+import PQueue from "p-queue";
 
 // Global request queue (5 concurrent requests max)
 const requestQueue = new PQueue({ concurrency: 5 });
@@ -609,6 +662,7 @@ export async function fetchLibraryVideos(startIndex = 0, limit = 60) {
 #### 7. Insufficient Logging Sanitization (IMPORTANT - Enhance Logger)
 
 **Current Status:**
+
 - Logger utility exists ✅
 - API keys manually removed in some places ✅
 - **GAP:** No automatic sanitization in logger
@@ -619,7 +673,7 @@ Update `utils/logger.ts`:
 
 ```typescript
 function sanitizeLogData(data: any): any {
-  if (typeof data !== 'object' || data === null) {
+  if (typeof data !== "object" || data === null) {
     return data;
   }
 
@@ -627,9 +681,9 @@ function sanitizeLogData(data: any): any {
 
   const sanitized = stringified
     // Remove API keys
-    .replace(/api_key=[a-zA-Z0-9]+/g, 'api_key=[REDACTED]')
+    .replace(/api_key=[a-zA-Z0-9]+/g, "api_key=[REDACTED]")
     // Remove full URLs (keep protocol and hostname only)
-    .replace(/(https?:\/\/[^\/\s"]+)(\/[^\s"]*)/g, '$1/[path]');
+    .replace(/(https?:\/\/[^\/\s"]+)(\/[^\s"]*)/g, "$1/[path]");
 
   return JSON.parse(sanitized);
 }
@@ -653,11 +707,13 @@ export const logger = {
 **Issue:** 30-second timeout hardcoded, no configuration
 
 **Current:**
+
 ```swift
 request.timeoutInterval = 30
 ```
 
 **Recommended:**
+
 ```swift
 // Make timeout configurable via React Native props
 let timeout = self.timeoutSeconds > 0 ? self.timeoutSeconds : 30.0
@@ -688,9 +744,9 @@ async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
   }
 
-  const contentType = response.headers.get('content-type');
-  if (!contentType?.includes('application/json')) {
-    throw new Error('Invalid server response (not JSON)');
+  const contentType = response.headers.get("content-type");
+  if (!contentType?.includes("application/json")) {
+    throw new Error("Invalid server response (not JSON)");
   }
 
   return response.json();
@@ -710,16 +766,15 @@ export async function fetchLibraryVideos(startIndex = 0, limit = 60) {
 ### Action Plan Summary
 
 **Immediate (Before v1.0 Release):**
+
 1. ✅ Add URL validation for HTTPS enforcement (Settings screen) - **Priority 1**
 2. ✅ Sanitize error messages to remove URLs (jellyfinApi.ts) - **Priority 2**
 3. ✅ Add Content-Type validation (jellyfinApi.ts) - **Priority 3**
 
-**Post-Release (v1.1):**
-4. Add request queue with concurrency limit - **Medium Priority**
-5. Enhance logger with automatic sanitization - **Medium Priority**
-6. Make Swift timeouts configurable - **Low Priority**
+**Post-Release (v1.1):** 4. Add request queue with concurrency limit - **Medium Priority** 5. Enhance logger with automatic sanitization - **Medium Priority** 6. Make Swift timeouts configurable - **Low Priority**
 
 **No Action Required:**
+
 - API keys in URLs (architectural constraint, documented)
 - Self-signed cert support (needed for home servers)
 - Demo credentials (already dynamic and secure)
@@ -731,39 +786,41 @@ export async function fetchLibraryVideos(startIndex = 0, limit = 60) {
 Security-focused test additions (see CLAUDE-testing.md for full details):
 
 **1. `services/__tests__/jellyfinApi.security.test.ts`**
+
 ```typescript
-describe('jellyfinApi - Security Validation', () => {
-  it('should reject HTTP for remote servers', () => {
-    const result = validateServerUrl('http://example.com:8096');
+describe("jellyfinApi - Security Validation", () => {
+  it("should reject HTTP for remote servers", () => {
+    const result = validateServerUrl("http://example.com:8096");
     expect(result.valid).toBe(false);
-    expect(result.error).toContain('HTTPS');
+    expect(result.error).toContain("HTTPS");
   });
 
-  it('should allow HTTP for local IPs', () => {
-    expect(validateServerUrl('http://192.168.1.100:8096').valid).toBe(true);
-    expect(validateServerUrl('http://10.0.0.5:8096').valid).toBe(true);
-    expect(validateServerUrl('http://localhost:8096').valid).toBe(true);
+  it("should allow HTTP for local IPs", () => {
+    expect(validateServerUrl("http://192.168.1.100:8096").valid).toBe(true);
+    expect(validateServerUrl("http://10.0.0.5:8096").valid).toBe(true);
+    expect(validateServerUrl("http://localhost:8096").valid).toBe(true);
   });
 
-  it('should sanitize server URLs from error messages', () => {
-    const error = new Error('Failed to fetch from https://jellyfin.example.com:8096/api');
-    const sanitized = sanitizeErrorMessage(error, 'API request');
+  it("should sanitize server URLs from error messages", () => {
+    const error = new Error("Failed to fetch from https://jellyfin.example.com:8096/api");
+    const sanitized = sanitizeErrorMessage(error, "API request");
 
-    expect(sanitized).not.toContain('jellyfin.example.com');
-    expect(sanitized).toContain('[server]');
+    expect(sanitized).not.toContain("jellyfin.example.com");
+    expect(sanitized).toContain("[server]");
   });
 
-  it('should remove API keys from error messages', () => {
-    const error = new Error('Request failed: api_key=abc123def456');
-    const sanitized = sanitizeErrorMessage(error, 'Request');
+  it("should remove API keys from error messages", () => {
+    const error = new Error("Request failed: api_key=abc123def456");
+    const sanitized = sanitizeErrorMessage(error, "Request");
 
-    expect(sanitized).not.toContain('abc123');
-    expect(sanitized).toContain('[redacted]');
+    expect(sanitized).not.toContain("abc123");
+    expect(sanitized).toContain("[redacted]");
   });
 });
 ```
 
 **2. `app/(tabs)/__tests__/settings.security.test.tsx`**
+
 - Input validation edge cases
 - SecureStore integration
 - URL sanitization
@@ -777,12 +834,12 @@ describe('jellyfinApi - Security Validation', () => {
 
 Add to Section 10 table:
 
-| Threat | Likelihood | Impact | Mitigation |
-|--------|-----------|--------|------------|
-| API key in server logs | MEDIUM | LOW | Documented limitation, HTTPS required |
-| HTTP on public server | LOW | HIGH | **NEW:** URL validation in Settings |
-| Error message disclosure | LOW | MEDIUM | **NEW:** Error sanitization wrapper |
-| Server DoS from app bug | LOW | MEDIUM | **NEW:** Request queue (v1.1) |
+| Threat                   | Likelihood | Impact | Mitigation                            |
+| ------------------------ | ---------- | ------ | ------------------------------------- |
+| API key in server logs   | MEDIUM     | LOW    | Documented limitation, HTTPS required |
+| HTTP on public server    | LOW        | HIGH   | **NEW:** URL validation in Settings   |
+| Error message disclosure | LOW        | MEDIUM | **NEW:** Error sanitization wrapper   |
+| Server DoS from app bug  | LOW        | MEDIUM | **NEW:** Request queue (v1.1)         |
 
 ---
 
@@ -798,6 +855,7 @@ Add to Section 10 table:
 Report security issues to the repository maintainer via GitHub Issues with [SECURITY] tag.
 
 **NOT Security Issues:**
+
 - API keys in URLs (documented design constraint)
 - Local HTTP connections (intentional for home servers)
 - Debug logs in development (stripped in production)

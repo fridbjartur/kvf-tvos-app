@@ -1,19 +1,9 @@
-import {
-  authenticateWithQuickConnect,
-  initiateQuickConnect,
-  pollQuickConnect,
-  saveAuthResult,
-} from "@/services/jellyfinApi";
+import { authenticateWithQuickConnect, initiateQuickConnect, pollQuickConnect, saveAuthResult } from "@/services/jellyfinApi";
 import { JellyfinAuthResult } from "@/types/jellyfin";
 import { logger } from "@/utils/logger";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export type QuickConnectStatus =
-  | "IDLE"
-  | "INITIATING"
-  | "SHOWING_CODE"
-  | "AUTHENTICATED"
-  | "ERROR";
+export type QuickConnectStatus = "IDLE" | "INITIATING" | "SHOWING_CODE" | "AUTHENTICATED" | "ERROR";
 
 interface UseQuickConnectReturn {
   /** The 6-char code to display to the user */
@@ -103,14 +93,7 @@ export function useQuickConnect(): UseQuickConnectReturn {
             if (cancelledRef.current) return;
 
             // Save credentials
-            await saveAuthResult(
-              serverUrl,
-              auth.AccessToken,
-              auth.User.Id,
-              auth.User.Name,
-              serverName,
-              "quickconnect",
-            );
+            await saveAuthResult(serverUrl, auth.AccessToken, auth.User.Id, auth.User.Name, serverName, "quickconnect");
 
             setAuthResult(auth);
             setStatus("AUTHENTICATED");
@@ -159,10 +142,7 @@ export function useQuickConnect(): UseQuickConnectReturn {
         } catch (initiateError) {
           if (cancelledRef.current) return;
 
-          const message =
-            initiateError instanceof Error
-              ? initiateError.message
-              : "Failed to initiate Quick Connect.";
+          const message = initiateError instanceof Error ? initiateError.message : "Failed to initiate Quick Connect.";
           setError(message);
           setStatus("ERROR");
 

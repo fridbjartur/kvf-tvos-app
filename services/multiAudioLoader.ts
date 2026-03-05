@@ -145,9 +145,7 @@ export function getAudioTracks(videoItem: JellyfinVideoItem): AudioTrackInfo[] {
     return [];
   }
 
-  const audioStreams = mediaStreams.filter(
-    (stream: JellyfinMediaStream) => stream.Type === "Audio"
-  );
+  const audioStreams = mediaStreams.filter((stream: JellyfinMediaStream) => stream.Type === "Audio");
 
   logger.info("Audio track detection", {
     service: "MultiAudioLoader",
@@ -161,9 +159,7 @@ export function getAudioTracks(videoItem: JellyfinVideoItem): AudioTrackInfo[] {
       Language: stream.Language || "und",
       Codec: stream.Codec || "unknown",
       Channels: stream.Channels || 2,
-      DisplayTitle:
-        stream.DisplayTitle ||
-        `${stream.Language || "Unknown"} (${stream.Codec || "Unknown"})`,
+      DisplayTitle: stream.DisplayTitle || `${stream.Language || "Unknown"} (${stream.Codec || "Unknown"})`,
       IsDefault: stream.IsDefault ?? false,
     };
 
@@ -179,14 +175,16 @@ export function getAudioTracks(videoItem: JellyfinVideoItem): AudioTrackInfo[] {
 
   // Respect Jellyfin's IsDefault flag
   // Jellyfin knows the correct default track based on server-side metadata
-  const defaultTrack = tracks.find(t => t.IsDefault);
+  const defaultTrack = tracks.find((t) => t.IsDefault);
   logger.info("Using Jellyfin's default track selection", {
     service: "MultiAudioLoader",
-    defaultTrack: defaultTrack ? {
-      index: defaultTrack.Index,
-      language: defaultTrack.Language,
-      displayTitle: defaultTrack.DisplayTitle,
-    } : null,
+    defaultTrack: defaultTrack
+      ? {
+          index: defaultTrack.Index,
+          language: defaultTrack.Language,
+          displayTitle: defaultTrack.DisplayTitle,
+        }
+      : null,
     totalTracks: tracks.length,
   });
 
@@ -208,12 +206,7 @@ export function getAudioTracks(videoItem: JellyfinVideoItem): AudioTrackInfo[] {
  * @returns Custom protocol URL for multi-audio playback (jellyfin-multi://...)
  * @throws Error if native module is not available or configuration fails
  */
-export async function prepareMultiAudioPlayback(
-  videoId: string,
-  videoItem: JellyfinVideoItem,
-  baseUrl: string,
-  apiKey: string
-): Promise<string> {
+export async function prepareMultiAudioPlayback(videoId: string, videoItem: JellyfinVideoItem, baseUrl: string, apiKey: string): Promise<string> {
   // Verify native module is available
   if (!isMultiAudioAvailable()) {
     throw new Error("Multi-audio native module not available on this platform");
@@ -239,12 +232,7 @@ export async function prepareMultiAudioPlayback(
 
   try {
     // Configure resource loader with track info
-    await MultiAudioResourceLoader.configureResourceLoader(
-      baseUrl,
-      apiKey,
-      videoId,
-      audioTracks
-    );
+    await MultiAudioResourceLoader.configureResourceLoader(baseUrl, apiKey, videoId, audioTracks);
 
     // Generate custom URL
     const customUrl = await MultiAudioResourceLoader.generateCustomUrl(videoId);

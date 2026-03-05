@@ -7,6 +7,7 @@ Thank you for your interest in contributing to TomoTV! This document provides gu
 See [CLAUDE-development.md](./CLAUDE-development.md) for detailed setup instructions.
 
 **Quick Start:**
+
 ```bash
 git clone https://github.com/keiver/tomotv.git
 cd tomotv
@@ -19,21 +20,25 @@ npm start
 ## Code Quality Requirements
 
 ### Testing
+
 - **Minimum coverage:** 60% overall
 - All new features must include tests
 - Run tests before submitting PR: `npm test`
 - Check coverage: `npm run test:coverage`
 
 ### TypeScript
+
 - Code must pass TypeScript strict mode: `npx tsc --noEmit --strict`
 - No `@ts-ignore` or `@ts-expect-error` without justification
 - Use proper types, not `any`
 
 ### Linting
+
 - Code must pass ESLint: `npm run lint`
 - Use Prettier for formatting (auto-fix on save)
 
 ### Accessibility
+
 - All interactive elements must have `accessibilityLabel`
 - Use `accessibilityRole` for semantic meaning
 - Test with VoiceOver on iOS/tvOS
@@ -66,12 +71,14 @@ npm start
 ## Code Style
 
 ### React/React Native
+
 - Use functional components with hooks
 - Use TypeScript interfaces for props
 - Follow existing component structure
 - Use React.memo for performance when appropriate
 
 ### Testing Patterns
+
 - Follow patterns from `services/__tests__/libraryManager.test.ts`
 - Use `jest.clearAllMocks()` in `beforeEach`
 - Reset singleton state before each test
@@ -79,6 +86,7 @@ npm start
 - Test error cases, not just happy paths
 
 ### File Organization
+
 ```
 services/          # Business logic (singletons)
 contexts/          # React context wrappers
@@ -92,18 +100,21 @@ utils/             # Utility functions
 ## Architecture Patterns
 
 ### Singleton Managers
+
 - Use singleton pattern for global state (see `LibraryManager`, `FolderNavigationManager`)
 - Provide pub/sub for React integration via contexts
 - Cache with TTL (5 min default)
 - Prevent duplicate concurrent requests
 
 ### Error Handling
+
 - Use structured logging: `logger.info()`, `logger.error()`
 - Classify errors with specific types
 - Provide user-friendly error messages
 - Implement retry logic with exponential backoff
 
 ### Performance
+
 - Use React.memo with custom comparison functions
 - Lazy compute expensive operations (only when needed)
 - Use disk-only image caching

@@ -33,6 +33,7 @@ This returns dimensions. If the image is larger than 800px in any dimension and 
 ### Step 2: Identify Regions of Interest
 
 For a typical full-page screenshot, regions include:
+
 - Header/Navigation (top 80-150px)
 - Hero section (varies)
 - Content sections (middle)
@@ -169,12 +170,14 @@ convert image.png -crop 100x100+400+1800 -resize 300% element.png
 ## When to Apply This Skill
 
 **Always apply when:**
+
 - Reviewing UI screenshots for design feedback
 - Identifying icons, buttons, or small text
 - Verifying specific visual elements the user mentions
 - Any task where visual accuracy matters
 
 **May skip when:**
+
 - Image is already small/focused (under 800px)
 - User is asking about large, obvious elements (hero text, main headings)
 - The question doesn't require identifying specific small elements
@@ -186,9 +189,11 @@ convert image.png -crop 100x100+400+1800 -resize 300% element.png
 **User uploads a full-page screenshot and asks about footer icons**
 
 ❌ **Wrong approach:**
+
 > "I can see GitHub and LinkedIn icons in the footer"
 
 ✅ **Correct approach:**
+
 ```bash
 # 1. Check dimensions
 identify screenshot.png

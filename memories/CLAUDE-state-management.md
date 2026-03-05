@@ -3,12 +3,14 @@
 **Last Updated:** January 24, 2026
 
 ## Quick Reference
+
 **Category:** Implementation
 **Keywords:** state, manager, context, singleton, pub-sub, caching, library, navigation
 
 TomoTV uses a Singleton Manager + Context wrapper pattern for global state with 5-minute TTL caching and pub/sub reactivity.
 
 ## Related Documentation
+
 - [`CLAUDE-api-reference.md`](./CLAUDE-api-reference.md) - API integration layer
 - [`CLAUDE-patterns.md`](./CLAUDE-patterns.md) - State usage patterns
 
@@ -61,6 +63,7 @@ Location: `services/`
 ### LibraryManager
 
 **Public API:**
+
 - `getInstance()` - Get singleton instance
 - `getState()` - Get current state snapshot
   ```typescript
@@ -79,6 +82,7 @@ Location: `services/`
 - `clearCache()` - Clear cached videos and state
 
 **Cache Strategy:**
+
 - 5-minute TTL on library data
 - Automatic refresh on cache expiration
 - Clears on credential changes
@@ -86,6 +90,7 @@ Location: `services/`
 ### FolderNavigationManager
 
 **Public API:**
+
 - `getInstance()` - Get singleton instance
 - `getState()` - Get navigation state snapshot
   ```typescript
@@ -109,6 +114,7 @@ Location: `services/`
 
 **Folder Stack:**
 Each entry tracks:
+
 - `id` - Folder/playlist ID
 - `name` - Display name
 - `type` - Entry type (folder, playlist, root)
@@ -147,6 +153,7 @@ const { items, folderStack, navigateToFolder, navigateBack, loadMore, isLoading 
 ```
 
 Features:
+
 - Breadcrumb sidebar (rotated text on left edge)
 - Back item at grid start for parent navigation
 - Per-folder caching with 5-minute TTL

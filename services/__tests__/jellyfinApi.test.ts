@@ -121,6 +121,51 @@ describe("jellyfinApi", () => {
     it("should return false when video item is null", () => {
       expect(needsTranscoding(null)).toBe(false);
     });
+
+    it("should return true for supported codec in MKV container", () => {
+      const videoItem: JellyfinVideoItem = {
+        Id: "123",
+        Name: "Test Video",
+        MediaStreams: [{ Type: "Video", Codec: "h264", Index: 0 }],
+        MediaSources: [{ Id: "123", Container: "mkv" }],
+      } as any;
+
+      expect(needsTranscoding(videoItem)).toBe(true);
+    });
+
+    it("should return false for supported codec in MP4 container", () => {
+      const videoItem: JellyfinVideoItem = {
+        Id: "123",
+        Name: "Test Video",
+        MediaStreams: [{ Type: "Video", Codec: "h264", Index: 0 }],
+        MediaSources: [{ Id: "123", Container: "mp4" }],
+      } as any;
+
+      expect(needsTranscoding(videoItem)).toBe(false);
+    });
+
+    it("should return true for unsupported containers like avi and webm", () => {
+      for (const container of ["avi", "wmv", "flv", "webm"]) {
+        const videoItem: JellyfinVideoItem = {
+          Id: "123",
+          Name: "Test Video",
+          MediaStreams: [{ Type: "Video", Codec: "hevc", Index: 0 }],
+          MediaSources: [{ Id: "123", Container: container }],
+        } as any;
+
+        expect(needsTranscoding(videoItem)).toBe(true);
+      }
+    });
+
+    it("should return false for supported codec with no container info", () => {
+      const videoItem: JellyfinVideoItem = {
+        Id: "123",
+        Name: "Test Video",
+        MediaStreams: [{ Type: "Video", Codec: "h264", Index: 0 }],
+      } as any;
+
+      expect(needsTranscoding(videoItem)).toBe(false);
+    });
   });
 
   describe("isAudioOnly", () => {
@@ -961,12 +1006,26 @@ describe("jellyfinApi", () => {
     });
 
     describe("getVideoStreamUrl", () => {
-      it("should generate direct play URL with API key", () => {
+      it("should generate direct play URL with Static=true and MediaSourceId", () => {
         const url = getVideoStreamUrl("video123");
 
-        expect(url).toBe("http://192.168.1.100:8096/Items/video123/Download?api_key=test-api-key");
-        expect(url).toContain("/Items/video123/Download");
+        expect(url).toBe(
+          "http://192.168.1.100:8096/Videos/video123/stream?Static=true&MediaSourceId=video123&api_key=test-api-key"
+        );
+        expect(url).toContain("/Videos/video123/stream");
+        expect(url).toContain("Static=true");
         expect(url).toContain("api_key=test-api-key");
+      });
+
+      it("should use MediaSourceId from videoItem when provided", () => {
+        const videoItem = {
+          Id: "video123",
+          Name: "Test",
+          MediaSources: [{ Id: "media-source-456" }],
+        } as any;
+        const url = getVideoStreamUrl("video123", videoItem);
+
+        expect(url).toContain("MediaSourceId=media-source-456");
       });
 
       it("should handle HTTPS server URLs", async () => {
@@ -979,7 +1038,7 @@ describe("jellyfinApi", () => {
         const url = getVideoStreamUrl("video123");
 
         expect(url).toContain("https://jellyfin.example.com");
-        expect(url).toContain("/Items/video123/Download");
+        expect(url).toContain("/Videos/video123/stream");
       });
     });
 

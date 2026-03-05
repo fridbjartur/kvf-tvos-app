@@ -1702,22 +1702,29 @@ async function requestLibraryItems(
 
 /**
  * Get video stream URL for a specific item
- * Always uses direct download - HLS generation appears broken in Jellyfin
+ * Uses /Videos/{id}/stream?Static=true for proper HTTP range support (seeking)
  * Returns empty string if config not yet loaded
  * @param itemId - The video item ID
+ * @param videoItem - Optional video item for extracting MediaSourceId
  */
-export function getVideoStreamUrl(itemId: string): string {
+export function getVideoStreamUrl(itemId: string, videoItem?: JellyfinVideoItem | null): string {
   if (!cachedConfig.server || !cachedConfig.apiKey) {
     logger.warn("getVideoStreamUrl called before config loaded", { service: "JellyfinAPI" });
     return "";
   }
-  // Use direct download endpoint with API key in URL
-  const url = `${cachedConfig.server}/Items/${itemId}/Download?api_key=${cachedConfig.apiKey}`;
+
+  const mediaSourceId = videoItem?.MediaSources?.[0]?.Id || itemId;
+  const url =
+    `${cachedConfig.server}/Videos/${itemId}/stream` +
+    `?Static=true` +
+    `&MediaSourceId=${mediaSourceId}` +
+    `&api_key=${cachedConfig.apiKey}`;
 
   logger.debug("Generated direct play stream URL", {
     service: "JellyfinAPI",
     server: cachedConfig.server,
     itemId,
+    mediaSourceId,
   });
 
   return url;
@@ -2190,13 +2197,20 @@ export function needsTranscoding(videoItem: JellyfinVideoItem | null): boolean {
 
   const supported = isCodecSupported(videoStream.Codec);
 
-  logger.debug("Codec check result", {
+  // Check container format: AVPlayer only supports MP4/MOV/M4V containers
+  const container = videoItem.MediaSources?.[0]?.Container?.toLowerCase();
+  const avplayerContainers = ["mp4", "mov", "m4v", "mp3", "aac", "wav"];
+  const unsupportedContainer = container ? !avplayerContainers.includes(container) : false;
+
+  logger.debug("Codec/container check result", {
     service: "CodecCheck",
     codec: videoStream.Codec,
-    supported,
+    container: container || "unknown",
+    codecSupported: supported,
+    unsupportedContainer,
   });
 
-  return !supported;
+  return !supported || unsupportedContainer;
 }
 
 /**

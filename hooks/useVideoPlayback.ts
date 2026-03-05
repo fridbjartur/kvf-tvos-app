@@ -539,7 +539,7 @@ export function useVideoPlayback(config: VideoPlaybackConfig): VideoPlaybackResu
           }
         } else {
           // Direct play
-          url = getVideoStreamUrl(videoId);
+          url = getVideoStreamUrl(videoId, details);
 
           // CLEAR REF: Direct play doesn't use multi-audio
           isUsingMultiAudioRef.current = false;

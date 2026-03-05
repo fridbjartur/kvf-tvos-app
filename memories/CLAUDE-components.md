@@ -254,10 +254,15 @@ When using grid items in FlatList:
 
 ---
 
-## Design System Alignment
+## Design System / Color Palette
 
-All components follow the color palette in `CLAUDE.md`:
-- Focus borders: `#FFC312` (Primary Gold)
-- Backgrounds: `#1C1C1E` (Background)
-- Cards: `#2C2C2E` (Card/Section)
-- Text: `#FFFFFF` (Primary), `#8E8E93` (Secondary)
+| Color          | Hex       | Usage                                    |
+| -------------- | --------- | ---------------------------------------- |
+| Background     | `#1C1C1E` | All screen backgrounds                   |
+| Card/Section   | `#2C2C2E` | Settings sections, elevated surfaces     |
+| Card Focused   | `#3A3A3C` | Focused card background                  |
+| Primary/Gold   | `#FFC312` | Icons, focus borders, accents            |
+| Success/Green  | `#34C759` | URLs, Jellyfin highlight, success states |
+| Text Primary   | `#FFFFFF` | Headings, important text                 |
+| Text Secondary | `#8E8E93` | Subtitles, labels                        |
+| Text Tertiary  | `#636366` | Captions, hints                          |

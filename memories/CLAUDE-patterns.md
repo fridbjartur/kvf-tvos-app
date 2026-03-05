@@ -153,3 +153,58 @@ For iOS/Android:
 - Automatically expands Series results to playable Episodes
 - Returns only playable items (Movie, Video, Episode, Audio)
 - Path/folder names are searchable via Jellyfin's SearchTerm
+
+---
+
+## Architecture Reference
+
+### Technology Stack
+
+- **React Native TVOS** (`npm:react-native-tvos@0.81.4-0`) - TV-optimized React Native
+- **Expo Router** 6.0.14 - File-based routing with typed routes
+- **Expo Video** 3.0.14 - Native video playback with full codec support
+- **React Native Reanimated** 4.1.0 - GPU-accelerated animations
+- **TypeScript** 5.9.2 - Full type safety
+- **Jest** 29.7.0 - Testing framework
+- **expo-tvos-search** 1.3.1 - Native tvOS search UI (separate repo)
+
+### Folder Structure
+
+```
+app/              # Expo Router screens (file-based routing)
+  (tabs)/         # Tab navigation group (Settings, Library, Search, Help)
+  player.tsx      # Full-screen video player (modal)
+components/       # Reusable UI components
+contexts/         # React Context providers + singleton manager wrappers
+hooks/            # Custom React hooks (useVideoPlayback, useColorScheme, useAppStateRefresh)
+services/         # API integration + singleton state managers
+utils/            # Utility functions (logger, retry)
+types/            # TypeScript type definitions
+```
+
+### Error Classification System
+
+| Error Type       | Description                               | Recovery Strategy               |
+| ---------------- | ----------------------------------------- | ------------------------------- |
+| `METADATA_FETCH` | Failed to fetch video details from server | User retry only                 |
+| `STREAM_URL`     | Failed to generate stream URL             | User retry only                 |
+| `PLAYBACK`       | Video player initialization failed        | Auto-retry with transcoding     |
+| `NETWORK`        | Network timeout or connection error       | User retry only                 |
+| `UNKNOWN`        | Unclassified errors                       | User retry only                 |
+
+Only `PLAYBACK` errors trigger automatic retry (first attempt: direct play, second: transcoding, max 1 auto-retry).
+
+### Codec and Streaming Strategy
+
+- **Direct Play:** H.264, HEVC (natively supported on iOS/tvOS)
+- **Transcoding:** All other codecs (MPEG-4, VP8, VP9, AV1, VC-1, MPEG-2, DivX, Xvid)
+- **HLS Master.m3u8:** Primary transcoding endpoint with adaptive bitrate
+- **Direct Download:** Fallback for direct-compatible files
+- **Subtitle Handling:** Both external (.srt) and embedded subtitle tracks included in HLS manifest as toggleable WebVTT streams via SubtitleMethod=Hls
+
+### Platform-Specific Features
+
+- **iOS/tvOS:** Native tabs, TV event handlers (menu button), larger UI elements
+- **Android:** Hardware back button support
+- **Web:** React Native Web with responsive design
+- **TV-Specific:** Focus management with `isTVSelectable`, directional navigation

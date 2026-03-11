@@ -1,6 +1,5 @@
 # Tomo TV - Jellyfin Client for Apple TV
 
-[![Version](https://img.shields.io/badge/version-1.3.2-blue.svg)](https://github.com/keiver/tomotv/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-tvOS-lightgrey.svg)](https://apps.apple.com/us/app/tomo-tv/id6755077888)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](package.json)
@@ -116,8 +115,8 @@ Tomo TV supports 480p, 540p, 720p, 1080p, and 4K transcoding quality presets. Co
 
 ### Network Requirements
 
-- **Local network:** HTTP connections allowed via `NSAllowsLocalNetworking`
-- **Remote servers:** HTTPS required (security policy)
+- **All networks:** HTTP and HTTPS connections allowed via `NSAllowsArbitraryLoads`
+- **Remote servers:** HTTPS strongly recommended; HTTP exposes credentials in plaintext
 
 ## Development
 
@@ -177,7 +176,7 @@ Contributions are welcome! This is a real, production app used by real users.
 
 - **Codec support:** Only H.264 and HEVC direct play; all others require transcoding
 - **Platform:** tvOS only (Android not supported for now)
-- **Network:** HTTP only allowed on local networks; remote servers require HTTPS
+- **Network:** HTTP allowed on all networks; HTTPS recommended for remote servers (HTTP exposes credentials)
 - **Server:** Jellyfin only (not compatible with Plex, Emby, etc.)
 
 ## License
@@ -193,7 +192,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Links
 
-- **Documentation:** [keiver.dev/lab/tomotv](https://keiver.dev/lab/tomotv)
+- **Documentation:** [https://tomotv.app/](https://tomotv.app/)
 - **Support:** <contact@keiver.dev>
 - **Demo Server:** Uses Jellyfin's official demo at demo.jellyfin.org
 - **expo-tvos-search:** [github.com/keiver/expo-tvos-search](https://github.com/keiver/expo-tvos-search)

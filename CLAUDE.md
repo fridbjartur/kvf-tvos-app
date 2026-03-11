@@ -129,7 +129,7 @@ Workflow: Edit in `native/ios/MultiAudioResourceLoader/` -> `npm run prebuild:tv
 ## Known Issues
 
 1. Only H.264 and HEVC are direct-played; all others require server-side transcoding
-2. HTTP connections limited to local networks; public Jellyfin servers must use HTTPS
+2. HTTP allowed to all networks; HTTPS recommended for public servers (HTTP exposes credentials in plaintext)
 3. Only works with Jellyfin servers (not Plex, Emby, etc.)
 
 ## No Invented Fixes

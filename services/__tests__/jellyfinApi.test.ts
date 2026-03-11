@@ -847,6 +847,10 @@ describe("jellyfinApi", () => {
           .mockResolvedValueOnce({
             ok: true,
             json: async () => ({ Items: [] }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({ ServerName: "Demo Server" }),
           });
 
         mockSecureStore.setItemAsync.mockResolvedValue(undefined);
@@ -859,8 +863,8 @@ describe("jellyfinApi", () => {
 
         await connectToDemoServer();
 
-        // Verify retry occurred (2 auth calls + 1 validation call = 3)
-        expect(global.fetch).toHaveBeenCalledTimes(3);
+        // Verify retry occurred (2 auth calls + 1 validation + 1 server info = 4)
+        expect(global.fetch).toHaveBeenCalledTimes(4);
       });
 
       it("should fail after max retry attempts", async () => {

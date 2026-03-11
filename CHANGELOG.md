@@ -1,6 +1,20 @@
 # Changelog
 
-All notable changes to TomoTV are documented here.
+All notable changes to Tomo TV are documented here.
+
+## [1.3.3] - 2026-03-11
+
+### Changed
+
+- Allow HTTP connections on all networks via `NSAllowsArbitraryLoads` (previously local-only via `NSAllowsLocalNetworking`)
+- Loading username correctly when running the app locally with dev env variables
+
+## [1.3.2] - 2026-03-05
+
+### Fixed
+
+- MKV, AVI, and WebM containers now route to transcoding instead of crashing AVPlayer
+- Corrected direct play URL to include MediaSourceId
 
 ## [1.3.1] - 2026-02-25
 

@@ -7,6 +7,7 @@ All notable changes to Tomo TV are documented here.
 ### Changed
 
 - Allow HTTP connections on all networks via `NSAllowsArbitraryLoads` (previously local-only via `NSAllowsLocalNetworking`)
+- Loading username correctly when running the app locally with dev env variables
 
 ## [1.3.1] - 2026-02-25
 

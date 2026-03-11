@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to TomoTV are documented here.
+All notable changes to Tomo TV are documented here.
 
 ## [1.3.3] - 2026-03-11
 

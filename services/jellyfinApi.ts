@@ -255,10 +255,29 @@ export async function syncDevCredentials(): Promise<void> {
       SecureStore.setItemAsync(STORAGE_KEYS.SERVER_URL, DEV_SERVER),
       SecureStore.setItemAsync(STORAGE_KEYS.API_KEY, DEV_API_KEY),
       SecureStore.setItemAsync(STORAGE_KEYS.USER_ID, DEV_USER_ID),
+      SecureStore.setItemAsync(STORAGE_KEYS.AUTH_METHOD, "apikey"),
     ]);
     logger.debug("Synced dev credentials to SecureStore", {
       service: "JellyfinAPI",
     });
+
+    // Fetch and store the user's display name (non-blocking)
+    try {
+      const response = await fetch(`${DEV_SERVER}/Users/${DEV_USER_ID}`, {
+        headers: { Authorization: `MediaBrowser Token="${DEV_API_KEY}"` },
+      });
+      if (response.ok) {
+        const userData = await response.json();
+        if (userData.Name) {
+          await SecureStore.setItemAsync(STORAGE_KEYS.USER_NAME, userData.Name);
+          logger.debug("Stored dev user name", { service: "JellyfinAPI", userName: userData.Name });
+        }
+      }
+    } catch {
+      logger.debug("Could not fetch dev user name, will show fallback", {
+        service: "JellyfinAPI",
+      });
+    }
   } catch (error) {
     logger.error("Error syncing dev credentials", error, {
       service: "JellyfinAPI",

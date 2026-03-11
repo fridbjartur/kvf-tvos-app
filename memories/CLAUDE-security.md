@@ -70,24 +70,25 @@ This document describes the security architecture, known limitations, and mitiga
 
 ### Transport Layer Security
 
-**HTTPS Enforcement:**
+**HTTPS Policy:**
 
-- ✅ HTTPS **required** for remote/internet Jellyfin servers
-- ✅ HTTP **allowed** for local network only (192.168.x.x, 10.x.x.x, etc.)
+- ✅ HTTPS **recommended** for remote/internet Jellyfin servers
+- ✅ HTTP **allowed** for all networks (local and remote)
 - ✅ Configured via `NSAppTransportSecurity` in app.json
 
 **App Transport Security (iOS/tvOS):**
 
 ```json
 "NSAppTransportSecurity": {
-  "NSAllowsLocalNetworking": true
+  "NSAllowsArbitraryLoads": true
 }
 ```
 
 **What This Means:**
 
-- Internet servers: Must use HTTPS (enforced by iOS)
-- Local network: HTTP allowed (common for home Jellyfin servers)
+- All servers: HTTP and HTTPS both allowed
+- ⚠️ HTTP on public servers exposes credentials (username, password, API keys) in plaintext
+- HTTPS strongly recommended for any server accessible over the internet
 - No certificate pinning (users may have self-signed certs)
 
 ### Request Timeouts
@@ -585,7 +586,7 @@ try {
 **Current Behavior:**
 
 - iOS/tvOS rely on system-level ATS (App Transport Security)
-- ATS allows self-signed certs for local network (`NSAllowsLocalNetworking: true`)
+- ATS allows all HTTP/HTTPS connections (`NSAllowsArbitraryLoads: true`)
 - No additional certificate pinning or validation
 
 **Risk Assessment:** LOW

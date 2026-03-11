@@ -126,7 +126,7 @@ EXPO_PUBLIC_DEV_JELLYFIN_USER_ID=your_user_id
 
 - Never commit `.env.local` (already in `.gitignore`)
 - No hardcoded credentials in source code
-- ATS (App Transport Security) allows HTTP for local networks only (HTTPS required for internet servers)
+- ATS (App Transport Security) allows HTTP for all networks (HTTPS recommended for internet servers)
 - Credentials stored in device Keychain
 
 ### API Key in URLs (Jellyfin Limitation)

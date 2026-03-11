@@ -2,6 +2,12 @@
 
 All notable changes to TomoTV are documented here.
 
+## [1.3.3] - 2026-03-11
+
+### Changed
+
+- Allow HTTP connections on all networks via `NSAllowsArbitraryLoads` (previously local-only via `NSAllowsLocalNetworking`)
+
 ## [1.3.1] - 2026-02-25
 
 ### Added

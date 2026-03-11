@@ -64,7 +64,7 @@ TomoTV connects your Apple TV to your Jellyfin media server. Select a video, it 
 **REQUIREMENTS**
 • Jellyfin 10.8 or later
 • Transcoding enabled on your server
-• Local network or HTTPS connection
+• Network connection (HTTP or HTTPS)
 
 **COMPATIBILITY**
 Most video formats just work. Common formats play directly on your Apple TV, while others convert automatically on your server.
@@ -437,7 +437,7 @@ Alternatively, set up a local Jellyfin server:
 Notes:
 - App requires a running Jellyfin server (similar to how Plex apps require Plex server)
 - Transcoding features require FFmpeg installed on Jellyfin server
-- App works best on local network but supports HTTPS remote connections
+- App supports both local and remote connections over HTTP or HTTPS
 ```
 
 ---

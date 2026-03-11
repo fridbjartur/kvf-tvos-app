@@ -116,8 +116,8 @@ Tomo TV supports 480p, 540p, 720p, 1080p, and 4K transcoding quality presets. Co
 
 ### Network Requirements
 
-- **Local network:** HTTP connections allowed via `NSAllowsLocalNetworking`
-- **Remote servers:** HTTPS required (security policy)
+- **All networks:** HTTP and HTTPS connections allowed via `NSAllowsArbitraryLoads`
+- **Remote servers:** HTTPS strongly recommended; HTTP exposes credentials in plaintext
 
 ## Development
 
@@ -177,7 +177,7 @@ Contributions are welcome! This is a real, production app used by real users.
 
 - **Codec support:** Only H.264 and HEVC direct play; all others require transcoding
 - **Platform:** tvOS only (Android not supported for now)
-- **Network:** HTTP only allowed on local networks; remote servers require HTTPS
+- **Network:** HTTP allowed on all networks; HTTPS recommended for remote servers (HTTP exposes credentials)
 - **Server:** Jellyfin only (not compatible with Plex, Emby, etc.)
 
 ## License

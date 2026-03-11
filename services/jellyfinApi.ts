@@ -11,6 +11,7 @@ import {
 import { logger } from "@/utils/logger";
 import { retryWithBackoff } from "@/utils/retry";
 import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 
 // Development fallback credentials from .env.local
 // These are ONLY used during local development if user hasn't configured settings
@@ -278,6 +279,24 @@ export async function syncDevCredentials(): Promise<void> {
         service: "JellyfinAPI",
       });
     }
+
+    // Fetch and store server name (non-blocking)
+    try {
+      const infoResponse = await fetch(`${DEV_SERVER}/System/Info/Public`, {
+        headers: { Accept: "application/json" },
+      });
+      if (infoResponse.ok) {
+        const serverInfo = await infoResponse.json();
+        if (serverInfo.ServerName) {
+          await SecureStore.setItemAsync(STORAGE_KEYS.SERVER_NAME, serverInfo.ServerName);
+          logger.debug("Stored dev server name", { service: "JellyfinAPI", serverName: serverInfo.ServerName });
+        }
+      }
+    } catch {
+      logger.debug("Could not fetch dev server name, URL fallback will be used", {
+        service: "JellyfinAPI",
+      });
+    }
   } catch (error) {
     logger.error("Error syncing dev credentials", error, {
       service: "JellyfinAPI",
@@ -470,7 +489,7 @@ export async function connectToDemoServer(clearCaches: boolean = true): Promise<
         },
         { maxAttempts: 1 }, // No retry for validation
       );
-    } catch (validationError) {
+    } catch {
       // Rollback - clear everything if validation fails
       await Promise.all([
         SecureStore.deleteItemAsync(STORAGE_KEYS.SERVER_URL).catch(() => {}),
@@ -486,6 +505,21 @@ export async function connectToDemoServer(clearCaches: boolean = true): Promise<
 
     // Only mark demo mode active AFTER validation succeeds
     await SecureStore.setItemAsync(STORAGE_KEYS.IS_DEMO_MODE, "true");
+
+    // Fetch and store server name (non-blocking)
+    try {
+      const infoResponse = await fetch(`${demoServerUrl}/System/Info/Public`, {
+        headers: { Accept: "application/json" },
+      });
+      if (infoResponse.ok) {
+        const serverInfo = await infoResponse.json();
+        if (serverInfo.ServerName) {
+          await SecureStore.setItemAsync(STORAGE_KEYS.SERVER_NAME, serverInfo.ServerName);
+        }
+      }
+    } catch {
+      // Non-critical — URL fallback will be used
+    }
 
     // Clear manager caches to prevent stale data (defensive - don't fail on cache clear errors)
     // Skip cache clearing when refreshing credentials mid-session to preserve UI state
@@ -621,9 +655,6 @@ async function getOrCreateDeviceId(): Promise<string> {
 function getClientAuthHeader(deviceId: string): string {
   return `MediaBrowser Client="TomoTV", Device="${Platform.OS}", DeviceId="${deviceId}", Version="1.3.0"`;
 }
-
-// Lazy-import Platform to avoid circular dependency issues at module scope
-import { Platform } from "react-native";
 
 /**
  * Validate a server URL by hitting /System/Info/Public (no auth required).

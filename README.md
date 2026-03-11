@@ -1,6 +1,5 @@
 # Tomo TV - Jellyfin Client for Apple TV
 
-[![Version](https://img.shields.io/badge/version-1.3.2-blue.svg)](https://github.com/keiver/tomotv/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-tvOS-lightgrey.svg)](https://apps.apple.com/us/app/tomo-tv/id6755077888)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](package.json)
@@ -193,7 +192,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Links
 
-- **Documentation:** [keiver.dev/lab/tomotv](https://keiver.dev/lab/tomotv)
+- **Documentation:** [https://tomotv.app/](https://tomotv.app/)
 - **Support:** <contact@keiver.dev>
 - **Demo Server:** Uses Jellyfin's official demo at demo.jellyfin.org
 - **expo-tvos-search:** [github.com/keiver/expo-tvos-search](https://github.com/keiver/expo-tvos-search)

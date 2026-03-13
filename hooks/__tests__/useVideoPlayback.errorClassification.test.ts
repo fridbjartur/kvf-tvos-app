@@ -160,6 +160,36 @@ describe("classifyPlaybackError", () => {
     });
   });
 
+  describe("Native AVPlayer errors", () => {
+    it("should classify CoreMediaErrorDomain -12971 as DECODE", () => {
+      expect(
+        classifyPlaybackError({
+          code: -12971,
+          domain: "CoreMediaErrorDomain",
+          localizedDescription: "Failed to parse segment as MPEG-2 TS or ES",
+        }),
+      ).toBe(PlaybackErrorType.DECODE);
+    });
+
+    it("should classify native error with localizedDescription as NETWORK", () => {
+      expect(
+        classifyPlaybackError({
+          code: -1009,
+          domain: "NSURLErrorDomain",
+          localizedDescription: "Network error: connection refused",
+        }),
+      ).toBe(PlaybackErrorType.NETWORK);
+    });
+
+    it("should classify native error with only localizedDescription (no .message)", () => {
+      expect(classifyPlaybackError({ localizedDescription: "Unauthorized access denied" })).toBe(PlaybackErrorType.UNAUTHORIZED);
+    });
+
+    it("should return UNKNOWN for empty object (no message, no localizedDescription)", () => {
+      expect(classifyPlaybackError({})).toBe(PlaybackErrorType.UNKNOWN);
+    });
+  });
+
   describe("Edge cases", () => {
     it("should handle errors from plain objects with message property", () => {
       expect(classifyPlaybackError({ message: "Network error" })).toBe(PlaybackErrorType.NETWORK);

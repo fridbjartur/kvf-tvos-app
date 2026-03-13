@@ -43,7 +43,10 @@ export function MarqueeText({ children, active, style, speed = 60 }: MarqueeText
     const overflow = textWidth - containerWidth;
     const scrollMs = (overflow / speed) * 1000;
 
-    translateX.value = withRepeat(withSequence(withDelay(300, withTiming(-overflow, { duration: scrollMs, easing: Easing.linear })), withDelay(800, withTiming(0, { duration: 0 }))), -1);
+    translateX.value = withRepeat(
+      withSequence(withDelay(300, withTiming(-overflow, { duration: scrollMs, easing: Easing.linear })), withDelay(800, withTiming(0, { duration: scrollMs, easing: Easing.linear }))),
+      -1,
+    );
 
     return () => {
       cancelAnimation(translateX);

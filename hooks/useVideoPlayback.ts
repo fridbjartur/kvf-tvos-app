@@ -76,12 +76,18 @@ const ERROR_PATTERNS: { type: PlaybackErrorType; patterns: RegExp[] }[] = [
 export function classifyPlaybackError(error: unknown): PlaybackErrorType {
   if (!error) return PlaybackErrorType.UNKNOWN;
 
-  // Extract error message from Error instances, plain objects with message property, or convert to string
+  // Native AVPlayer: CoreMediaErrorDomain -12971 = failed to parse segment
+  if (typeof error === "object" && error !== null && "code" in error) {
+    if ((error as { code: number }).code === -12971) return PlaybackErrorType.DECODE;
+  }
+
+  // Extract error message, preferring localizedDescription for native AVPlayer errors
   let errorMessage: string;
   if (error instanceof Error) {
     errorMessage = error.message;
-  } else if (typeof error === "object" && error !== null && "message" in error) {
-    errorMessage = String((error as { message: unknown }).message);
+  } else if (typeof error === "object" && error !== null) {
+    const obj = error as Record<string, unknown>;
+    errorMessage = String(obj.localizedDescription || obj.message || error);
   } else {
     errorMessage = String(error);
   }

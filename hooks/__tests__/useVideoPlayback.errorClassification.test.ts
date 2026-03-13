@@ -171,6 +171,16 @@ describe("classifyPlaybackError", () => {
       ).toBe(PlaybackErrorType.DECODE);
     });
 
+    it("should NOT classify -12971 as DECODE when domain is not CoreMediaErrorDomain", () => {
+      expect(
+        classifyPlaybackError({
+          code: -12971,
+          domain: "SomeOtherDomain",
+          localizedDescription: "Failed to parse segment",
+        }),
+      ).not.toBe(PlaybackErrorType.DECODE);
+    });
+
     it("should classify native error with localizedDescription as NETWORK", () => {
       expect(
         classifyPlaybackError({
@@ -249,18 +259,13 @@ describe("getPlaybackErrorMessage", () => {
     expect(message).toBe("Failed to load video");
   });
 
-  it("should include original error for UNKNOWN type", () => {
-    const message = getPlaybackErrorMessage(PlaybackErrorType.UNKNOWN, "Something went wrong");
-    expect(message).toBe("Playback error: Something went wrong");
-  });
-
-  it("should NOT append original error for classified error types", () => {
-    // For all classified types, original error is not appended to message
-    expect(getPlaybackErrorMessage(PlaybackErrorType.NETWORK, "ECONNREFUSED")).toBe("Unable to connect to Jellyfin server");
-    expect(getPlaybackErrorMessage(PlaybackErrorType.UNAUTHORIZED, "401 Unauthorized")).toBe("Authentication failed. Your session may have expired.");
-    expect(getPlaybackErrorMessage(PlaybackErrorType.NOT_FOUND, "404 Not Found")).toBe("Video not found on server");
-    expect(getPlaybackErrorMessage(PlaybackErrorType.TIMEOUT, "ETIMEDOUT")).toBe("Connection timed out. Please check your network");
-    expect(getPlaybackErrorMessage(PlaybackErrorType.CORRUPT, "File corrupted")).toBe("This video file appears to be corrupted or in an unsupported format");
-    expect(getPlaybackErrorMessage(PlaybackErrorType.DECODE, "Codec error")).toBe("Unable to decode video. Try a different quality setting");
+  it("should return canned messages for all classified error types", () => {
+    expect(getPlaybackErrorMessage(PlaybackErrorType.UNKNOWN)).toBe("Failed to load video");
+    expect(getPlaybackErrorMessage(PlaybackErrorType.NETWORK)).toBe("Unable to connect to Jellyfin server");
+    expect(getPlaybackErrorMessage(PlaybackErrorType.UNAUTHORIZED)).toBe("Authentication failed. Your session may have expired.");
+    expect(getPlaybackErrorMessage(PlaybackErrorType.NOT_FOUND)).toBe("Video not found on server");
+    expect(getPlaybackErrorMessage(PlaybackErrorType.TIMEOUT)).toBe("Connection timed out. Please check your network");
+    expect(getPlaybackErrorMessage(PlaybackErrorType.CORRUPT)).toBe("This video file appears to be corrupted or in an unsupported format");
+    expect(getPlaybackErrorMessage(PlaybackErrorType.DECODE)).toBe("Unable to decode video. Try a different quality setting");
   });
 });

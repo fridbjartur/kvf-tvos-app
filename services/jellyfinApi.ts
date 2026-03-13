@@ -2238,7 +2238,9 @@ export function needsTranscoding(videoItem: JellyfinVideoItem | null): boolean {
   // Check container format: AVPlayer only supports MP4/MOV/M4V containers
   const container = videoItem.MediaSources?.[0]?.Container?.toLowerCase();
   const avplayerContainers = ["mp4", "mov", "m4v"];
-  const unsupportedContainer = container ? !container.split(",").some((c) => avplayerContainers.includes(c.trim())) : false;
+  // Jellyfin's Container field is "primaryFormat[,codecHints]"; only the first token is the actual container
+  const primaryContainer = container?.split(",")[0].trim();
+  const unsupportedContainer = primaryContainer ? !avplayerContainers.includes(primaryContainer) : false;
 
   logger.debug("Codec/container check result", {
     service: "CodecCheck",

@@ -157,6 +157,28 @@ describe("jellyfinApi", () => {
       }
     });
 
+    it("should return false for comma-separated container with a supported token", () => {
+      const videoItem: JellyfinVideoItem = {
+        Id: "123",
+        Name: "Test Video",
+        MediaStreams: [{ Type: "Video", Codec: "h264", Index: 0 }],
+        MediaSources: [{ Id: "123", Container: "mov,mp4,m4a,3gp,3g2,mj2" }],
+      } as any;
+
+      expect(needsTranscoding(videoItem)).toBe(false);
+    });
+
+    it("should return true for comma-separated container with no supported token", () => {
+      const videoItem: JellyfinVideoItem = {
+        Id: "123",
+        Name: "Test Video",
+        MediaStreams: [{ Type: "Video", Codec: "hevc", Index: 0 }],
+        MediaSources: [{ Id: "123", Container: "mkv,webm" }],
+      } as any;
+
+      expect(needsTranscoding(videoItem)).toBe(true);
+    });
+
     it("should return false for supported codec with no container info", () => {
       const videoItem: JellyfinVideoItem = {
         Id: "123",

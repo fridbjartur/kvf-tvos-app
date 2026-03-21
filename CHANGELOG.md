@@ -15,7 +15,7 @@ All notable changes to Tomo TV are documented here.
 ### Changed
 
 - HLS manifest attributes sanitized against malformed metadata
-- Verbose native logging gated behind DEBUG builds
+- URL-level native logging (manifest URLs, stream URLs) gated behind DEBUG builds
 
 ## [1.3.3] - 2026-03-11
 

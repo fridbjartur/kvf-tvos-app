@@ -76,12 +76,19 @@ const ERROR_PATTERNS: { type: PlaybackErrorType; patterns: RegExp[] }[] = [
 export function classifyPlaybackError(error: unknown): PlaybackErrorType {
   if (!error) return PlaybackErrorType.UNKNOWN;
 
-  // Extract error message from Error instances, plain objects with message property, or convert to string
+  // Native AVPlayer: CoreMediaErrorDomain -12971 = failed to parse segment
+  if (typeof error === "object" && error !== null && "code" in error && "domain" in error) {
+    const native = error as { code: number; domain: string };
+    if (native.code === -12971 && native.domain === "CoreMediaErrorDomain") return PlaybackErrorType.DECODE;
+  }
+
+  // Extract error message, preferring localizedDescription for native AVPlayer errors
   let errorMessage: string;
   if (error instanceof Error) {
     errorMessage = error.message;
-  } else if (typeof error === "object" && error !== null && "message" in error) {
-    errorMessage = String((error as { message: unknown }).message);
+  } else if (typeof error === "object" && error !== null) {
+    const obj = error as Record<string, unknown>;
+    errorMessage = String(obj.localizedDescription ?? obj.message ?? "");
   } else {
     errorMessage = String(error);
   }
@@ -98,7 +105,7 @@ export function classifyPlaybackError(error: unknown): PlaybackErrorType {
 /**
  * Gets a user-friendly error message based on error type
  */
-export function getPlaybackErrorMessage(errorType: PlaybackErrorType, originalError?: string): string {
+export function getPlaybackErrorMessage(errorType: PlaybackErrorType): string {
   switch (errorType) {
     case PlaybackErrorType.NOT_FOUND:
       return "Video not found on server";
@@ -114,7 +121,7 @@ export function getPlaybackErrorMessage(errorType: PlaybackErrorType, originalEr
       return "Unable to decode video. Try a different quality setting";
     case PlaybackErrorType.UNKNOWN:
     default:
-      return originalError ? `Playback error: ${originalError}` : "Failed to load video";
+      return "Failed to load video";
   }
 }
 
@@ -425,8 +432,7 @@ export function useVideoPlayback(config: VideoPlaybackConfig): VideoPlaybackResu
 
       // Classify error and provide user-friendly message
       const errorType = classifyPlaybackError(err);
-      const originalMessage = err instanceof Error ? err.message : undefined;
-      const errorMessage = getPlaybackErrorMessage(errorType, originalMessage);
+      const errorMessage = getPlaybackErrorMessage(errorType);
 
       dispatch({
         type: "PLAYER_ERROR",
@@ -878,7 +884,7 @@ export function useVideoPlayback(config: VideoPlaybackConfig): VideoPlaybackResu
           }
 
           // If not in demo mode or refresh failed, show the error
-          const errorMessage = getPlaybackErrorMessage(errorType, originalMessage);
+          const errorMessage = getPlaybackErrorMessage(errorType);
           InteractionManager.runAfterInteractions(() => {
             if (!isMountedRef.current) return;
             dispatch({
@@ -968,7 +974,7 @@ export function useVideoPlayback(config: VideoPlaybackConfig): VideoPlaybackResu
         logger.error("Playback error", error, { service: "useVideoPlayback" });
       }
 
-      const errorMessage = getPlaybackErrorMessage(errorType, originalMessage);
+      const errorMessage = getPlaybackErrorMessage(errorType);
 
       // Ensure error dispatch happens on main thread
       InteractionManager.runAfterInteractions(() => {

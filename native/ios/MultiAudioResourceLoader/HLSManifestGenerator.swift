@@ -11,6 +11,15 @@ import Foundation
 /// Generates combined HLS manifests from multiple Jellyfin manifests
 class HLSManifestGenerator {
 
+    /// Defensive hygiene for HLS quoted-string attributes.
+    /// Strips quotes and newlines that would break manifest parsing.
+    private static func sanitizeHLSAttribute(_ value: String) -> String {
+        return value
+            .replacingOccurrences(of: "\"", with: "")
+            .replacingOccurrences(of: "\n", with: "")
+            .replacingOccurrences(of: "\r", with: "")
+    }
+
     /// Combine multiple Jellyfin manifests into a single multivariant manifest
     /// - Parameters:
     ///   - manifests: Array of HLS manifest strings (one per audio track)
@@ -56,7 +65,9 @@ class HLSManifestGenerator {
         let subtitleBaseUrl = fetchUrls.first ?? ""
         for subtitle in subtitles {
             let absoluteUri = makeAbsoluteUrl(baseUrl: subtitleBaseUrl, relativeUrl: subtitle.uri)
-            combined += "#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subs\",NAME=\"\(subtitle.name)\",LANGUAGE=\"\(subtitle.language)\",URI=\"\(absoluteUri)\"\n"
+            let safeName = Self.sanitizeHLSAttribute(subtitle.name)
+            let safeLang = Self.sanitizeHLSAttribute(subtitle.language)
+            combined += "#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subs\",NAME=\"\(safeName)\",LANGUAGE=\"\(safeLang)\",URI=\"\(absoluteUri)\"\n"
         }
 
         if !subtitles.isEmpty {
@@ -116,24 +127,32 @@ class HLSManifestGenerator {
             let audioUrl: String
             if let audioUri = parsedManifests[safe: index]?.audioUri {
                 audioUrl = makeAbsoluteUrl(baseUrl: trackFetchUrl, relativeUrl: audioUri)
+                #if DEBUG
                 NSLog("[HLSGenerator] 🎵 Track \(index + 1) audio URL: \(audioUrl)")
+                #endif
             } else if let videoUri = parsedManifests[safe: index]?.videoUri {
                 audioUrl = makeAbsoluteUrl(baseUrl: trackFetchUrl, relativeUrl: videoUri)
+                #if DEBUG
                 NSLog("[HLSGenerator] 🎵 Track \(index + 1) audio URL (from video): \(audioUrl)")
+                #endif
             } else {
                 // Fallback: use fetch URL directly (already has audioStreamIndex and playSessionId)
                 audioUrl = trackFetchUrl
+                #if DEBUG
                 NSLog("[HLSGenerator] 🎵 Track \(index + 1) audio URL (fallback): \(audioUrl)")
+                #endif
             }
 
             // Build audio media tag - conditionally include LANGUAGE
             // CRITICAL: iOS ALWAYS prioritizes LANGUAGE for display. For "und" tracks, OMIT LANGUAGE entirely
             // to force iOS to display the NAME attribute (RFC 8216: LANGUAGE is OPTIONAL)
+            let safeName = Self.sanitizeHLSAttribute(name)
+            let safeLang = Self.sanitizeHLSAttribute(language)
             if language != "und" && !language.isEmpty {
-                combined += "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"audio\",NAME=\"\(name)\",LANGUAGE=\"\(language)\""
+                combined += "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"audio\",NAME=\"\(safeName)\",LANGUAGE=\"\(safeLang)\""
             } else {
                 // OMIT LANGUAGE entirely for undefined languages - forces iOS to display NAME
-                combined += "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"audio\",NAME=\"\(name)\""
+                combined += "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"audio\",NAME=\"\(safeName)\""
             }
 
             // Strategy: Mark ALL tracks as DEFAULT=NO,AUTOSELECT=NO
@@ -154,9 +173,11 @@ class HLSManifestGenerator {
         NSLog("[HLSGenerator] 📹 Using video stream from track at index 0 (language-preferred default)")
 
         // Log the selected default track's URL
+        #if DEBUG
         if let selectedUrl = fetchUrls[safe: defaultTrackIndex] {
             NSLog("[HLSGenerator] Selected video stream URL: \(selectedUrl)")
         }
+        #endif
 
         if let defaultManifest = parsedManifests[safe: defaultTrackIndex] {
             combined += "#EXT-X-STREAM-INF:"
@@ -190,15 +211,21 @@ class HLSManifestGenerator {
                         components.path = pathParts.joined(separator: "/")
                     }
                     let videoUrl = components.url?.absoluteString ?? defaultFetchUrl
+                    #if DEBUG
                     NSLog("[HLSGenerator] 📹 Video stream URL: \(videoUrl)")
+                    #endif
                     combined += "\(videoUrl)\n"
                 } else {
+                    #if DEBUG
                     NSLog("[HLSGenerator] 📹 Video stream URL (fallback): \(defaultFetchUrl)")
+                    #endif
                     combined += "\(defaultFetchUrl)\n"
                 }
             } else {
                 // Fallback to default track's fetch URL
+                #if DEBUG
                 NSLog("[HLSGenerator] 📹 Video stream URL (no videoUri): \(defaultFetchUrl)")
+                #endif
                 combined += "\(defaultFetchUrl)\n"
             }
         }

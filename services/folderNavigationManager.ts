@@ -207,6 +207,8 @@ class FolderNavigationManager {
       this.isLoadingRef = true;
       this.isLoading = true;
       this.error = null;
+      this.items = [];
+      this.hasMoreResults = false;
       this.nextStartIndex = 0;
       this.notifyListeners();
 

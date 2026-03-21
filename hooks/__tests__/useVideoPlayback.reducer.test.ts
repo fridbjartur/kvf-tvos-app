@@ -175,12 +175,7 @@ describe("error classification", () => {
       expect(message).toBe("Unable to decode video. Try a different quality setting");
     });
 
-    it("should return original error for UNKNOWN when provided", () => {
-      const message = getPlaybackErrorMessage(PlaybackErrorType.UNKNOWN, "Original error message");
-      expect(message).toBe("Playback error: Original error message");
-    });
-
-    it("should return generic message for UNKNOWN without original error", () => {
+    it("should return generic message for UNKNOWN", () => {
       const message = getPlaybackErrorMessage(PlaybackErrorType.UNKNOWN);
       expect(message).toBe("Failed to load video");
     });

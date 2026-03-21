@@ -2,6 +2,21 @@
 
 All notable changes to Tomo TV are documented here.
 
+## [1.3.4] - 2026-03-21
+
+### Fixed
+
+- Smooth MarqueeText scroll-back animation instead of instant jump
+- Stale items flash when navigating between folders
+- Container format check now handles Jellyfin's comma-separated Container field
+- Native AVPlayer errors (CoreMediaErrorDomain) now correctly classified as decode errors
+- Error messages no longer leak raw error strings to the UI
+
+### Changed
+
+- HLS manifest attributes sanitized against malformed metadata
+- URL-level native logging (manifest URLs, stream URLs) gated behind DEBUG builds
+
 ## [1.3.3] - 2026-03-11
 
 ### Changed

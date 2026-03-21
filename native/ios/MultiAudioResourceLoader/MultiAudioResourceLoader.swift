@@ -48,7 +48,9 @@ class MultiAudioResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelegate 
     // MARK: - AVAssetResourceLoaderDelegate
 
     func resourceLoader(_ resourceLoader: AVAssetResourceLoader, shouldWaitForLoadingOfRequestedResource loadingRequest: AVAssetResourceLoadingRequest) -> Bool {
+        #if DEBUG
         NSLog("[MultiAudioResourceLoader] Resource requested: \(loadingRequest.request.url?.absoluteString ?? "unknown")")
+        #endif
 
         // Only handle our custom protocol (jellyfin-multi://)
         guard let url = loadingRequest.request.url,
@@ -119,7 +121,9 @@ class MultiAudioResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelegate 
             let manifestUrl = buildManifestUrl(audioStreamIndex: streamIndex)
 
             NSLog("[MultiAudioResourceLoader] Fetching manifest for stream \(streamIndex) (\(arrayIndex + 1)/\(audioTrackInfo.count))")
+            #if DEBUG
             NSLog("[MultiAudioResourceLoader] Manifest URL: \(manifestUrl)")
+            #endif
 
             // Fetch manifest synchronously (we're already on background queue)
             let manifest = try fetchManifest(from: manifestUrl)

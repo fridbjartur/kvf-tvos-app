@@ -4,19 +4,15 @@ import { spacing } from "../theme";
 
 export function Screen({ children }: PropsWithChildren) {
   return (
-    <View style={styles.area}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {children}
-      </ScrollView>
-    </View>
+    <ScrollView contentContainerStyle={styles.scrollContent}>
+      {children}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  area: {
-    flex: 1,
-  },
   scrollContent: {
+    flex: 1,
     paddingVertical: spacing.sm,
   },
 });

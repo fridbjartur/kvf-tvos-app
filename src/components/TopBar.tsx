@@ -27,7 +27,7 @@ export function TopBar({ tabsFocusable = true, routeName }: TopBarProps) {
 
   return (
     <View style={styles.bar}>
-      <View style={styles.side}>
+      <View>
         <Text style={styles.brand}>KVF</Text>
       </View>
       <SectionTabs
@@ -35,7 +35,6 @@ export function TopBar({ tabsFocusable = true, routeName }: TopBarProps) {
         onChange={handleChange}
         tabsFocusable={tabsFocusable}
       />
-      <View style={styles.side} />
     </View>
   );
 }
@@ -53,8 +52,5 @@ const styles = StyleSheet.create({
     fontSize: type.title,
     fontWeight: "900",
     letterSpacing: -0.5,
-  },
-  side: {
-    flex: 1,
   },
 });

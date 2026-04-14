@@ -12,7 +12,7 @@ export function Screen({ children }: PropsWithChildren) {
 
 const styles = StyleSheet.create({
   scrollContent: {
-    flex: 1,
+    width: "100%",
     paddingVertical: spacing.sm,
   },
 });

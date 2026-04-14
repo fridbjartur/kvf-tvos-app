@@ -1,5 +1,6 @@
 import type { PropsWithChildren } from "react";
-import { ImageBackground, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { palette, radii, spacing } from "../theme";
 
@@ -17,22 +18,24 @@ export function HeroImage({
 }: HeroImageProps) {
   return (
     <View style={[styles.container, { height }]}>
-      <ImageBackground
-        source={imageUrl ? { uri: imageUrl } : undefined}
-        imageStyle={styles.image}
-        style={styles.background}
-      >
-        <View
-          style={[styles.dimmer, { backgroundColor: `rgba(0,0,0,${dimmer})` }]}
-          pointerEvents="none"
+      {imageUrl ? (
+        <Image
+          cachePolicy="memory-disk"
+          contentFit="cover"
+          source={{ uri: imageUrl }}
+          style={StyleSheet.absoluteFill}
         />
-        <LinearGradient
-          colors={["transparent", "rgba(11,11,11,1)"]}
-          style={styles.bottomFade}
-          pointerEvents="none"
-        />
-        <View style={styles.content}>{children}</View>
-      </ImageBackground>
+      ) : null}
+      <View
+        style={[styles.dimmer, { backgroundColor: `rgba(0,0,0,${dimmer})` }]}
+        pointerEvents="none"
+      />
+      <LinearGradient
+        colors={["transparent", "rgba(11,11,11,1)"]}
+        style={styles.bottomFade}
+        pointerEvents="none"
+      />
+      <View style={styles.content}>{children}</View>
     </View>
   );
 }
@@ -44,19 +47,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     backgroundColor: palette.panelMuted,
   },
-  background: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  image: {
-    borderRadius: radii.lg,
-  },
   dimmer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    ...StyleSheet.absoluteFillObject,
   },
   bottomFade: {
     position: "absolute",
@@ -66,6 +58,8 @@ const styles = StyleSheet.create({
     height: "80%",
   },
   content: {
+    flex: 1,
+    justifyContent: "flex-end",
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.lg,
     gap: spacing.sm,

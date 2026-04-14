@@ -1,93 +1,42 @@
-import type { Ref } from "react";
 import { FlatList, StyleSheet, Text, View } from "react-native";
-import type { HomeRail, ProgramEpisodeModel } from "../api/types";
 import { palette, spacing, type } from "../theme";
 import { FocusableCard } from "./FocusableCard";
-import { formatPublishDate, getEpisodeBadgeLabel } from "../utils/content";
 
-type ContentRailProps =
-  | {
-      title?: string;
-      sectionLabel?: string;
-      items: HomeRail["items"];
-      onSelectItem: (slug: string, section: HomeRail["section"]) => void;
-      preferredFocusIndex?: number;
-      nextFocusUp?: number;
-      firstItemRef?: Ref<View>;
-    }
-  | {
-      title?: string;
-      sectionLabel?: string;
-      items: ProgramEpisodeModel[];
-      onSelectEpisode: (item: ProgramEpisodeModel) => void;
-      preferredFocusIndex?: number;
-      nextFocusUp?: number;
-      firstItemRef?: Ref<View>;
-    };
+export type RailCard = {
+  id: string;
+  title: string;
+  imageUrl: string | null;
+  badge?: string;
+  subtitle?: string;
+  disabled?: boolean;
+  onPress?: () => void;
+};
 
-export function ContentRail(props: ContentRailProps) {
-  if ("onSelectItem" in props) {
-    return (
-      <View style={styles.rail}>
-        <View style={styles.header}>
-          {props.title ? <Text style={styles.title}>{props.title}</Text> : null}
-          {props.sectionLabel ? (
-            <Text style={styles.section}>{props.sectionLabel}</Text>
-          ) : null}
-        </View>
-        <FlatList
-          contentContainerStyle={styles.row}
-          data={props.items}
-          extraData={props.nextFocusUp}
-          horizontal
-          keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => (
-            <FocusableCard
-              cardRef={index === 0 ? props.firstItemRef : undefined}
-              badge={item.badge}
-              disabled={!item.canOpenProgram}
-              imageUrl={item.imageUrl}
-              nextFocusUp={props.nextFocusUp}
-              onPress={
-                item.canOpenProgram
-                  ? () => props.onSelectItem(item.slug, item.section)
-                  : undefined
-              }
-              preferredFocus={index === (props.preferredFocusIndex ?? -1)}
-              title={item.title}
-            />
-          )}
-          showsHorizontalScrollIndicator={false}
-        />
-      </View>
-    );
-  }
+type ContentRailProps = {
+  title?: string;
+  sectionLabel?: string;
+  cards: RailCard[];
+};
 
-  const sectionLabel = props.sectionLabel;
-
+export function ContentRail({ title, sectionLabel, cards }: ContentRailProps) {
   return (
     <View style={styles.rail}>
       <View style={styles.header}>
-        {props.title ? <Text style={styles.title}>{props.title}</Text> : null}
-        {sectionLabel ? (
-          <Text style={styles.section}>{sectionLabel}</Text>
-        ) : null}
+        {title ? <Text style={styles.title}>{title}</Text> : null}
+        {sectionLabel ? <Text style={styles.section}>{sectionLabel}</Text> : null}
       </View>
       <FlatList
         contentContainerStyle={styles.row}
-        data={props.items}
-        extraData={props.nextFocusUp}
+        data={cards}
         horizontal
         keyExtractor={(item) => item.id}
-        renderItem={({ item, index }) => (
+        renderItem={({ item }) => (
           <FocusableCard
-            cardRef={index === 0 ? props.firstItemRef : undefined}
-            badge={getEpisodeBadgeLabel()}
+            badge={item.badge}
+            disabled={item.disabled}
             imageUrl={item.imageUrl}
-            nextFocusUp={props.nextFocusUp}
-            onPress={() => props.onSelectEpisode(item)}
-            preferredFocus={index === (props.preferredFocusIndex ?? -1)}
-            subtitle={formatPublishDate(item.publishDate)}
+            onPress={item.onPress}
+            subtitle={item.subtitle}
             title={item.title}
           />
         )}

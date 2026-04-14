@@ -1,6 +1,12 @@
-import type { Ref } from "react";
 import { useRef } from "react";
-import { Animated, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
+import {
+  Animated,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { palette, radii, spacing, type } from "../theme";
 import { getUnavailableLabel } from "../utils/content";
 
@@ -11,10 +17,6 @@ type FocusableCardProps = {
   disabled?: boolean;
   onPress?: () => void;
   subtitle?: string;
-  preferredFocus?: boolean;
-  cardRef?: Ref<View>;
-  nextFocusUp?: number;
-  nextFocusDown?: number;
 };
 
 export function FocusableCard({
@@ -24,16 +26,12 @@ export function FocusableCard({
   disabled = false,
   onPress,
   subtitle,
-  preferredFocus = false,
-  cardRef,
-  nextFocusUp,
-  nextFocusDown,
 }: FocusableCardProps) {
   const scale = useRef(new Animated.Value(1)).current;
 
   function handleFocus() {
     Animated.spring(scale, {
-      toValue: 1.07,
+      toValue: 1.08,
       useNativeDriver: true,
       bounciness: 6,
       speed: 18,
@@ -50,15 +48,17 @@ export function FocusableCard({
   }
 
   return (
-    <Animated.View style={[styles.card, disabled && styles.cardDisabled, { transform: [{ scale }] }]}>
+    <Animated.View
+      style={[
+        styles.card,
+        disabled && styles.cardDisabled,
+        { transform: [{ scale }] },
+      ]}
+    >
       <Pressable
         accessibilityRole="button"
-        ref={cardRef}
         disabled={disabled}
         focusable={!disabled}
-        hasTVPreferredFocus={preferredFocus}
-        nextFocusDown={nextFocusDown}
-        nextFocusUp={nextFocusUp}
         onBlur={handleBlur}
         onFocus={handleFocus}
         onPress={onPress}
@@ -69,7 +69,8 @@ export function FocusableCard({
             <Image
               source={{ uri: imageUrl }}
               style={styles.image}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="memory-disk"
             />
           ) : (
             <View style={styles.placeholder}>
@@ -86,7 +87,9 @@ export function FocusableCard({
               {subtitle}
             </Text>
           ) : null}
-          {disabled ? <Text style={styles.disabledText}>{getUnavailableLabel()}</Text> : null}
+          {disabled ? (
+            <Text style={styles.disabledText}>{getUnavailableLabel()}</Text>
+          ) : null}
         </View>
       </Pressable>
     </Animated.View>

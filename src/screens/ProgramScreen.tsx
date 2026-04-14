@@ -1,14 +1,11 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  findNodeHandle,
-} from "react-native";
+import { useEffect, useRef } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import type { View as RNView } from "react-native";
+import { Button } from "../components/Button";
 import { HeroImage } from "../components/HeroImage";
-import { useState } from "react";
 import { ContentRail } from "../components/ContentRail";
+import type { RailCard } from "../components/ContentRail";
 import { LoadingSkeleton } from "../components/LoadingSkeleton";
 import { Screen } from "../components/Screen";
 import { useProgramDetail } from "../hooks/useProgramDetail";
@@ -16,6 +13,7 @@ import type { RootStackParamList } from "../navigation/types";
 import { palette, radii, spacing, type } from "../theme";
 import {
   formatPublishDate,
+  getEpisodeBadgeLabel,
   getEpisodeCountLabel,
   getProgramEpisodesLabel,
   getProgramLoadErrorTitle,
@@ -31,16 +29,19 @@ type Props = NativeStackScreenProps<RootStackParamList, "ProgramDetail">;
 export function ProgramScreen({ navigation, route }: Props) {
   const { section, slug, sid } = route.params;
   const { data, error, isLoading, reload } = useProgramDetail(section, slug);
+  const playButtonRef = useRef<RNView>(null);
   const primaryEpisode = sid
-    ? (data?.episodes.find((ep) => ep.sid === sid) ??
-      data?.primaryEpisode ??
-      null)
+    ? (data?.episodes.find((ep) => ep.sid === sid) ?? data?.primaryEpisode ?? null)
     : (data?.primaryEpisode ?? null);
-  const [backNode, setBackNode] = useState<number | undefined>(undefined);
-  const [playNode, setPlayNode] = useState<number | undefined>(undefined);
-  const [firstEpisodeNode, setFirstEpisodeNode] = useState<number | undefined>(
-    undefined,
-  );
+
+  // Programmatically move focus to the play button once data arrives.
+  // hasTVPreferredFocus alone isn't reliable when the button mounts after
+  // an async load — setNativeProps forces the focus engine to act.
+  useEffect(() => {
+    if (primaryEpisode) {
+      playButtonRef.current?.setNativeProps({ hasTVPreferredFocus: true });
+    }
+  }, [primaryEpisode]);
 
   return (
     <Screen>
@@ -50,9 +51,7 @@ export function ProgramScreen({ navigation, route }: Props) {
           <Text style={styles.eyebrow}>{getSectionLabel(section)}</Text>
           <Text style={styles.title}>{getProgramLoadErrorTitle()}</Text>
           <Text style={styles.body}>{error}</Text>
-          <Text onPress={reload} style={styles.retryText}>
-            {getRetryLabel()}
-          </Text>
+          <Button label={getRetryLabel()} onPress={reload} size="md" />
         </View>
       ) : null}
       {!isLoading && !error && data ? (
@@ -68,15 +67,12 @@ export function ProgramScreen({ navigation, route }: Props) {
               {primaryEpisode?.title ?? data.title}
             </Text>
             <Text style={styles.heroBody} numberOfLines={2}>
-              {formatPublishDate(primaryEpisode?.publishDate ?? null) ??
-                data.description ??
-                ""}
+              {formatPublishDate(primaryEpisode?.publishDate ?? null) ?? data.description ?? ""}
             </Text>
             {primaryEpisode ? (
-              <Pressable
-                hasTVPreferredFocus
-                nextFocusDown={firstEpisodeNode}
-                nextFocusUp={backNode}
+              <Button
+                ref={playButtonRef}
+                label={getProgramPlayLabel()}
                 onPress={() =>
                   navigation.navigate("Playback", {
                     section: data.section,
@@ -84,14 +80,10 @@ export function ProgramScreen({ navigation, route }: Props) {
                     sid: primaryEpisode.sid,
                   })
                 }
-                ref={(node) => setPlayNode(findNodeHandle(node) ?? undefined)}
-                style={({ focused }) => [
-                  styles.playButton,
-                  focused && styles.playButtonFocused,
-                ]}
-              >
-                <Text style={styles.playText}>{getProgramPlayLabel()}</Text>
-              </Pressable>
+                size="lg"
+                style={styles.playButton}
+                textStyle={styles.playText}
+              />
             ) : (
               <View style={styles.unavailable}>
                 <Text style={styles.unavailableText}>
@@ -105,14 +97,14 @@ export function ProgramScreen({ navigation, route }: Props) {
           {data.episodes.length ? (
             <View style={styles.episodeSection}>
               <ContentRail
-                items={data.episodes}
-                firstItemRef={(node) =>
-                  setFirstEpisodeNode(findNodeHandle(node) ?? undefined)
-                }
-                nextFocusUp={playNode}
-                onSelectEpisode={(episode) =>
-                  navigation.setParams({ sid: episode.sid })
-                }
+                cards={data.episodes.map((episode): RailCard => ({
+                  id: episode.id,
+                  title: episode.title,
+                  imageUrl: episode.imageUrl,
+                  badge: getEpisodeBadgeLabel(),
+                  subtitle: formatPublishDate(episode.publishDate) ?? undefined,
+                  onPress: () => navigation.setParams({ sid: episode.sid }),
+                }))}
                 title={getProgramEpisodesLabel()}
                 sectionLabel={getEpisodeCountLabel(data.episodes.length)}
               />
@@ -134,29 +126,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  backButton: {
-    alignSelf: "flex-start",
-    marginTop: spacing.xs,
-    marginBottom: spacing.sm,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.10)",
-    borderWidth: 1.5,
-    borderColor: "transparent",
-  },
-  backButtonFocused: {
-    backgroundColor: "rgba(255,255,255,0.18)",
-    borderColor: "rgba(255,255,255,0.5)",
-    transform: [{ scale: 1.05 }],
-  },
-  backText: {
-    color: palette.text,
-    fontSize: type.body,
-    fontWeight: "700",
-  },
-
-  // Typography
   eyebrow: {
     color: palette.text,
     fontSize: type.body,
@@ -184,32 +153,12 @@ const styles = StyleSheet.create({
     fontSize: type.bodyLarge,
     lineHeight: 30,
   },
-
-  // Play button
   playButton: {
-    alignSelf: "flex-start",
     marginTop: spacing.xs,
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm,
-    borderRadius: 999,
-    borderColor: "transparent",
-  },
-  playButtonFocused: {
-    backgroundColor: "#e4e4e4",
   },
   playText: {
-    color: "#0B0B0B",
-    fontSize: type.bodyLarge,
     fontWeight: "900",
   },
-  playMeta: {
-    color: "rgba(11,11,11,0.55)",
-    fontSize: type.body,
-    fontWeight: "600",
-  },
-
-  // Unavailable state
   unavailable: {
     alignSelf: "flex-start",
     marginTop: spacing.xs,
@@ -223,26 +172,9 @@ const styles = StyleSheet.create({
     fontSize: type.bodyLarge,
     fontWeight: "600",
   },
-
-  // Episode section
   episodeSection: {
     marginTop: spacing.lg,
     gap: spacing.xs,
-  },
-  episodeHeader: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: spacing.md,
-  },
-  episodeHeading: {
-    color: palette.text,
-    fontSize: type.title,
-    fontWeight: "900",
-  },
-  episodeCount: {
-    color: palette.textMuted,
-    fontSize: type.body,
-    fontWeight: "600",
   },
   emptyEpisodes: {
     marginTop: spacing.xl,
@@ -254,16 +186,9 @@ const styles = StyleSheet.create({
     color: palette.textMuted,
     fontSize: type.bodyLarge,
   },
-
-  // Error state
   messagePanel: {
     minHeight: 480,
     justifyContent: "center",
     gap: spacing.sm,
-  },
-  retryText: {
-    color: palette.accent,
-    fontSize: type.bodyLarge,
-    fontWeight: "800",
   },
 });

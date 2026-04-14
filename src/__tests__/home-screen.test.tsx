@@ -56,8 +56,6 @@ describe("HomeContent", () => {
             ]
           }}
           error={null}
-          firstRailRef={jest.fn()}
-          heroRef={jest.fn()}
           isLoading={false}
           onNavigateToProgram={jest.fn()}
           onRetry={jest.fn()}

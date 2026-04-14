@@ -1,18 +1,11 @@
 import type { PropsWithChildren } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { TopBar } from "./TopBar";
-import { palette, spacing } from "../theme";
+import { spacing } from "../theme";
 
-type ScreenProps = PropsWithChildren<{
-  showTopBar?: boolean;
-}>;
-
-export function Screen({ children, showTopBar = true }: ScreenProps) {
+export function Screen({ children }: PropsWithChildren) {
   return (
     <View style={styles.area}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {showTopBar ? <TopBar /> : null}
         {children}
       </ScrollView>
     </View>

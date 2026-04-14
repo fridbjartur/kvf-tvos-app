@@ -5,7 +5,7 @@ import { useSection } from "../context/SectionContext";
 import { SectionTabs } from "./SectionTabs";
 import { palette, spacing, type } from "../theme";
 
-export function TopBar() {
+export function TopBar({ tabsFocusable = true }: { tabsFocusable?: boolean }) {
   const { activeSection, setActiveSection } = useSection();
 
   function handleSectionChange(section: ContentSection) {
@@ -18,7 +18,7 @@ export function TopBar() {
   return (
     <View style={styles.bar}>
       <Text style={styles.brand}>KVF</Text>
-      <SectionTabs value={activeSection} onChange={handleSectionChange} />
+      <SectionTabs value={activeSection} onChange={handleSectionChange} tabsFocusable={tabsFocusable} />
     </View>
   );
 }

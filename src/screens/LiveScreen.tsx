@@ -1,7 +1,6 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { FlatList, StyleSheet, Text, View } from "react-native";
-import type { View as RNView } from "react-native";
 import { Button } from "../components/Button";
 import { FocusableCard } from "../components/FocusableCard";
 import { Screen } from "../components/Screen";
@@ -17,13 +16,6 @@ export function LiveScreen({ navigation }: Props) {
   const [selectedChannel, setSelectedChannel] = useState<LiveChannel | null>(
     null,
   );
-  const firstQualityRef = useRef<RNView>(null);
-
-  useEffect(() => {
-    if (selectedChannel) {
-      firstQualityRef.current?.setNativeProps({ hasTVPreferredFocus: true });
-    }
-  }, [selectedChannel]);
 
   function handleChannelPress(channel: LiveChannel) {
     if (channel.qualities.length === 1) {
@@ -77,7 +69,6 @@ export function LiveScreen({ navigation }: Props) {
                       : quality.label
                   }
                   onPress={() => playQuality(selectedChannel, quality)}
-                  ref={index === 0 ? firstQualityRef : undefined}
                   size="md"
                 />
               )}

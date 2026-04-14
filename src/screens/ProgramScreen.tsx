@@ -1,7 +1,5 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useEffect, useRef } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import type { View as RNView } from "react-native";
 import { Button } from "../components/Button";
 import { HeroImage } from "../components/HeroImage";
 import { ContentRail } from "../components/ContentRail";
@@ -29,18 +27,11 @@ type Props = NativeStackScreenProps<RootStackParamList, "ProgramDetail">;
 export function ProgramScreen({ navigation, route }: Props) {
   const { section, slug, sid } = route.params;
   const { data, error, isLoading, reload } = useProgramDetail(section, slug);
-  const playButtonRef = useRef<RNView>(null);
   const primaryEpisode = sid
     ? (data?.episodes.find((ep) => ep.sid === sid) ??
       data?.primaryEpisode ??
       null)
     : (data?.primaryEpisode ?? null);
-
-  useEffect(() => {
-    if (primaryEpisode) {
-      playButtonRef.current?.setNativeProps({ hasTVPreferredFocus: true });
-    }
-  }, [primaryEpisode]);
 
   return (
     <Screen>
@@ -71,7 +62,6 @@ export function ProgramScreen({ navigation, route }: Props) {
             </Text>
             {primaryEpisode ? (
               <Button
-                ref={playButtonRef}
                 label={getProgramPlayLabel()}
                 onPress={() =>
                   navigation.navigate("Playback", {

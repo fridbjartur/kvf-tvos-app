@@ -82,7 +82,8 @@ npm-debug.*
 *.orig.*
 web-build/
 
-# Configurations
-!env.js
+# dotenv environment variables file
+.env
+.env.test
 
 /coverage

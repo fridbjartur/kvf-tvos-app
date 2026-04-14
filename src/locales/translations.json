@@ -1,0 +1,98 @@
+{
+  "section.sjon": {
+    "en": "Sjon",
+    "fo": "Sjón"
+  },
+  "section.vit": {
+    "en": "VIT",
+    "fo": "VIT"
+  },
+  "common.retry": {
+    "en": "Retry",
+    "fo": "Royn aftur"
+  },
+  "common.back": {
+    "en": "Back",
+    "fo": "Aftur"
+  },
+  "common.unavailable": {
+    "en": "Unavailable",
+    "fo": "Ikki tøkt"
+  },
+  "common.dateUnavailable": {
+    "en": "Date unavailable",
+    "fo": "Dagfesting ikki tøk"
+  },
+  "home.connectionIssue": {
+    "en": "Connection issue",
+    "fo": "Sambandstrupulleikar"
+  },
+  "home.loadErrorTitle": {
+    "en": "KVF could not load the home screen.",
+    "fo": "Fekk ikki lisið síðuna."
+  },
+  "home.emptyEyebrow": {
+    "en": "Quiet right now",
+    "fo": "Róligt í løtuni"
+  },
+  "home.emptyTitle": {
+    "en": "No rails are available from the scraper API.",
+    "fo": "Einki tilfar er tøkt í løtuni."
+  },
+  "hero.fallbackSummary": {
+    "en": "Featured right now from KVF's latest lineup.",
+    "fo": "Nýggjasta tilfarið hjá KVF."
+  },
+  "hero.openProgram": {
+    "en": "▶ Open program",
+    "fo": "▶ Far til sending"
+  },
+  "program.loadErrorTitle": {
+    "en": "Something went wrong.",
+    "fo": "Okkurt er galið."
+  },
+  "program.play": {
+    "en": "▶ Play",
+    "fo": "▶ Avspæl"
+  },
+  "program.noEpisodesAvailable": {
+    "en": "No episodes available right now",
+    "fo": "Eingir partar eru tøkir"
+  },
+  "program.episodes": {
+    "en": "Episodes",
+    "fo": "Partar"
+  },
+  "program.noEpisodesYet": {
+    "en": "No episodes in this program yet.",
+    "fo": "Eingir partar eru komnir enn."
+  },
+  "program.episodeBadge": {
+    "en": "EP",
+    "fo": "PARTUR"
+  },
+  "program.episodeCount": {
+    "en": "{count} available",
+    "fo": "{count} partar"
+  },
+  "playback.loadErrorTitle": {
+    "en": "Playback details could not be loaded.",
+    "fo": "Kundi ikki heinta upplýsingar um avspæling."
+  },
+  "playback.unavailableTitle": {
+    "en": "Playback is unavailable for this episode.",
+    "fo": "Avspæling ikki tøk fyri hendan partin."
+  },
+  "playback.unavailableBody": {
+    "en": "KVF returned metadata for the episode, but no playable stream URL is available right now.",
+    "fo": "KVF sendi upplýsingar um partin, men eingin spælandi streymleið er tøk í løtuni."
+  },
+  "badge.sjon": {
+    "en": "SJON",
+    "fo": "SJÓN"
+  },
+  "badge.vit": {
+    "en": "VIT",
+    "fo": "VIT"
+  }
+}

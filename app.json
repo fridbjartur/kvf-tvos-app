@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "KVF TV",
+    "slug": "kvf-tv",
+    "scheme": "kvftv",
+    "version": "1.0.0",
+    "orientation": "landscape",
+    "userInterfaceStyle": "dark",
+    "platforms": [
+      "ios"
+    ],
+    "plugins": [
+      "@react-native-tvos/config-tv"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "fo.kvf.tvosapp"
+    },
+    "experiments": {
+      "typedRoutes": false
+    },
+    "android": {
+      "package": "fo.kvf.tvosapp"
+    }
+  }
+}

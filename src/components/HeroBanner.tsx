@@ -8,6 +8,7 @@ import {
   useTVEventHandler,
   type HWEvent,
 } from "react-native";
+import type { PressableProps } from "react-native";
 import type { HomeHeroItem } from "../api/types";
 import {
   getHeroFallbackSummary,
@@ -21,12 +22,12 @@ import { palette, radii, spacing, type } from "../theme";
 type HeroBannerProps = {
   heroes: HomeHeroItem[];
   onPress: (hero: HomeHeroItem) => void;
-};
+} & Pick<PressableProps, "nextFocusUp">;
 
 const SLIDE_INTERVAL_MS = 6000;
 const FADE_DURATION_MS = 180;
 
-export function HeroBanner({ heroes, onPress }: HeroBannerProps) {
+export function HeroBanner({ heroes, onPress, nextFocusUp }: HeroBannerProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [focused, setFocused] = useState(false);
 
@@ -43,7 +44,9 @@ export function HeroBanner({ heroes, onPress }: HeroBannerProps) {
   // Lazily rebuild when the heroes array reference changes (section switch).
   const slideOpacities = useRef<Animated.Value[]>([]);
   if (slideOpacities.current.length !== heroes.length) {
-    slideOpacities.current = heroes.map((_, i) => new Animated.Value(i === 0 ? 1 : 0));
+    slideOpacities.current = heroes.map(
+      (_, i) => new Animated.Value(i === 0 ? 1 : 0),
+    );
   }
 
   // Reset to first slide when heroes change (e.g. section switch)
@@ -62,7 +65,9 @@ export function HeroBanner({ heroes, onPress }: HeroBannerProps) {
     const length = heroesLengthRef.current;
     const nextIdx =
       direction === "left"
-        ? currentIdx === 0 ? length - 1 : currentIdx - 1
+        ? currentIdx === 0
+          ? length - 1
+          : currentIdx - 1
         : (currentIdx + 1) % length;
 
     // Update dots immediately so they feel responsive
@@ -94,11 +99,14 @@ export function HeroBanner({ heroes, onPress }: HeroBannerProps) {
   }, [focused, heroes.length, changeSlide]);
 
   // D-pad left/right to navigate slides when the hero is focused
-  const handleTVEvent = useCallback((event: HWEvent) => {
-    if (!focusedRef.current) return;
-    if (event.eventType === "left") changeSlide("left");
-    else if (event.eventType === "right") changeSlide("right");
-  }, [changeSlide]);
+  const handleTVEvent = useCallback(
+    (event: HWEvent) => {
+      if (!focusedRef.current) return;
+      if (event.eventType === "left") changeSlide("left");
+      else if (event.eventType === "right") changeSlide("right");
+    },
+    [changeSlide],
+  );
 
   useTVEventHandler(handleTVEvent);
 
@@ -110,10 +118,10 @@ export function HeroBanner({ heroes, onPress }: HeroBannerProps) {
     <Pressable
       focusable={hero.canOpenProgram}
       disabled={!hero.canOpenProgram}
+      nextFocusUp={nextFocusUp}
       onBlur={() => setFocused(false)}
       onFocus={() => setFocused(true)}
       onPress={() => onPress(hero)}
-      style={styles.hero}
     >
       <View style={styles.heroFrame}>
         {heroes.map((h, i) => (
@@ -188,9 +196,6 @@ function HeroSlide({
 }
 
 const styles = StyleSheet.create({
-  hero: {
-    marginTop: spacing.md,
-  },
   heroFrame: {
     height: 580,
   },

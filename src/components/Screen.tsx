@@ -17,6 +17,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: spacing.sm,
+    paddingVertical: spacing.sm,
   },
 });

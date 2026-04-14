@@ -31,12 +31,11 @@ export function ProgramScreen({ navigation, route }: Props) {
   const { data, error, isLoading, reload } = useProgramDetail(section, slug);
   const playButtonRef = useRef<RNView>(null);
   const primaryEpisode = sid
-    ? (data?.episodes.find((ep) => ep.sid === sid) ?? data?.primaryEpisode ?? null)
+    ? (data?.episodes.find((ep) => ep.sid === sid) ??
+      data?.primaryEpisode ??
+      null)
     : (data?.primaryEpisode ?? null);
 
-  // Programmatically move focus to the play button once data arrives.
-  // hasTVPreferredFocus alone isn't reliable when the button mounts after
-  // an async load — setNativeProps forces the focus engine to act.
   useEffect(() => {
     if (primaryEpisode) {
       playButtonRef.current?.setNativeProps({ hasTVPreferredFocus: true });
@@ -56,7 +55,6 @@ export function ProgramScreen({ navigation, route }: Props) {
       ) : null}
       {!isLoading && !error && data ? (
         <View style={styles.container}>
-          {/* Hero */}
           <HeroImage
             dimmer={0.5}
             imageUrl={primaryEpisode?.imageUrl ?? data.imageUrl}
@@ -67,7 +65,9 @@ export function ProgramScreen({ navigation, route }: Props) {
               {primaryEpisode?.title ?? data.title}
             </Text>
             <Text style={styles.heroBody} numberOfLines={2}>
-              {formatPublishDate(primaryEpisode?.publishDate ?? null) ?? data.description ?? ""}
+              {formatPublishDate(primaryEpisode?.publishDate ?? null) ??
+                data.description ??
+                ""}
             </Text>
             {primaryEpisode ? (
               <Button
@@ -93,18 +93,20 @@ export function ProgramScreen({ navigation, route }: Props) {
             )}
           </HeroImage>
 
-          {/* Episodes */}
           {data.episodes.length ? (
             <View style={styles.episodeSection}>
               <ContentRail
-                cards={data.episodes.map((episode): RailCard => ({
-                  id: episode.id,
-                  title: episode.title,
-                  imageUrl: episode.imageUrl,
-                  badge: getEpisodeBadgeLabel(),
-                  subtitle: formatPublishDate(episode.publishDate) ?? undefined,
-                  onPress: () => navigation.setParams({ sid: episode.sid }),
-                }))}
+                cards={data.episodes.map(
+                  (episode): RailCard => ({
+                    id: episode.id,
+                    title: episode.title,
+                    imageUrl: episode.imageUrl,
+                    badge: getEpisodeBadgeLabel(),
+                    subtitle:
+                      formatPublishDate(episode.publishDate) ?? undefined,
+                    onPress: () => navigation.setParams({ sid: episode.sid }),
+                  }),
+                )}
                 title={getProgramEpisodesLabel()}
                 sectionLabel={getEpisodeCountLabel(data.episodes.length)}
               />

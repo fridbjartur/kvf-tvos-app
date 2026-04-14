@@ -44,7 +44,6 @@ const styles = StyleSheet.create({
   container: {
     borderRadius: radii.lg,
     overflow: "hidden",
-    marginTop: spacing.md,
     backgroundColor: palette.panelMuted,
   },
   dimmer: {

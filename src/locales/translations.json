@@ -94,5 +94,17 @@
   "badge.vit": {
     "en": "VIT",
     "fo": "VIT"
+  },
+  "live.navLabel": {
+    "en": "Direct TV",
+    "fo": "Beinleiðis"
+  },
+  "live.badge": {
+    "en": "LIVE",
+    "fo": "BEINLEIÐIS"
+  },
+  "live.qualityHeading": {
+    "en": "Quality",
+    "fo": "Gæði"
   }
 }

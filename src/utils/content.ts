@@ -1,7 +1,8 @@
 import type { ContentSection } from "../api/types";
 import { t } from "../locales";
 
-export function getSectionLabel(section: ContentSection) {
+export function getSectionLabel(section: ContentSection | "live") {
+  if (section === "live") return t("live.navLabel");
   return section === "sjon" ? t("section.sjon") : t("section.vit");
 }
 
@@ -83,6 +84,18 @@ export function getPlaybackUnavailableBody() {
 
 export function getEpisodeCountLabel(count: number) {
   return t("program.episodeCount", { count });
+}
+
+export function getLiveNavLabel() {
+  return t("live.navLabel");
+}
+
+export function getLiveBadgeLabel() {
+  return t("live.badge");
+}
+
+export function getLiveQualityHeading() {
+  return t("live.qualityHeading");
 }
 
 export function formatPublishDate(date: string | null) {

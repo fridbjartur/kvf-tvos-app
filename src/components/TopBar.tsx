@@ -1,25 +1,46 @@
 import { StyleSheet, Text, View } from "react-native";
+import { TVFocusGuideView } from "react-native";
 import type { ContentSection } from "../api/types";
 import { navigationRef } from "../navigation/ref";
 import { useSection } from "../context/SectionContext";
 import { SectionTabs } from "./SectionTabs";
+import type { NavSection } from "./SectionTabs";
 import { palette, spacing, type } from "../theme";
 
-export function TopBar({ tabsFocusable = true }: { tabsFocusable?: boolean }) {
+type TopBarProps = {
+  tabsFocusable?: boolean;
+  routeName?: string;
+};
+
+export function TopBar({ tabsFocusable = true, routeName }: TopBarProps) {
   const { activeSection, setActiveSection } = useSection();
 
-  function handleSectionChange(section: ContentSection) {
-    setActiveSection(section);
-    if (navigationRef.isReady()) {
-      navigationRef.navigate("Home");
+  function handleChange(section: NavSection) {
+    if (section === "live") {
+      if (navigationRef.isReady()) navigationRef.navigate("Live");
+    } else {
+      setActiveSection(section as ContentSection);
+      if (navigationRef.isReady()) navigationRef.navigate("Home");
     }
   }
 
+  const activeTab: NavSection = routeName === "Live" ? "live" : activeSection;
+
   return (
-    <View style={styles.bar}>
-      <Text style={styles.brand}>KVF</Text>
-      <SectionTabs value={activeSection} onChange={handleSectionChange} tabsFocusable={tabsFocusable} />
-    </View>
+    <>
+      <View style={styles.bar}>
+        <View style={styles.side}>
+          <Text style={styles.brand}>KVF</Text>
+        </View>
+        <SectionTabs
+          value={activeTab}
+          onChange={handleChange}
+          tabsFocusable={tabsFocusable}
+        />
+        <View style={styles.side} />
+      </View>
+      <TVFocusGuideView autoFocus style={styles.focusGuide} />
+    </>
   );
 }
 
@@ -28,8 +49,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xl,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.sm,
+    paddingVertical: spacing.lg,
     backgroundColor: palette.background,
   },
   brand: {
@@ -37,5 +57,11 @@ const styles = StyleSheet.create({
     fontSize: type.title,
     fontWeight: "900",
     letterSpacing: -0.5,
+  },
+  side: {
+    flex: 1,
+  },
+  focusGuide: {
+    height: 0,
   },
 });

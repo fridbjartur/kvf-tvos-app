@@ -82,7 +82,10 @@ export function HomeContent({
     );
   }
 
-  const sectionData = selectHomeSectionData(data, activeSection as "sjon" | "vit");
+  const sectionData = selectHomeSectionData(
+    data,
+    activeSection as "sjon" | "vit",
+  );
 
   return (
     <View>

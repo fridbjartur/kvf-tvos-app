@@ -4,15 +4,21 @@ import { getSectionLabel } from "../utils/content";
 import { spacing } from "../theme";
 import { Button } from "./Button";
 
+export type NavSection = ContentSection | "live";
+
 type SectionTabsProps = {
-  value: ContentSection;
-  onChange: (value: ContentSection) => void;
+  value: NavSection;
+  onChange: (value: NavSection) => void;
   tabsFocusable?: boolean;
 };
 
-const tabs: ContentSection[] = ["sjon", "vit"];
+const tabs: NavSection[] = ["sjon", "vit", "live"];
 
-export function SectionTabs({ value, onChange, tabsFocusable = true }: SectionTabsProps) {
+export function SectionTabs({
+  value,
+  onChange,
+  tabsFocusable = true,
+}: SectionTabsProps) {
   return (
     <View style={styles.tabBar}>
       {tabs.map((tab) => (
@@ -35,9 +41,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignSelf: "flex-start",
     gap: spacing.lg,
-    marginTop: spacing.md,
   },
   tab: {
     minWidth: 120,
+    borderColor: "transparent",
   },
 });

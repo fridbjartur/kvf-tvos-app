@@ -1,5 +1,4 @@
 import { FlatList, StyleSheet, Text, View } from "react-native";
-import type { View as RNView } from "react-native";
 import { palette, spacing, type } from "../theme";
 import { FocusableCard } from "./FocusableCard";
 
@@ -17,15 +16,9 @@ type ContentRailProps = {
   title?: string;
   sectionLabel?: string;
   cards: RailCard[];
-  nextFocusUp?: RNView | null;
 };
 
-export function ContentRail({
-  title,
-  sectionLabel,
-  cards,
-  nextFocusUp,
-}: ContentRailProps) {
+export function ContentRail({ title, sectionLabel, cards }: ContentRailProps) {
   return (
     <View style={styles.rail}>
       <View style={styles.header}>
@@ -42,7 +35,6 @@ export function ContentRail({
             badge={item.badge}
             disabled={item.disabled}
             imageUrl={item.imageUrl}
-            nextFocusUp={nextFocusUp ?? undefined}
             onPress={item.onPress}
             subtitle={item.subtitle}
             title={item.title}

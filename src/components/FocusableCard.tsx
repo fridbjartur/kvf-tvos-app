@@ -7,11 +7,10 @@ import {
   Text,
   View,
 } from "react-native";
-import type { PressableProps } from "react-native";
 import { palette, radii, spacing, type } from "../theme";
 import { getUnavailableLabel } from "../utils/content";
 
-type FocusableCardProps = Pick<PressableProps, "nextFocusUp"> & {
+type FocusableCardProps = {
   title: string;
   imageUrl: string | null;
   badge?: string;
@@ -26,7 +25,6 @@ export function FocusableCard({
   badge,
   disabled = false,
   onPress,
-  nextFocusUp,
   subtitle,
 }: FocusableCardProps) {
   const scale = useRef(new Animated.Value(1)).current;
@@ -61,7 +59,6 @@ export function FocusableCard({
         accessibilityRole="button"
         disabled={disabled}
         focusable={!disabled}
-        nextFocusUp={nextFocusUp}
         onBlur={handleBlur}
         onFocus={handleFocus}
         onPress={onPress}

@@ -8,7 +8,6 @@ import {
   useTVEventHandler,
   type HWEvent,
 } from "react-native";
-import type { PressableProps } from "react-native";
 import type { HomeHeroItem } from "../api/types";
 import {
   getHeroFallbackSummary,
@@ -22,12 +21,12 @@ import { palette, radii, spacing, type } from "../theme";
 type HeroBannerProps = {
   heroes: HomeHeroItem[];
   onPress: (hero: HomeHeroItem) => void;
-} & Pick<PressableProps, "nextFocusUp">;
+};
 
 const SLIDE_INTERVAL_MS = 6000;
 const FADE_DURATION_MS = 180;
 
-export function HeroBanner({ heroes, onPress, nextFocusUp }: HeroBannerProps) {
+export function HeroBanner({ heroes, onPress }: HeroBannerProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [focused, setFocused] = useState(false);
 
@@ -118,7 +117,6 @@ export function HeroBanner({ heroes, onPress, nextFocusUp }: HeroBannerProps) {
     <Pressable
       focusable={hero.canOpenProgram}
       disabled={!hero.canOpenProgram}
-      nextFocusUp={nextFocusUp}
       onBlur={() => setFocused(false)}
       onFocus={() => setFocused(true)}
       onPress={() => onPress(hero)}

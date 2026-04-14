@@ -1,5 +1,4 @@
 import { StyleSheet, Text, View } from "react-native";
-import { TVFocusGuideView } from "react-native";
 import type { ContentSection } from "../api/types";
 import { navigationRef } from "../navigation/ref";
 import { useSection } from "../context/SectionContext";
@@ -27,20 +26,17 @@ export function TopBar({ tabsFocusable = true, routeName }: TopBarProps) {
   const activeTab: NavSection = routeName === "Live" ? "live" : activeSection;
 
   return (
-    <>
-      <View style={styles.bar}>
-        <View style={styles.side}>
-          <Text style={styles.brand}>KVF</Text>
-        </View>
-        <SectionTabs
-          value={activeTab}
-          onChange={handleChange}
-          tabsFocusable={tabsFocusable}
-        />
-        <View style={styles.side} />
+    <View style={styles.bar}>
+      <View style={styles.side}>
+        <Text style={styles.brand}>KVF</Text>
       </View>
-      <TVFocusGuideView autoFocus style={styles.focusGuide} />
-    </>
+      <SectionTabs
+        value={activeTab}
+        onChange={handleChange}
+        tabsFocusable={tabsFocusable}
+      />
+      <View style={styles.side} />
+    </View>
   );
 }
 
@@ -60,8 +56,5 @@ const styles = StyleSheet.create({
   },
   side: {
     flex: 1,
-  },
-  focusGuide: {
-    height: 0,
   },
 });

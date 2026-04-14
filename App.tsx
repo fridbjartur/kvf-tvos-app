@@ -7,7 +7,6 @@ import * as SystemUI from "expo-system-ui";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { LiveScreen } from "./src/screens/LiveScreen";
-import { PlaybackScreen } from "./src/screens/PlaybackScreen";
 import { ProgramScreen } from "./src/screens/ProgramScreen";
 import { SectionProvider } from "./src/context/SectionContext";
 import { TopBar } from "./src/components/TopBar";
@@ -40,10 +39,9 @@ export default function App() {
     setRouteName(navigationRef.current?.getCurrentRoute()?.name);
   }
 
-  const showTopBar = routeName !== "Playback";
   // Keep top-level navigation focusable on every browsable screen so
   // tvOS can move cleanly between the header and the active content area.
-  const tabsFocusable = showTopBar;
+  const tabsFocusable = true;
 
   return (
     <SafeAreaProvider>
@@ -65,7 +63,7 @@ export default function App() {
             }}
           >
             <View style={{ flex: 1 }}>
-              {showTopBar ? <TopBar tabsFocusable={tabsFocusable} routeName={routeName} /> : null}
+              <TopBar tabsFocusable={tabsFocusable} routeName={routeName} />
               <Stack.Navigator
                 screenOptions={{
                   animation: Platform.isTV ? "fade" : "default",
@@ -77,7 +75,6 @@ export default function App() {
                 <Stack.Screen name="Home" component={HomeScreen} />
                 <Stack.Screen name="Live" component={LiveScreen} />
                 <Stack.Screen name="ProgramDetail" component={ProgramScreen} />
-                <Stack.Screen name="Playback" component={PlaybackScreen} />
               </Stack.Navigator>
             </View>
           </SafeAreaView>

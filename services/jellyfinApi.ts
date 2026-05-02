@@ -14,12 +14,14 @@ import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
 // Development fallback credentials from .env.local
-// These are ONLY used during local development if user hasn't configured settings
-// Production builds will NOT include .env.local (it's in .gitignore)
-// Users MUST configure their own server via Settings screen
-const DEV_SERVER = process.env.EXPO_PUBLIC_DEV_JELLYFIN_SERVER || "";
-const DEV_API_KEY = process.env.EXPO_PUBLIC_DEV_JELLYFIN_API_KEY || "";
-const DEV_USER_ID = process.env.EXPO_PUBLIC_DEV_JELLYFIN_USER_ID || "";
+// Gated on __DEV__ so EXPO_PUBLIC_DEV_* refs are never reached in release
+// builds. babel-preset-expo replaces __DEV__ with `false` in production and
+// Metro's minifier folds the dead ternary branch out of the bundle, so the
+// inlined env literals don't ship to users. .gitignore alone does NOT prevent
+// the bundle from carrying these values, since the build machine reads the file.
+const DEV_SERVER = __DEV__ ? process.env.EXPO_PUBLIC_DEV_JELLYFIN_SERVER || "" : "";
+const DEV_API_KEY = __DEV__ ? process.env.EXPO_PUBLIC_DEV_JELLYFIN_API_KEY || "" : "";
+const DEV_USER_ID = __DEV__ ? process.env.EXPO_PUBLIC_DEV_JELLYFIN_USER_ID || "" : "";
 
 const STORAGE_KEYS = {
   SERVER_URL: "jellyfin_server_url",
@@ -250,8 +252,7 @@ export async function syncDevCredentials(): Promise<void> {
       return;
     }
 
-    // Always sync dev credentials when available (dev mode only)
-    // In production builds, .env.local is not included so DEV_* values are empty
+    // Dev-only: DEV_* are gated on __DEV__ at module top, so they're "" in release builds
     await Promise.all([
       SecureStore.setItemAsync(STORAGE_KEYS.SERVER_URL, DEV_SERVER),
       SecureStore.setItemAsync(STORAGE_KEYS.API_KEY, DEV_API_KEY),

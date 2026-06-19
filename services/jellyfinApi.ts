@@ -83,6 +83,12 @@ let cachedConfig = {
 let configInitPromise: Promise<void> | null = null;
 let configInitialized = false;
 
+// Reachability of the saved connection, evaluated once per app launch.
+// "unknown" until the first evaluation; cached afterwards so we don't re-probe
+// (and stall) on every settings focus.
+type SavedConnectionStatus = "unknown" | "connected" | "needs_restore" | "none";
+let savedConnectionStatus: SavedConnectionStatus = "unknown";
+
 // Old storage keys for migration (deprecated format)
 const OLD_STORAGE_KEYS = {
   SERVER_IP: "jellyfin_server_ip",
@@ -547,6 +553,8 @@ export async function connectToDemoServer(clearCaches: boolean = true): Promise<
       });
     }
 
+    setSavedConnectionStatus("connected");
+
     logger.info("Connected to demo server", {
       service: "JellyfinAPI",
       server: demoServerUrl,
@@ -599,6 +607,7 @@ export async function disconnectFromDemo(): Promise<void> {
 
     // Refresh config to reset to defaults
     await refreshConfig();
+    setSavedConnectionStatus("none");
 
     // Clear manager caches and watch progress (defensive - don't fail on cache clear errors)
     try {
@@ -765,6 +774,113 @@ export async function resolveServerConnection(input: string): Promise<{ url: str
   } catch {
     throw new Error("Couldn't reach a Jellyfin server at that address. Check the IP or hostname, or paste the full URL (e.g. http://192.168.1.100:8096).");
   }
+}
+
+/**
+ * Mark the saved-connection status. Call after a manual connect/restore (connected)
+ * or sign out (none) so the cached launch evaluation stays accurate.
+ */
+export function setSavedConnectionStatus(status: Exclude<SavedConnectionStatus, "unknown">): void {
+  savedConnectionStatus = status;
+}
+
+/**
+ * Read saved connection details for the "Restore last connection" CTA.
+ * Returns null when there is no complete saved connection.
+ */
+export async function getSavedConnectionInfo(): Promise<{ url: string; serverName: string } | null> {
+  const [url, serverName, apiKey, userId] = await Promise.all([
+    SecureStore.getItemAsync(STORAGE_KEYS.SERVER_URL),
+    SecureStore.getItemAsync(STORAGE_KEYS.SERVER_NAME),
+    SecureStore.getItemAsync(STORAGE_KEYS.API_KEY),
+    SecureStore.getItemAsync(STORAGE_KEYS.USER_ID),
+  ]);
+  if (!url || !apiKey || !userId) return null;
+  return { url, serverName: serverName || url };
+}
+
+/**
+ * Auto-try the saved connection once per app launch.
+ *
+ * - "none": no complete saved connection.
+ * - "connected": the saved server URL is reachable — safe to keep using it.
+ * - "needs_restore": creds exist but the saved URL is unreachable (e.g. the IP
+ *   changed), so the UI should offer manual restore / re-entry.
+ *
+ * The result is cached for the session; pass force=true to re-evaluate.
+ */
+export async function evaluateSavedConnection(force = false): Promise<Exclude<SavedConnectionStatus, "unknown">> {
+  if (savedConnectionStatus !== "unknown" && !force) {
+    return savedConnectionStatus;
+  }
+
+  const [url, apiKey, userId] = await Promise.all([SecureStore.getItemAsync(STORAGE_KEYS.SERVER_URL), SecureStore.getItemAsync(STORAGE_KEYS.API_KEY), SecureStore.getItemAsync(STORAGE_KEYS.USER_ID)]);
+
+  if (!url || !apiKey || !userId) {
+    savedConnectionStatus = "none";
+    return savedConnectionStatus;
+  }
+
+  try {
+    await checkServerInfo(url);
+    savedConnectionStatus = "connected";
+  } catch {
+    savedConnectionStatus = "needs_restore";
+  }
+  return savedConnectionStatus;
+}
+
+/**
+ * Restore the last connection: probe the saved server (exact URL plus
+ * auto-discovered protocol/port candidates for the same host) and, if reachable,
+ * reconnect with the saved login. Updates the stored URL if the protocol/port
+ * changed. Throws if the host can't be reached (likely the IP itself changed).
+ */
+export async function restoreLastConnection(): Promise<{ url: string; serverName: string }> {
+  const [savedUrl, serverName, apiKey, userId] = await Promise.all([
+    SecureStore.getItemAsync(STORAGE_KEYS.SERVER_URL),
+    SecureStore.getItemAsync(STORAGE_KEYS.SERVER_NAME),
+    SecureStore.getItemAsync(STORAGE_KEYS.API_KEY),
+    SecureStore.getItemAsync(STORAGE_KEYS.USER_ID),
+  ]);
+
+  if (!savedUrl || !apiKey || !userId) {
+    throw new Error("No saved connection to restore.");
+  }
+
+  // Try the exact saved URL first, then auto-discovered candidates for the host.
+  const host = savedUrl.replace(/^https?:\/\//i, "");
+  const candidates = Array.from(new Set([savedUrl, ...buildServerUrlCandidates(host)]));
+
+  let workingUrl: string;
+  try {
+    workingUrl = await Promise.any(
+      candidates.map(async (candidate) => {
+        await checkServerInfo(candidate);
+        return candidate;
+      }),
+    );
+  } catch {
+    throw new Error(`Couldn't reach ${serverName || "your last server"}. Its address may have changed — enter the new IP or hostname below.`);
+  }
+
+  // Persist a corrected URL (protocol/port may have changed) and refresh config.
+  if (workingUrl !== savedUrl) {
+    await SecureStore.setItemAsync(STORAGE_KEYS.SERVER_URL, workingUrl);
+  }
+  await refreshConfig();
+  setSavedConnectionStatus("connected");
+
+  // Clear stale navigation cache so the library reloads against the live URL.
+  try {
+    const { folderNavigationManager } = await import("@/services/folderNavigationManager");
+    folderNavigationManager.clearCache();
+  } catch (cacheError) {
+    logger.warn("Failed to clear nav cache during restore", cacheError, { service: "JellyfinAPI" });
+  }
+
+  logger.info("Restored last connection", { service: "JellyfinAPI", url: workingUrl, serverName });
+  return { url: workingUrl, serverName: serverName || workingUrl };
 }
 
 /**
@@ -998,6 +1114,7 @@ export async function saveAuthResult(serverUrl: string, accessToken: string, use
 
   // Refresh config cache so all API calls pick up the new credentials
   await refreshConfig();
+  setSavedConnectionStatus("connected");
 
   // Clear manager caches to prevent stale data from old server
   try {
@@ -1035,6 +1152,7 @@ export async function signOut(): Promise<void> {
 
   // Refresh config to reset to defaults
   await refreshConfig();
+  setSavedConnectionStatus("none");
 
   // Clear manager caches and watch progress
   try {

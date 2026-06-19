@@ -9,10 +9,10 @@ import {
   authenticateByName,
   checkQuickConnectEnabled,
   connectToDemoServer,
-  getStoredAuthMethod,
+  evaluateSavedConnection,
   getStoredServerName,
-  getStoredUserName,
   resolveServerConnection,
+  restoreLastConnection,
   saveAuthResult,
   signOut,
 } from "@/services/jellyfinApi";
@@ -54,10 +54,10 @@ export default function SettingsScreen() {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [connectedServerName, setConnectedServerName] = useState("");
   const [connectedServerUrl, setConnectedServerUrl] = useState("");
-  const [connectedUserName, setConnectedUserName] = useState("");
-  const [connectedAuthMethod, setConnectedAuthMethod] = useState("");
   const [videoQuality, setVideoQuality] = useState(2);
   const [isConnectingDemo, setIsConnectingDemo] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [lastConnection, setLastConnection] = useState<{ url: string; serverName: string } | null>(null);
 
   const quickConnect = useQuickConnect();
   const serverUrlRef = useRef<TextInput>(null);
@@ -66,13 +66,11 @@ export default function SettingsScreen() {
 
   const loadCurrentState = async () => {
     try {
-      const [savedUrl, savedKey, savedUserId, savedQuality, savedUserName, savedAuthMethod, savedServerName] = await Promise.all([
+      const [savedUrl, savedKey, savedUserId, savedQuality, savedServerName] = await Promise.all([
         SecureStore.getItemAsync(STORAGE_KEYS.SERVER_URL),
         SecureStore.getItemAsync(STORAGE_KEYS.API_KEY),
         SecureStore.getItemAsync(STORAGE_KEYS.USER_ID),
         SecureStore.getItemAsync(STORAGE_KEYS.VIDEO_QUALITY),
-        getStoredUserName(),
-        getStoredAuthMethod(),
         getStoredServerName(),
       ]);
 
@@ -81,10 +79,15 @@ export default function SettingsScreen() {
       if (savedUrl && savedKey && savedUserId) {
         setConnectedServerName(savedServerName || savedUrl);
         setConnectedServerUrl(savedUrl || "");
-        setConnectedUserName(savedUserName || "Unknown User");
-        setConnectedAuthMethod(savedAuthMethod || "apikey");
-        setScreenState("CONNECTED");
+        setLastConnection({ url: savedUrl, serverName: savedServerName || savedUrl });
+
+        // Auto-try once per launch: only stay connected if the saved server is
+        // actually reachable. If the IP/address changed, drop to the connect
+        // screen so the user can restore (auto-discovery) or enter a new address.
+        const status = await evaluateSavedConnection();
+        setScreenState(status === "connected" ? "CONNECTED" : "NOT_CONNECTED");
       } else {
+        setLastConnection(null);
         setScreenState("NOT_CONNECTED");
       }
     } catch (error) {
@@ -138,6 +141,21 @@ export default function SettingsScreen() {
       Alert.alert("Connection Failed", error instanceof Error ? error.message : "Unable to connect to server.");
     } finally {
       setIsValidating(false);
+    }
+  };
+
+  const handleRestoreConnection = async () => {
+    setIsRestoring(true);
+    try {
+      const { serverName } = await restoreLastConnection();
+      setServerName(serverName);
+      await refreshLibrary();
+      await refreshFolderNavigation();
+      await loadCurrentState();
+    } catch (error) {
+      Alert.alert("Couldn't Restore", error instanceof Error ? error.message : "Unable to reach your last server.");
+    } finally {
+      setIsRestoring(false);
     }
   };
 
@@ -266,6 +284,9 @@ export default function SettingsScreen() {
               isConnectingDemo={isConnectingDemo}
               onConnect={handleConnectServer}
               onConnectDemo={handleConnectDemo}
+              lastConnection={lastConnection}
+              isRestoring={isRestoring}
+              onRestore={handleRestoreConnection}
             />
           )}
 
@@ -289,9 +310,7 @@ export default function SettingsScreen() {
             />
           )}
 
-          {screenState === "CONNECTED" && (
-            <ConnectedSection serverName={connectedServerName} serverUrl={connectedServerUrl} userName={connectedUserName} authMethod={connectedAuthMethod} onSignOut={handleSignOut} />
-          )}
+          {screenState === "CONNECTED" && <ConnectedSection serverName={connectedServerName} serverUrl={connectedServerUrl} onSignOut={handleSignOut} />}
 
           {screenState === "CONNECTED" && (
             <>

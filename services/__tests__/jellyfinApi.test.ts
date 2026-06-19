@@ -18,6 +18,7 @@ import {
   refreshConfig,
   syncDevCredentials,
   buildServerUrlCandidates,
+  evaluateSavedConnection,
 } from "../jellyfinApi";
 import { JellyfinVideoItem } from "@/types/jellyfin";
 
@@ -1379,6 +1380,65 @@ describe("jellyfinApi", () => {
     it("returns no candidates for empty input", () => {
       expect(buildServerUrlCandidates("")).toEqual([]);
       expect(buildServerUrlCandidates("   ")).toEqual([]);
+    });
+  });
+
+  describe("evaluateSavedConnection", () => {
+    const mockSecureStore = require("expo-secure-store");
+
+    beforeEach(() => {
+      global.fetch = jest.fn();
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    const withCreds = () =>
+      mockSecureStore.getItemAsync.mockImplementation((key: string) =>
+        Promise.resolve(
+          (
+            {
+              jellyfin_server_url: "http://192.168.1.100:8096",
+              jellyfin_api_key: "tok",
+              jellyfin_user_id: "uid",
+            } as Record<string, string>
+          )[key] || null,
+        ),
+      );
+
+    it("returns 'none' when there is no saved connection", async () => {
+      mockSecureStore.getItemAsync.mockResolvedValue(null);
+      expect(await evaluateSavedConnection(true)).toBe("none");
+    });
+
+    it("returns 'connected' when the saved server is reachable", async () => {
+      withCreds();
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ ServerName: "Living Room", Version: "10.9.0" }),
+      });
+      expect(await evaluateSavedConnection(true)).toBe("connected");
+    });
+
+    it("returns 'needs_restore' when the saved server is unreachable", async () => {
+      withCreds();
+      (global.fetch as jest.Mock).mockRejectedValueOnce(new Error("network down"));
+      expect(await evaluateSavedConnection(true)).toBe("needs_restore");
+    });
+
+    it("caches the result until forced to re-evaluate", async () => {
+      withCreds();
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ ServerName: "Living Room", Version: "10.9.0" }),
+      });
+      expect(await evaluateSavedConnection(true)).toBe("connected");
+
+      // Without force it must not probe again (fetch not called a second time).
+      (global.fetch as jest.Mock).mockClear();
+      expect(await evaluateSavedConnection()).toBe("connected");
+      expect(global.fetch).not.toHaveBeenCalled();
     });
   });
 });

@@ -12,24 +12,22 @@ interface ConnectedSectionProps {
 
 export function ConnectedSection({ serverName, serverUrl, onSignOut }: ConnectedSectionProps) {
   return (
-    <>
-      <View style={settingsStyles.section}>
-        <View style={[settingsStyles.listItem, settingsStyles.listItemFirst, settingsStyles.listItemLast]}>
-          <View style={styles.connectedRow}>
-            <Ionicons name="checkmark-circle" size={Platform.isTV ? 32 : 24} color="#34C759" />
-            <View style={styles.connectedInfo}>
-              <Text style={styles.connectedLabel}>Connected</Text>
-              <Text style={styles.connectedValue}>{serverName}</Text>
-              {serverUrl ? <Text style={styles.connectedLabel}>{serverUrl}</Text> : null}
-            </View>
+    <View style={settingsStyles.section}>
+      <View style={[settingsStyles.listItem, settingsStyles.listItemFirst]}>
+        <View style={styles.connectedRow}>
+          <Ionicons name="checkmark-circle" size={Platform.isTV ? 32 : 24} color="#34C759" />
+          <View style={styles.connectedInfo}>
+            <Text style={styles.connectedLabel}>Connected</Text>
+            <Text style={styles.connectedValue}>{serverName}</Text>
+            {serverUrl ? <Text style={styles.connectedLabel}>{serverUrl}</Text> : null}
           </View>
         </View>
       </View>
 
-      <View style={settingsStyles.buttonGroup}>
+      <View style={[settingsStyles.listItem, settingsStyles.listItemLast]}>
         <FocusableButton title="Sign Out" variant="destructive" onPress={onSignOut} style={settingsStyles.fullWidthButton} />
       </View>
-    </>
+    </View>
   );
 }
 

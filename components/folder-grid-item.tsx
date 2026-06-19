@@ -1,4 +1,4 @@
-import { DESIGN } from "@/constants/app";
+import { DESIGN, GRID } from "@/constants/app";
 import { getFolderThumbnailUrl } from "@/services/jellyfinApi";
 import { JellyfinItem } from "@/types/jellyfin";
 import { BlurView } from "expo-blur";
@@ -144,7 +144,8 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: "100%",
-    aspectRatio: 2 / 3,
+    aspectRatio: GRID.CARD_ASPECT_RATIO,
+    justifyContent: "center", // Vertically center landscape art (portrait fills, so unaffected)
     borderRadius: DESIGN.BORDER_RADIUS_CARD,
     overflow: "hidden",
     backgroundColor: "#1C1C1E",

@@ -8,6 +8,13 @@ export const CACHE = {
   DEFAULT_TTL_MS: 5 * 60 * 1000,
 } as const;
 
+// Library grid sizing
+export const GRID = {
+  /** Card aspect ratio (width / height). Slightly shorter than 2:3 so landscape
+   *  thumbnails (centered) leave smaller top/bottom bands. */
+  CARD_ASPECT_RATIO: 3 / 4,
+} as const;
+
 // Design system values
 export const DESIGN = {
   /** Standard border radius for cards and grid items */

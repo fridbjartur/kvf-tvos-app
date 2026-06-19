@@ -1,4 +1,4 @@
-import { DESIGN } from "@/constants/app";
+import { DESIGN, GRID } from "@/constants/app";
 import { getPosterUrl, hasPoster } from "@/services/jellyfinApi";
 import { JellyfinVideoItem } from "@/types/jellyfin";
 import { BlurView } from "expo-blur";
@@ -21,6 +21,8 @@ interface VideoGridItemProps {
   onItemBlur?: () => void;
   hasTVPreferredFocus?: boolean;
   nextFocusUp?: number;
+  /** Resume progress as a 0–1 fraction. When set (> 0), renders a bottom progress bar. */
+  progressPercent?: number;
 }
 
 /**
@@ -37,7 +39,7 @@ interface VideoGridItemProps {
  * - BlurView only rendered when focused
  */
 const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpacity>, VideoGridItemProps>(function VideoGridItemComponent(
-  { video, onPress, index, onItemFocus, onItemBlur, hasTVPreferredFocus = false, nextFocusUp },
+  { video, onPress, index, onItemFocus, onItemBlur, hasTVPreferredFocus = false, nextFocusUp, progressPercent },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
@@ -167,6 +169,13 @@ const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpaci
               </View>
             ))}
 
+          {/* Resume progress bar - only on Continue Watching cards */}
+          {progressPercent != null && progressPercent > 0 && (
+            <View style={styles.progressTrack} pointerEvents="none">
+              <View style={[styles.progressFill, { width: `${Math.min(progressPercent, 1) * 100}%` }]} />
+            </View>
+          )}
+
           {/* Border overlay - rendered on top to avoid gaps */}
           <View style={[styles.borderOverlay, focused && styles.borderOverlayFocused]} pointerEvents="none" />
         </View>
@@ -189,7 +198,8 @@ function arePropsEqual(prevProps: VideoGridItemProps, nextProps: VideoGridItemPr
     prevProps.onItemFocus === nextProps.onItemFocus &&
     prevProps.onItemBlur === nextProps.onItemBlur &&
     prevProps.hasTVPreferredFocus === nextProps.hasTVPreferredFocus &&
-    prevProps.nextFocusUp === nextProps.nextFocusUp
+    prevProps.nextFocusUp === nextProps.nextFocusUp &&
+    prevProps.progressPercent === nextProps.progressPercent
   );
 }
 
@@ -208,7 +218,8 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: "100%",
-    aspectRatio: 2 / 3, // Fixed portrait poster; landscape images center-crop via contentFit="cover"
+    aspectRatio: GRID.CARD_ASPECT_RATIO, // Fixed portrait card; portrait fills, landscape centers
+    justifyContent: "center", // Vertically center landscape images (portrait fills, so unaffected)
     borderRadius: DESIGN.BORDER_RADIUS_CARD,
     overflow: "hidden",
     backgroundColor: "#2C2C2E",
@@ -238,6 +249,19 @@ const styles = StyleSheet.create({
   // Landscape: full width, natural height (aspectRatio applied inline), pinned to the card top.
   posterTop: {
     width: "100%",
+  },
+  progressTrack: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: IS_TV ? 6 : 4,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: "#FFC312",
   },
   placeholderPoster: {
     width: "100%",

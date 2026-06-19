@@ -1,8 +1,8 @@
-import { BackGridItem } from "@/components/back-grid-item";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { FocusableButton } from "@/components/FocusableButton";
 import { FolderGridItem } from "@/components/folder-grid-item";
 import { VideoGridItem } from "@/components/video-grid-item";
+import { GRID } from "@/constants/app";
 import { useFolderNavigation } from "@/contexts/FolderNavigationContext";
 import { useLoading } from "@/contexts/LoadingContext";
 import { usePlayQueue } from "@/contexts/PlayQueueContext";
@@ -15,11 +15,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, BackHandler, Dimensions, FlatList, Platform, StyleSheet, Text, View, useTVEventHandler } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-// Special marker for the ".." back navigation item
-const BACK_ITEM_ID = "__BACK__";
-type GridItem = JellyfinItem | { Id: typeof BACK_ITEM_ID; _isBackItem: true };
-
-// Uniform card sizing constants (all cards are 2:3 portrait)
+// Uniform card sizing constants (fixed portrait cards, GRID.CARD_ASPECT_RATIO)
 const IS_TV = Platform.isTV;
 const NUM_COLUMNS = IS_TV ? 5 : 3;
 const CARD_PADDING = IS_TV ? 16 : 8;
@@ -34,7 +30,7 @@ const itemDimensions = (() => {
   const availableWidth = screenWidth - GRID_PADDING_H;
   const columnWidth = availableWidth / NUM_COLUMNS;
   const imageWidth = columnWidth - 2 * CARD_PADDING;
-  const imageHeight = imageWidth * 1.5; // 2:3 aspect ratio → height = width * 3/2
+  const imageHeight = imageWidth / GRID.CARD_ASPECT_RATIO; // height = width / (w:h)
   const rowHeight = imageHeight + 2 * CARD_PADDING + 2 * COLUMN_WRAPPER_PADDING_V;
   return { rowHeight };
 })();
@@ -122,7 +118,7 @@ export default function VideoLibraryScreen() {
   );
 
   const getItemLayout = useCallback(
-    (_data: ArrayLike<GridItem> | null | undefined, index: number) => ({
+    (_data: ArrayLike<JellyfinItem> | null | undefined, index: number) => ({
       length: itemDimensions.rowHeight,
       offset: itemDimensions.rowHeight * Math.floor(index / numColumns),
       index,
@@ -130,32 +126,14 @@ export default function VideoLibraryScreen() {
     [numColumns],
   );
 
-  // Show back item when inside a library (can go back to library selection)
-  const showBackItem = folderStack.length > 0;
-
-  // Create grid data with optional back item prepended
-  const gridData: GridItem[] = useMemo(() => {
-    if (showBackItem) {
-      return [{ Id: BACK_ITEM_ID, _isBackItem: true as const }, ...items];
-    }
-    return items;
-  }, [items, showBackItem]);
-
   const renderItem = useCallback(
-    ({ item, index }: { item: GridItem; index: number }) => {
-      // Handle back navigation item
-      if ("_isBackItem" in item && item._isBackItem) {
-        return <BackGridItem onPress={navigateBack} hasTVPreferredFocus={index === 0} isLoading={isLoading} />;
+    ({ item, index }: { item: JellyfinItem; index: number }) => {
+      if (isFolder(item)) {
+        return <FolderGridItem folder={item} onPress={handleItemPress} index={index} hasTVPreferredFocus={index === 0} />;
       }
-
-      // Handle regular items
-      const jellyfinItem = item as JellyfinItem;
-      if (isFolder(jellyfinItem)) {
-        return <FolderGridItem folder={jellyfinItem} onPress={handleItemPress} index={index} hasTVPreferredFocus={index === 0} />;
-      }
-      return <VideoGridItem video={jellyfinItem} onPress={handleItemPress} index={index} hasTVPreferredFocus={index === 0} />;
+      return <VideoGridItem video={item} onPress={handleItemPress} index={index} hasTVPreferredFocus={index === 0} />;
     },
-    [handleItemPress, navigateBack, isLoading],
+    [handleItemPress],
   );
 
   const renderFooter = useCallback(() => {
@@ -256,12 +234,12 @@ export default function VideoLibraryScreen() {
 
   return (
     <View style={styles.container}>
-      {items.length === 0 && !showBackItem ? (
+      {items.length === 0 ? (
         renderEmpty()
       ) : (
         <FlatList
           testID="library-list"
-          data={gridData}
+          data={items}
           renderItem={renderItem}
           keyExtractor={(item) => item.Id}
           numColumns={numColumns}

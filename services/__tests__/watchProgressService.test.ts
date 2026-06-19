@@ -1,4 +1,4 @@
-import { getProgress, saveProgress, clearProgress, clearAllProgress, _resetForTesting } from "../watchProgressService";
+import { getProgress, saveProgress, clearProgress, clearAllProgress, getRecentProgress, _resetForTesting } from "../watchProgressService";
 
 // Mock expo-secure-store
 const mockStore: Record<string, string> = {};
@@ -230,6 +230,52 @@ describe("watchProgressService", () => {
       // Total entries should be exactly 50
       const persisted = JSON.parse(mockStore["watch_progress_data"]);
       expect(Object.keys(persisted).length).toBe(50);
+    });
+  });
+
+  describe("getRecentProgress", () => {
+    it("returns entries sorted by updatedAt descending (most recent first)", async () => {
+      const now = Date.now();
+      mockStore["watch_progress_data"] = JSON.stringify({
+        "video-old": { position: 100, duration: 3600, updatedAt: now - 3000 },
+        "video-new": { position: 200, duration: 3600, updatedAt: now - 1000 },
+        "video-mid": { position: 150, duration: 3600, updatedAt: now - 2000 },
+      });
+
+      const recent = await getRecentProgress();
+
+      expect(recent.map((e) => e.videoId)).toEqual(["video-new", "video-mid", "video-old"]);
+      expect(recent[0]).toMatchObject({ videoId: "video-new", position: 200, duration: 3600 });
+    });
+
+    it("drops near-finished entries (>= 95% watched)", async () => {
+      const now = Date.now();
+      mockStore["watch_progress_data"] = JSON.stringify({
+        "video-partial": { position: 1800, duration: 3600, updatedAt: now }, // 50%
+        "video-done": { position: 3500, duration: 3600, updatedAt: now }, // ~97%
+      });
+
+      const recent = await getRecentProgress();
+
+      expect(recent.map((e) => e.videoId)).toEqual(["video-partial"]);
+    });
+
+    it("respects the limit argument", async () => {
+      const now = Date.now();
+      const entries: Record<string, { position: number; duration: number; updatedAt: number }> = {};
+      for (let i = 0; i < 10; i++) {
+        entries[`video-${i}`] = { position: 120, duration: 3600, updatedAt: now - i * 1000 };
+      }
+      mockStore["watch_progress_data"] = JSON.stringify(entries);
+
+      const recent = await getRecentProgress(3);
+
+      expect(recent).toHaveLength(3);
+      expect(recent.map((e) => e.videoId)).toEqual(["video-0", "video-1", "video-2"]);
+    });
+
+    it("returns an empty array when there is no progress", async () => {
+      expect(await getRecentProgress()).toEqual([]);
     });
   });
 

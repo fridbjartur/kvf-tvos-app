@@ -1,5 +1,6 @@
 import { FocusableButton } from "@/components/FocusableButton";
 import { VideoGridItem } from "@/components/video-grid-item";
+import { GRID } from "@/constants/app";
 import { useLibrary } from "@/contexts/LibraryContext";
 import { useLoading } from "@/contexts/LoadingContext";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -338,7 +339,7 @@ function ReactNativeSearchScreen() {
   const itemDimensions = useMemo(() => {
     const screenWidth = Platform.isTV ? 1080 : 400;
     const itemWidth = screenWidth / numColumns;
-    const itemHeight = itemWidth * 1.5 + 40;
+    const itemHeight = itemWidth / GRID.CARD_ASPECT_RATIO + 40;
     return { itemHeight };
   }, [numColumns]);
 

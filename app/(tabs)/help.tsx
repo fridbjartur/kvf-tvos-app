@@ -15,6 +15,7 @@ const features: Feature[] = [
   { icon: "text", label: "Subtitle Support" },
   { icon: "search-circle", label: "Native Search" },
   { icon: "play-skip-forward", label: "Up Next Queue" },
+  { icon: "time", label: "Continue Watching" },
 ];
 
 const DOCS_URL = "tomotv.app";
@@ -238,13 +239,14 @@ const styles = StyleSheet.create({
   qrFrame: {
     backgroundColor: "#FFFFFF",
     padding: TV ? 24 : 14,
-    borderRadius: TV ? 28 : 16,
+    borderRadius: 90000,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 20 },
     shadowOpacity: 0.6,
     shadowRadius: 40,
     marginBottom: TV ? 32 : 18,
     marginTop: 20,
+    overflow: "hidden",
   },
   qrImage: {
     width: TV ? 280 : 150,

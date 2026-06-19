@@ -19,11 +19,11 @@ export function NotConnectedSection({ serverUrl, setServerUrl, serverUrlRef, isV
       <View style={styles.section}>
         <View style={[styles.listItem, styles.listItemFirst, styles.listItemLast]}>
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Server URL</Text>
+            <Text style={styles.inputLabel}>Server Address</Text>
             <TextInput
               ref={serverUrlRef}
               value={serverUrl}
-              placeholder="http://192.168.1.100:8096"
+              placeholder="192.168.1.100 or jellyfin.example.com"
               placeholderTextColor="#8E8E93"
               autoCorrect={false}
               autoCapitalize="none"
@@ -36,7 +36,7 @@ export function NotConnectedSection({ serverUrl, setServerUrl, serverUrlRef, isV
               onSubmitEditing={onConnect}
               returnKeyType="go"
             />
-            <Text style={styles.inputHint}>Your Jellyfin server address with port</Text>
+            <Text style={styles.inputHint}>Enter an IP or hostname and we&apos;ll find it, or paste a full URL</Text>
           </View>
         </View>
       </View>

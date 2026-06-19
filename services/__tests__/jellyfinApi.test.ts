@@ -17,6 +17,7 @@ import {
   getSubtitleTracks,
   refreshConfig,
   syncDevCredentials,
+  buildServerUrlCandidates,
 } from "../jellyfinApi";
 import { JellyfinVideoItem } from "@/types/jellyfin";
 
@@ -1341,6 +1342,43 @@ describe("jellyfinApi", () => {
 
       // Should default to http://ip:8096
       expect(mockSecureStore.setItemAsync).toHaveBeenCalledWith("jellyfin_server_url", "http://192.168.1.50:8096");
+    });
+  });
+
+  describe("buildServerUrlCandidates", () => {
+    it("uses a full http/https URL exactly as entered", () => {
+      expect(buildServerUrlCandidates("http://192.168.1.100:8096")).toEqual(["http://192.168.1.100:8096"]);
+      expect(buildServerUrlCandidates("https://jellyfin.example.com")).toEqual(["https://jellyfin.example.com"]);
+    });
+
+    it("strips trailing slashes from a full URL", () => {
+      expect(buildServerUrlCandidates("https://jellyfin.example.com/")).toEqual(["https://jellyfin.example.com"]);
+    });
+
+    it("treats the scheme case-insensitively", () => {
+      expect(buildServerUrlCandidates("HTTPS://host")).toEqual(["HTTPS://host"]);
+    });
+
+    it("probes both protocols when a bare host includes a port", () => {
+      expect(buildServerUrlCandidates("192.168.1.100:8096")).toEqual(["https://192.168.1.100:8096", "http://192.168.1.100:8096"]);
+    });
+
+    it("probes default and standard ports (https first) for a bare IP", () => {
+      expect(buildServerUrlCandidates("192.168.1.100")).toEqual(["https://192.168.1.100:8920", "https://192.168.1.100", "http://192.168.1.100:8096", "http://192.168.1.100"]);
+    });
+
+    it("probes default and standard ports for a bare hostname", () => {
+      expect(buildServerUrlCandidates("jellyfin.example.com")).toEqual([
+        "https://jellyfin.example.com:8920",
+        "https://jellyfin.example.com",
+        "http://jellyfin.example.com:8096",
+        "http://jellyfin.example.com",
+      ]);
+    });
+
+    it("returns no candidates for empty input", () => {
+      expect(buildServerUrlCandidates("")).toEqual([]);
+      expect(buildServerUrlCandidates("   ")).toEqual([]);
     });
   });
 });

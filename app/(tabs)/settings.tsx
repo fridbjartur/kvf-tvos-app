@@ -8,11 +8,11 @@ import { useLibrary } from "@/contexts/LibraryContext";
 import {
   authenticateByName,
   checkQuickConnectEnabled,
-  checkServerInfo,
   connectToDemoServer,
   getStoredAuthMethod,
   getStoredServerName,
   getStoredUserName,
+  resolveServerConnection,
   saveAuthResult,
   signOut,
 } from "@/services/jellyfinApi";
@@ -116,29 +116,20 @@ export default function SettingsScreen() {
   const handleConnectServer = async () => {
     const trimmed = serverUrl.trim();
     if (!trimmed) {
-      Alert.alert("Missing URL", "Please enter your Jellyfin server URL.");
-      return;
-    }
-
-    try {
-      const parsed = new URL(trimmed);
-      if (!parsed.protocol.startsWith("http")) {
-        Alert.alert("Invalid URL", "Server URL must start with http:// or https://");
-        return;
-      }
-    } catch {
-      Alert.alert("Invalid URL", "Please enter a valid URL (e.g., http://192.168.1.100:8096)");
+      Alert.alert("Missing Address", "Please enter your Jellyfin server IP, hostname, or URL.");
       return;
     }
 
     setIsValidating(true);
     try {
-      const serverInfo = await checkServerInfo(trimmed);
-      setServerName(serverInfo.ServerName);
+      // Accepts a bare IP/hostname (auto-discovers protocol + port) or a full URL.
+      const { url: resolvedUrl, info } = await resolveServerConnection(trimmed);
+      setServerUrl(resolvedUrl);
+      setServerName(info.ServerName);
 
-      const quickConnectEnabled = await checkQuickConnectEnabled(trimmed);
+      const quickConnectEnabled = await checkQuickConnectEnabled(resolvedUrl);
       if (quickConnectEnabled) {
-        quickConnect.initiate(trimmed, serverInfo.ServerName);
+        quickConnect.initiate(resolvedUrl, info.ServerName);
         setScreenState("QUICK_CONNECT");
       } else {
         setScreenState("USERNAME_PASSWORD");
@@ -302,37 +293,41 @@ export default function SettingsScreen() {
             <ConnectedSection serverName={connectedServerName} serverUrl={connectedServerUrl} userName={connectedUserName} authMethod={connectedAuthMethod} onSignOut={handleSignOut} />
           )}
 
-          <View style={screenStyles.sectionHeader}>
-            <Text style={screenStyles.sectionHeaderText}>VIDEO QUALITY</Text>
-          </View>
+          {screenState === "CONNECTED" && (
+            <>
+              <View style={screenStyles.sectionHeader}>
+                <Text style={screenStyles.sectionHeaderText}>VIDEO QUALITY</Text>
+              </View>
 
-          <View style={styles.section}>
-            {QUALITY_PRESETS.map((preset, index) => (
-              <Pressable
-                key={preset.value}
-                style={({ focused }) => [
-                  styles.listItem,
-                  index === 0 && styles.listItemFirst,
-                  index === QUALITY_PRESETS.length - 1 && styles.listItemLast,
-                  focused && { backgroundColor: "rgba(255, 255, 255, 0.1)" },
-                ]}
-                onPress={() => handleQualityChange(preset.value)}
-                tvParallaxProperties={{ magnification: 1.01 }}
-                isTVSelectable={true}
-                accessibilityLabel={`${preset.label} quality`}
-                accessibilityRole="button"
-                accessibilityState={{ selected: videoQuality === preset.value }}
-                accessibilityHint={`Set video quality to ${preset.label}. ${preset.description}`}>
-                <View style={styles.listItemContent}>
-                  <View style={styles.listItemLeft}>
-                    <Text style={styles.listItemTitle}>{preset.label}</Text>
-                    <Text style={styles.listItemSubtitle}>{preset.description}</Text>
-                  </View>
-                  {videoQuality === preset.value && <Ionicons name="checkmark" size={Platform.isTV ? 28 : 24} color="#FFC312" />}
-                </View>
-              </Pressable>
-            ))}
-          </View>
+              <View style={styles.section}>
+                {QUALITY_PRESETS.map((preset, index) => (
+                  <Pressable
+                    key={preset.value}
+                    style={({ focused }) => [
+                      styles.listItem,
+                      index === 0 && styles.listItemFirst,
+                      index === QUALITY_PRESETS.length - 1 && styles.listItemLast,
+                      focused && { backgroundColor: "rgba(255, 255, 255, 0.1)" },
+                    ]}
+                    onPress={() => handleQualityChange(preset.value)}
+                    tvParallaxProperties={{ magnification: 1.01 }}
+                    isTVSelectable={true}
+                    accessibilityLabel={`${preset.label} quality`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: videoQuality === preset.value }}
+                    accessibilityHint={`Set video quality to ${preset.label}. ${preset.description}`}>
+                    <View style={styles.listItemContent}>
+                      <View style={styles.listItemLeft}>
+                        <Text style={styles.listItemTitle}>{preset.label}</Text>
+                        <Text style={styles.listItemSubtitle}>{preset.description}</Text>
+                      </View>
+                      {videoQuality === preset.value && <Ionicons name="checkmark" size={Platform.isTV ? 28 : 24} color="#FFC312" />}
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          )}
         </View>
       </ScrollView>
     </View>

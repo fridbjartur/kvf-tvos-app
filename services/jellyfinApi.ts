@@ -707,6 +707,67 @@ export async function checkServerInfo(serverUrl: string): Promise<JellyfinPublic
 }
 
 /**
+ * Build the ordered list of candidate base URLs to probe for a user-entered address.
+ *
+ * - A full URL (http:// or https://) is used exactly as entered.
+ * - A bare host/IP with an explicit port is probed over both protocols.
+ * - A bare host/IP without a port is probed over Jellyfin's default ports
+ *   (8920 https, 8096 http) and the standard ports (443, 80), https first.
+ */
+export function buildServerUrlCandidates(input: string): string[] {
+  const trimmed = input.trim().replace(/\/+$/, "");
+  if (!trimmed) return [];
+
+  // Already has a scheme — respect the user's exact URL.
+  if (/^https?:\/\//i.test(trimmed)) {
+    return [trimmed];
+  }
+
+  const host = trimmed.replace(/^\/+/, "");
+  if (!host) return [];
+
+  // Explicit port given — keep it, just try both protocols.
+  if (/:\d+$/.test(host)) {
+    return [`https://${host}`, `http://${host}`];
+  }
+
+  // Bare host/IP — try Jellyfin defaults and standard ports, https first.
+  return [`https://${host}:8920`, `https://${host}`, `http://${host}:8096`, `http://${host}`];
+}
+
+/**
+ * Resolve a user-entered server address to a working Jellyfin base URL.
+ *
+ * Accepts a full URL (used as-is) or a bare IP/hostname (auto-discovers the
+ * protocol and port by probing candidates concurrently). Returns the first
+ * candidate that responds as a valid Jellyfin server, along with its info.
+ */
+export async function resolveServerConnection(input: string): Promise<{ url: string; info: JellyfinPublicServerInfo }> {
+  const candidates = buildServerUrlCandidates(input);
+  if (candidates.length === 0) {
+    throw new Error("Please enter a server address.");
+  }
+
+  // Single candidate (a full URL): probe directly so its specific error surfaces.
+  if (candidates.length === 1) {
+    const info = await checkServerInfo(candidates[0]);
+    return { url: candidates[0], info };
+  }
+
+  // Multiple candidates: probe concurrently and take the first that works.
+  try {
+    return await Promise.any(
+      candidates.map(async (url) => {
+        const info = await checkServerInfo(url);
+        return { url, info };
+      }),
+    );
+  } catch {
+    throw new Error("Couldn't reach a Jellyfin server at that address. Check the IP or hostname, or paste the full URL (e.g. http://192.168.1.100:8096).");
+  }
+}
+
+/**
  * Check if Quick Connect is enabled on the server.
  */
 export async function checkQuickConnectEnabled(serverUrl: string): Promise<boolean> {

@@ -11,8 +11,10 @@ export const CACHE = {
 // Library grid sizing
 export const GRID = {
   /** Card aspect ratio (width / height). Slightly shorter than 2:3 so landscape
-   *  thumbnails (centered) leave smaller top/bottom bands. */
+   *  thumbnails leave smaller top/bottom bands. */
   CARD_ASPECT_RATIO: 3 / 4,
+  /** Top inset (% of card height) for landscape images, biasing them upward. */
+  LANDSCAPE_IMAGE_TOP: "15%",
 } as const;
 
 // Design system values

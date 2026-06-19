@@ -1,3 +1,4 @@
+import { BackGridItem } from "@/components/back-grid-item";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { FocusableButton } from "@/components/FocusableButton";
 import { FolderGridItem } from "@/components/folder-grid-item";
@@ -14,6 +15,10 @@ import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, BackHandler, Dimensions, FlatList, Platform, StyleSheet, Text, View, useTVEventHandler } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+// Special marker for the ".." back navigation item
+const BACK_ITEM_ID = "__BACK__";
+type GridItem = JellyfinItem | { Id: typeof BACK_ITEM_ID; _isBackItem: true };
 
 // Uniform card sizing constants (fixed portrait cards, GRID.CARD_ASPECT_RATIO)
 const IS_TV = Platform.isTV;
@@ -118,7 +123,7 @@ export default function VideoLibraryScreen() {
   );
 
   const getItemLayout = useCallback(
-    (_data: ArrayLike<JellyfinItem> | null | undefined, index: number) => ({
+    (_data: ArrayLike<GridItem> | null | undefined, index: number) => ({
       length: itemDimensions.rowHeight,
       offset: itemDimensions.rowHeight * Math.floor(index / numColumns),
       index,
@@ -126,14 +131,31 @@ export default function VideoLibraryScreen() {
     [numColumns],
   );
 
+  // Show back item when inside a library (can go back to library selection)
+  const showBackItem = folderStack.length > 0;
+
+  // Create grid data with optional back item prepended
+  const gridData: GridItem[] = useMemo(() => {
+    if (showBackItem) {
+      return [{ Id: BACK_ITEM_ID, _isBackItem: true as const }, ...items];
+    }
+    return items;
+  }, [items, showBackItem]);
+
   const renderItem = useCallback(
-    ({ item, index }: { item: JellyfinItem; index: number }) => {
-      if (isFolder(item)) {
-        return <FolderGridItem folder={item} onPress={handleItemPress} index={index} hasTVPreferredFocus={index === 0} />;
+    ({ item, index }: { item: GridItem; index: number }) => {
+      // Back navigation item — grabs initial focus so you can go back quickly.
+      if ("_isBackItem" in item && item._isBackItem) {
+        return <BackGridItem onPress={navigateBack} hasTVPreferredFocus={true} isLoading={isLoading} />;
       }
-      return <VideoGridItem video={item} onPress={handleItemPress} index={index} hasTVPreferredFocus={index === 0} />;
+
+      const jellyfinItem = item as JellyfinItem;
+      if (isFolder(jellyfinItem)) {
+        return <FolderGridItem folder={jellyfinItem} onPress={handleItemPress} index={index} hasTVPreferredFocus={index === 0} />;
+      }
+      return <VideoGridItem video={jellyfinItem} onPress={handleItemPress} index={index} hasTVPreferredFocus={index === 0} />;
     },
-    [handleItemPress],
+    [handleItemPress, navigateBack, isLoading],
   );
 
   const renderFooter = useCallback(() => {
@@ -234,12 +256,12 @@ export default function VideoLibraryScreen() {
 
   return (
     <View style={styles.container}>
-      {items.length === 0 ? (
+      {items.length === 0 && !showBackItem ? (
         renderEmpty()
       ) : (
         <FlatList
           testID="library-list"
-          data={items}
+          data={gridData}
           renderItem={renderItem}
           keyExtractor={(item) => item.Id}
           numColumns={numColumns}

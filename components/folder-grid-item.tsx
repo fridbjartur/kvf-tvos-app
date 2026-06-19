@@ -144,8 +144,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: "100%",
-    aspectRatio: GRID.CARD_ASPECT_RATIO,
-    justifyContent: "center", // Vertically center landscape art (portrait fills, so unaffected)
+    aspectRatio: GRID.CARD_ASPECT_RATIO, // portrait fills, landscape sits in the top band
     borderRadius: DESIGN.BORDER_RADIUS_CARD,
     overflow: "hidden",
     backgroundColor: "#1C1C1E",
@@ -172,9 +171,12 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  // Landscape: full width, natural height (aspectRatio applied inline), pinned to the card top.
+  // Landscape: full width, natural height (aspectRatio inline), pinned ~15% down from the card top.
   posterTop: {
-    width: "100%",
+    position: "absolute",
+    top: GRID.LANDSCAPE_IMAGE_TOP,
+    left: 0,
+    right: 0,
   },
   placeholderPoster: {
     width: "100%",

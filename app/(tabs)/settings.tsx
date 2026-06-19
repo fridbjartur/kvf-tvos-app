@@ -85,7 +85,13 @@ export default function SettingsScreen() {
         // actually reachable. If the IP/address changed, drop to the connect
         // screen so the user can restore (auto-discovery) or enter a new address.
         const status = await evaluateSavedConnection();
-        setScreenState(status === "connected" ? "CONNECTED" : "NOT_CONNECTED");
+        if (status === "connected") {
+          setScreenState("CONNECTED");
+        } else {
+          // Show the last address in the field so the user can reuse or tweak it.
+          setServerUrl((cur) => cur || savedUrl);
+          setScreenState("NOT_CONNECTED");
+        }
       } else {
         setLastConnection(null);
         setScreenState("NOT_CONNECTED");
@@ -284,7 +290,7 @@ export default function SettingsScreen() {
               isConnectingDemo={isConnectingDemo}
               onConnect={handleConnectServer}
               onConnectDemo={handleConnectDemo}
-              lastConnection={lastConnection}
+              canRestore={!!lastConnection}
               isRestoring={isRestoring}
               onRestore={handleRestoreConnection}
             />

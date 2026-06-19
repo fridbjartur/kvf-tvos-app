@@ -87,31 +87,19 @@ const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpac
             <Ionicons name="folder" size={IS_TV ? 20 : 16} color="#FFC312" />
           </View>
 
-          {/* Info overlay - only show on focus like video items */}
-          {focused &&
-            (thumbnailUrl ? (
-              <BlurView intensity={80} style={styles.infoOverlay} tint="dark">
-                <MarqueeText active={focused} style={styles.folderName}>
-                  {folder.Name}
-                </MarqueeText>
-                {itemCount !== undefined && (
-                  <Text style={styles.childCount}>
-                    {itemCount} {itemCount === 1 ? "item" : "items"}
-                  </Text>
-                )}
-              </BlurView>
-            ) : (
-              <View style={styles.infoOverlayNoBlur}>
-                <MarqueeText active={focused} style={styles.folderName}>
-                  {folder.Name}
-                </MarqueeText>
-                {itemCount !== undefined && (
-                  <Text style={styles.childCount}>
-                    {itemCount} {itemCount === 1 ? "item" : "items"}
-                  </Text>
-                )}
-              </View>
-            ))}
+          {/* Always-visible frosted info panel filling the bottom half of the card */}
+          {thumbnailUrl && (
+            <BlurView intensity={IS_TV ? 60 : 40} style={styles.infoOverlay} tint="dark">
+              <MarqueeText active={focused} style={styles.folderName}>
+                {folder.Name}
+              </MarqueeText>
+              {itemCount !== undefined && (
+                <Text style={styles.childCount}>
+                  {itemCount} {itemCount === 1 ? "item" : "items"}
+                </Text>
+              )}
+            </BlurView>
+          )}
 
           <View style={[styles.borderOverlay, focused && styles.borderOverlayFocused]} pointerEvents="none" />
         </View>
@@ -203,35 +191,22 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: "35%",
-    paddingVertical: IS_TV ? 16 : 12,
+    height: "50%", // bottom half of the card
+    paddingVertical: IS_TV ? 28 : 16,
     paddingHorizontal: IS_TV ? 20 : 16,
     overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
-  },
-  infoOverlayNoBlur: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: "35%",
-    paddingVertical: IS_TV ? 16 : 12,
-    paddingHorizontal: IS_TV ? 20 : 16,
-    overflow: "hidden",
-    justifyContent: "center",
-    alignItems: "center",
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
   },
   folderName: {
     color: "#FFFFFF",
-    fontSize: IS_TV ? 30 : 13,
+    fontSize: IS_TV ? 30 : 14,
     fontWeight: "700",
     textAlign: "center",
+    marginTop: IS_TV ? 16 : 8, // extra padding above/below the title marquee
+    marginBottom: IS_TV ? 12 : 6,
   },
   childCount: {
     color: "#98989D",

@@ -10,9 +10,9 @@ export const CACHE = {
 
 // Library grid sizing
 export const GRID = {
-  /** Card aspect ratio (width / height). Slightly shorter than 2:3 so landscape
-   *  thumbnails leave a smaller bottom band. */
-  CARD_ASPECT_RATIO: 3 / 4,
+  /** Card aspect ratio (width / height) = 8:9, so a 16:9 landscape image fills
+   *  the top half and the always-visible info panel fills the bottom half. */
+  CARD_ASPECT_RATIO: 8 / 9,
 } as const;
 
 // Design system values

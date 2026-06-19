@@ -218,6 +218,8 @@ function ReactNativeSearchScreen() {
 
   useEffect(() => {
     if (isLoading && searchError) {
+      // Guarded one-shot reset when a fresh load starts; not a render cascade.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSearchError(null);
     }
   }, [isLoading, searchError]);
@@ -315,6 +317,8 @@ function ReactNativeSearchScreen() {
 
     const trimmed = searchQuery.trim();
     if (trimmed.length < 2) {
+      // Guarded reset when the query is cleared; not a render cascade.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSearchResults([]);
       setSearchError(null);
       setIsSearching(false);

@@ -1,4 +1,3 @@
-import { DarkTheme, ThemeProvider } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Platform, LogBox } from "react-native";
@@ -18,14 +17,6 @@ if (Platform.isTV) {
   LogBox.ignoreAllLogs(true);
 }
 
-const CustomDarkTheme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    background: "#3d3d3d",
-  },
-};
-
 export default function RootLayout() {
   // Register plugins and sync credentials on app startup
   useEffect(() => {
@@ -39,20 +30,18 @@ export default function RootLayout() {
         <LibraryProvider>
           <FolderNavigationProvider>
             <PlayQueueProvider>
-              <ThemeProvider value={CustomDarkTheme}>
-                <Stack>
-                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                  <Stack.Screen
-                    name="player"
-                    options={{
-                      headerShown: false,
-                      presentation: "fullScreenModal",
-                      animation: "fade",
-                    }}
-                  />
-                </Stack>
-                <StatusBar style="light" backgroundColor="transparent" translucent={true} />
-              </ThemeProvider>
+              <Stack screenOptions={{ contentStyle: { backgroundColor: "#3d3d3d" } }}>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="player"
+                  options={{
+                    headerShown: false,
+                    presentation: "fullScreenModal",
+                    animation: "fade",
+                  }}
+                />
+              </Stack>
+              <StatusBar style="light" />
             </PlayQueueProvider>
           </FolderNavigationProvider>
         </LibraryProvider>

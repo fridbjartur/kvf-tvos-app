@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-video/src/Video.tsx b/node_modules/react-native-video/src/Video.tsx
-index 82b73ab..d113abb 100644
+index 789d915..6af1d59 100644
 --- a/node_modules/react-native-video/src/Video.tsx
 +++ b/node_modules/react-native-video/src/Video.tsx
 @@ -219,7 +219,7 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(

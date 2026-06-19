@@ -64,24 +64,6 @@ export default function SettingsScreen() {
   const usernameRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadCurrentState();
-      return () => {
-        Keyboard.dismiss();
-      };
-    }, []),
-  );
-
-  React.useEffect(() => {
-    if (quickConnect.status === "AUTHENTICATED" && quickConnect.authResult) {
-      refreshLibrary();
-      refreshFolderNavigation();
-      loadCurrentState();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quickConnect.status]);
-
   const loadCurrentState = async () => {
     try {
       const [savedUrl, savedKey, savedUserId, savedQuality, savedUserName, savedAuthMethod, savedServerName] = await Promise.all([
@@ -110,6 +92,26 @@ export default function SettingsScreen() {
       setScreenState("NOT_CONNECTED");
     }
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      loadCurrentState();
+      return () => {
+        Keyboard.dismiss();
+      };
+    }, []),
+  );
+
+  React.useEffect(() => {
+    if (quickConnect.status === "AUTHENTICATED" && quickConnect.authResult) {
+      refreshLibrary();
+      refreshFolderNavigation();
+      // loadCurrentState sets state only after awaited I/O (not a synchronous cascade)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadCurrentState();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quickConnect.status]);
 
   const handleConnectServer = async () => {
     const trimmed = serverUrl.trim();

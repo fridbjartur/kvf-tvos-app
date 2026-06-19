@@ -1,4 +1,7 @@
-import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
+import { NativeTabs } from "expo-router/unstable-native-tabs";
+
+// SDK 56: Icon/Label moved under NativeTabs.Trigger.
+const { Icon, Label } = NativeTabs.Trigger;
 
 export default function TabLayout() {
   return (

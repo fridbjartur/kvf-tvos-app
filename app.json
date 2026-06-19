@@ -9,7 +9,6 @@
     "scheme": "tomotv",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#1C1C1E",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "dev.keiver.tomotv",
@@ -44,12 +43,13 @@
         "@react-native-tvos/config-tv",
         {
           "isTV": true,
-          "tvosDeploymentTarget": "15.1"
+          "tvosDeploymentTarget": "16.4"
         }
       ],
       "expo-secure-store",
       "./plugins/withMultiAudioResourceLoader",
-      "./plugins/withTVImageAssets"
+      "./plugins/withTVImageAssets",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -20,9 +20,6 @@ const features: Feature[] = [
 const DOCS_URL = "tomotv.app";
 
 export default function HelpScreen() {
-  const appFile = require("@/app.json");
-  const { version = "0.0.0" } = appFile?.expo || {};
-
   return (
     <View style={styles.container}>
       {/* Ambient glow effects */}
@@ -40,7 +37,6 @@ export default function HelpScreen() {
               </View>
               <View style={styles.titleBlock}>
                 <Text style={styles.title}>Tomo TV</Text>
-                <Text style={styles.versionText}>v {version}</Text>
                 <Text style={styles.subtitle}>Stream any video from your Jellyfin server. Just press play.</Text>
               </View>
             </View>
@@ -205,14 +201,6 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: "#A6BFA3",
-  },
-  versionText: {
-    fontSize: TV ? 16 : 12,
-    color: "#A6BFA3",
-    fontWeight: "500",
-    position: "absolute",
-    top: TV ? 20 : 12,
-    right: "40%",
   },
 
   // Center column - QR Card

@@ -203,6 +203,21 @@ export async function saveProgress(videoId: string, position: number, duration: 
 }
 
 /**
+ * Get all in-progress entries, most recently watched first.
+ * Drops near-finished items (>= 95% watched) that may have lingered after a
+ * force-quit. Used to populate the Continue Watching screen.
+ */
+export async function getRecentProgress(limit = 30): Promise<Array<{ videoId: string } & WatchProgressEntry>> {
+  await ensureCacheLoaded();
+
+  return Object.entries(cache!)
+    .map(([videoId, entry]) => ({ videoId, ...entry }))
+    .filter((entry) => !(entry.duration > 0 && entry.position / entry.duration >= COMPLETION_THRESHOLD))
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, limit);
+}
+
+/**
  * Clear progress for a single video.
  */
 export async function clearProgress(videoId: string): Promise<void> {

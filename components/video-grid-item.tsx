@@ -48,6 +48,12 @@ const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpaci
     [video], // Only video ID needed, not entire video object
   );
 
+  // Landscape images (ratio >= 1) render full/uncropped in the top band; portrait fills the card.
+  const landscapeRatio = useMemo(() => {
+    const ratio = video.PrimaryImageAspectRatio;
+    return ratio !== undefined && ratio >= 1 ? ratio : null;
+  }, [video.PrimaryImageAspectRatio]);
+
   // Lazy compute metadata ONLY when focused - huge performance win!
   const metadata = useMemo(() => {
     if (!focused) return null;
@@ -113,7 +119,7 @@ const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpaci
           {posterUrl ? (
             <Image
               source={{ uri: posterUrl }}
-              style={styles.poster}
+              style={landscapeRatio ? [styles.posterTop, { aspectRatio: landscapeRatio }] : styles.poster}
               contentFit="cover"
               transition={0}
               priority={index < 10 ? "high" : "normal"}
@@ -177,6 +183,7 @@ const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpaci
 function arePropsEqual(prevProps: VideoGridItemProps, nextProps: VideoGridItemProps): boolean {
   return (
     prevProps.video.Id === nextProps.video.Id &&
+    prevProps.video.PrimaryImageAspectRatio === nextProps.video.PrimaryImageAspectRatio &&
     prevProps.index === nextProps.index &&
     prevProps.onPress === nextProps.onPress &&
     prevProps.onItemFocus === nextProps.onItemFocus &&
@@ -227,6 +234,10 @@ const styles = StyleSheet.create({
   poster: {
     width: "100%",
     height: "100%",
+  },
+  // Landscape: full width, natural height (aspectRatio applied inline), pinned to the card top.
+  posterTop: {
+    width: "100%",
   },
   placeholderPoster: {
     width: "100%",

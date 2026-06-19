@@ -1816,6 +1816,67 @@ export async function fetchPlaylistContents(playlistId: string, { limit = 60, st
 }
 
 /**
+ * Fetch full metadata for a set of item IDs in a single request.
+ * Used to hydrate the locally-tracked Continue Watching list (which stores only
+ * playback position, not titles/posters). Items missing from the response
+ * (deleted on the server) are dropped, and the result is re-ordered to match
+ * the input `ids` so caller-supplied ordering (e.g. most-recent-first) survives.
+ */
+export async function fetchItemsByIds(ids: string[]): Promise<JellyfinVideoItem[]> {
+  if (ids.length === 0) {
+    return [];
+  }
+
+  const config = await getConfig();
+
+  if (!config.server || !config.apiKey || !config.userId) {
+    throw new Error("Jellyfin server not configured.");
+  }
+
+  return retryWithBackoff(
+    async () => {
+      const query = new URLSearchParams({
+        Ids: ids.join(","),
+        Recursive: "true",
+        Fields: "Path,MediaStreams,Genres,ProductionYear,ImageTags,PrimaryImageAspectRatio",
+      });
+
+      const url = `${config.server}/Users/${config.userId}/Items?${query.toString()}`;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUTS.NORMAL);
+
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: `MediaBrowser Token="${config.apiKey}"`,
+          },
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch items by ids: ${response.status}`);
+        }
+
+        const data: JellyfinVideosResponse = await response.json();
+        const byId = new Map((data.Items || []).map((item) => [item.Id, item]));
+
+        // Preserve caller order; silently drop ids the server no longer knows.
+        return ids.map((id) => byId.get(id)).filter((item): item is JellyfinVideoItem => item !== undefined);
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+      }
+    },
+    { maxAttempts: 3 },
+  );
+}
+
+/**
  * Get thumbnail URL for a folder
  * Returns empty string if config not yet loaded (prevents broken image requests)
  */

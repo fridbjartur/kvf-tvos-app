@@ -28,6 +28,12 @@ const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpac
 
   const thumbnailUrl = useMemo(() => (folder.ImageTags?.Primary ? getFolderThumbnailUrl(folder.Id, POSTER_SIZE) : undefined), [folder.Id, folder.ImageTags?.Primary]);
 
+  // Landscape art (ratio >= 1) renders full/uncropped in the top band; portrait fills the card.
+  const landscapeRatio = useMemo(() => {
+    const ratio = folder.PrimaryImageAspectRatio;
+    return ratio !== undefined && ratio >= 1 ? ratio : null;
+  }, [folder.PrimaryImageAspectRatio]);
+
   const handleFocus = useCallback(() => {
     setFocused(true);
   }, []);
@@ -58,7 +64,15 @@ const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpac
       <View style={styles.card}>
         <View style={styles.imageContainer}>
           {thumbnailUrl ? (
-            <Image source={{ uri: thumbnailUrl }} style={styles.poster} contentFit="cover" transition={0} priority={index < 10 ? "high" : "normal"} cachePolicy="disk" recyclingKey={folder.Id} />
+            <Image
+              source={{ uri: thumbnailUrl }}
+              style={landscapeRatio ? [styles.posterTop, { aspectRatio: landscapeRatio }] : styles.poster}
+              contentFit="cover"
+              transition={0}
+              priority={index < 10 ? "high" : "normal"}
+              cachePolicy="disk"
+              recyclingKey={folder.Id}
+            />
           ) : (
             <View style={styles.placeholderPoster}>
               <Ionicons name="folder" size={IS_TV ? 80 : 50} color="#FFC312" />
@@ -107,7 +121,13 @@ const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpac
 });
 
 function arePropsEqual(prev: FolderGridItemProps, next: FolderGridItemProps): boolean {
-  return prev.folder.Id === next.folder.Id && prev.index === next.index && prev.onPress === next.onPress && prev.hasTVPreferredFocus === next.hasTVPreferredFocus;
+  return (
+    prev.folder.Id === next.folder.Id &&
+    prev.folder.PrimaryImageAspectRatio === next.folder.PrimaryImageAspectRatio &&
+    prev.index === next.index &&
+    prev.onPress === next.onPress &&
+    prev.hasTVPreferredFocus === next.hasTVPreferredFocus
+  );
 }
 
 export const FolderGridItem = React.memo(FolderGridItemComponent, arePropsEqual);
@@ -150,6 +170,10 @@ const styles = StyleSheet.create({
   poster: {
     width: "100%",
     height: "100%",
+  },
+  // Landscape: full width, natural height (aspectRatio applied inline), pinned to the card top.
+  posterTop: {
+    width: "100%",
   },
   placeholderPoster: {
     width: "100%",

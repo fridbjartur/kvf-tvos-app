@@ -30,6 +30,10 @@ class FolderNavigationManager {
   private nextStartIndex: number = 0;
   private totalRecordCount: number | undefined = undefined;
   private isLoadingRef: boolean = false;
+  // Bumped on every load and on clearCache so a superseded in-flight request
+  // (e.g. a slow disconnected load that resolves after we connect) cannot
+  // clobber newer state with its stale result/error.
+  private loadGeneration: number = 0;
 
   // Cache stores only the initial page of items, not accumulated pagination results
   // This prevents re-navigation from loading all items at once
@@ -183,6 +187,9 @@ class FolderNavigationManager {
       return;
     }
 
+    // Claim this load; any older in-flight load becomes stale.
+    const generation = ++this.loadGeneration;
+
     const cacheKey = folderId || "root";
     const cached = this.folderCache.get(cacheKey);
     const now = Date.now();
@@ -233,6 +240,11 @@ class FolderNavigationManager {
               startIndex: 0,
             });
 
+      // A newer load (or a clearCache) superseded this one — drop the result.
+      if (generation !== this.loadGeneration) {
+        return;
+      }
+
       this.items = items;
       this.totalRecordCount = total;
       this.nextStartIndex = items.length;
@@ -256,6 +268,11 @@ class FolderNavigationManager {
         hasMore: this.hasMoreResults,
       });
     } catch (err) {
+      // Don't surface a stale error if a newer load/clear superseded this one.
+      if (generation !== this.loadGeneration) {
+        return;
+      }
+
       this.items = [];
       this.error = err instanceof Error ? err.message : "Failed to load folder";
       this.isLoading = false;
@@ -265,7 +282,11 @@ class FolderNavigationManager {
         service: "FolderNavigationManager",
       });
     } finally {
-      this.isLoadingRef = false;
+      // Only release the loading flag if we still own the current generation;
+      // a newer load may already be in flight and owns it now.
+      if (generation === this.loadGeneration) {
+        this.isLoadingRef = false;
+      }
     }
   }
 
@@ -364,6 +385,8 @@ class FolderNavigationManager {
    * Clear all state and cache
    */
   clearCache(): void {
+    // Invalidate any in-flight load so its result can't repopulate cleared state.
+    this.loadGeneration++;
     this.items = [];
     this.folderStack = [];
     this.folderCache.clear();

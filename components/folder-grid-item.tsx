@@ -9,29 +9,26 @@ import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native
 import { MarqueeText } from "./MarqueeText";
 
 const IS_TV = Platform.isTV;
-const CARD_PADDING = IS_TV ? 16 : 8;
 const POSTER_SIZE = IS_TV ? 300 : 200;
-const NUM_COLUMNS = IS_TV ? 5 : 3;
 
 interface FolderGridItemProps {
   folder: JellyfinItem;
   onPress: (folder: JellyfinItem) => void;
   index: number;
+  /** Laid-out image width in px (from the justified row packer). */
+  width: number;
+  /** Laid-out image height in px (from the justified row packer). */
+  height: number;
   hasTVPreferredFocus?: boolean;
 }
 
 const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpacity>, FolderGridItemProps>(function FolderGridItemComponent(
-  { folder, onPress, index, hasTVPreferredFocus = false },
+  { folder, onPress, index, width, height, hasTVPreferredFocus = false },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
 
   const thumbnailUrl = useMemo(() => (folder.ImageTags?.Primary ? getFolderThumbnailUrl(folder.Id, POSTER_SIZE) : undefined), [folder.Id, folder.ImageTags?.Primary]);
-
-  const contentFit = useMemo(() => {
-    const ratio = folder.PrimaryImageAspectRatio;
-    return ratio !== undefined && ratio >= 1 ? ("contain" as const) : ("cover" as const);
-  }, [folder.PrimaryImageAspectRatio]);
 
   const handleFocus = useCallback(() => {
     setFocused(true);
@@ -56,14 +53,13 @@ const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpac
       activeOpacity={0.95}
       isTVSelectable={true}
       hasTVPreferredFocus={hasTVPreferredFocus}
-      style={styles.container}
       accessibilityLabel={folder.Name || "Folder"}
       accessibilityRole="button"
       accessibilityHint={itemCount !== undefined ? `Navigate to ${folder.Name} with ${itemCount} ${itemCount === 1 ? "item" : "items"}` : `Navigate to ${folder.Name}`}>
       <View style={styles.card}>
-        <View style={styles.imageContainer}>
+        <View style={[styles.imageContainer, { width, height }]}>
           {thumbnailUrl ? (
-            <Image source={{ uri: thumbnailUrl }} style={styles.poster} contentFit={contentFit} transition={0} priority={index < 10 ? "high" : "normal"} cachePolicy="disk" recyclingKey={folder.Id} />
+            <Image source={{ uri: thumbnailUrl }} style={styles.poster} contentFit="cover" transition={0} priority={index < 10 ? "high" : "normal"} cachePolicy="disk" recyclingKey={folder.Id} />
           ) : (
             <View style={styles.placeholderPoster}>
               <Ionicons name="folder" size={IS_TV ? 80 : 50} color="#FFC312" />
@@ -114,7 +110,8 @@ const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpac
 function arePropsEqual(prev: FolderGridItemProps, next: FolderGridItemProps): boolean {
   return (
     prev.folder.Id === next.folder.Id &&
-    prev.folder.PrimaryImageAspectRatio === next.folder.PrimaryImageAspectRatio &&
+    prev.width === next.width &&
+    prev.height === next.height &&
     prev.index === next.index &&
     prev.onPress === next.onPress &&
     prev.hasTVPreferredFocus === next.hasTVPreferredFocus
@@ -124,18 +121,13 @@ function arePropsEqual(prev: FolderGridItemProps, next: FolderGridItemProps): bo
 export const FolderGridItem = React.memo(FolderGridItemComponent, arePropsEqual);
 
 const styles = StyleSheet.create({
-  container: {
-    width: `${100 / NUM_COLUMNS}%`,
-    padding: CARD_PADDING,
-  },
   card: {
     borderRadius: DESIGN.BORDER_RADIUS_CARD,
     backgroundColor: "transparent",
     overflow: "hidden",
   },
   imageContainer: {
-    width: "100%",
-    aspectRatio: 2 / 3,
+    // width/height supplied inline from the justified row packer.
     borderRadius: DESIGN.BORDER_RADIUS_CARD,
     overflow: "hidden",
     backgroundColor: "#1C1C1E",

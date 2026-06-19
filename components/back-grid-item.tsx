@@ -4,19 +4,17 @@ import React, { forwardRef, useCallback, useState } from "react";
 import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 const IS_TV = Platform.isTV;
+const CARD_PADDING = IS_TV ? 16 : 8;
+const NUM_COLUMNS = IS_TV ? 5 : 3;
 
 interface BackGridItemProps {
   onPress: () => void;
-  /** Laid-out image width in px (from the justified row packer). */
-  width: number;
-  /** Laid-out image height in px (from the justified row packer). */
-  height: number;
   hasTVPreferredFocus?: boolean;
   isLoading?: boolean;
 }
 
 const BackGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpacity>, BackGridItemProps>(function BackGridItemComponent(
-  { onPress, width, height, hasTVPreferredFocus = false, isLoading = false },
+  { onPress, hasTVPreferredFocus = false, isLoading = false },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
@@ -40,9 +38,10 @@ const BackGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpacit
       hasTVPreferredFocus={hasTVPreferredFocus}
       accessibilityLabel="Go Back"
       accessibilityRole="button"
-      accessibilityHint="Return to previous folder">
+      accessibilityHint="Return to previous folder"
+      style={styles.container}>
       <View style={styles.card}>
-        <View style={[styles.imageContainer, { width, height }]}>
+        <View style={styles.imageContainer}>
           <View style={styles.placeholderPoster}>
             {isLoading ? <ActivityIndicator size="small" color="rgba(250, 196, 0, 0.5)" /> : <Ionicons name="return-up-back" size={IS_TV ? 80 : 50} color="rgba(250, 196, 0, 0.5)" />}
             <Text style={styles.placeholderText}> </Text>
@@ -68,13 +67,18 @@ const BackGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpacit
 export const BackGridItem = React.memo(BackGridItemComponent);
 
 const styles = StyleSheet.create({
+  container: {
+    width: `${100 / NUM_COLUMNS}%`,
+    padding: CARD_PADDING,
+  },
   card: {
     borderRadius: DESIGN.BORDER_RADIUS_CARD,
     backgroundColor: "transparent",
     overflow: "hidden",
   },
   imageContainer: {
-    // width/height supplied inline from the justified row packer.
+    width: "100%",
+    aspectRatio: 2 / 3,
     borderRadius: DESIGN.BORDER_RADIUS_CARD,
     overflow: "hidden",
     backgroundColor: "#1C1C1E",

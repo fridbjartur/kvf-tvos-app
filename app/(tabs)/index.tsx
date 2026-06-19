@@ -2,46 +2,42 @@ import { BackGridItem } from "@/components/back-grid-item";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { FocusableButton } from "@/components/FocusableButton";
 import { FolderGridItem } from "@/components/folder-grid-item";
-import { GridRow, GRID_ROW_H_GAP, GRID_ROW_V_GAP } from "@/components/grid-row";
 import { VideoGridItem } from "@/components/video-grid-item";
 import { useFolderNavigation } from "@/contexts/FolderNavigationContext";
 import { useLoading } from "@/contexts/LoadingContext";
 import { usePlayQueue } from "@/contexts/PlayQueueContext";
 import { connectToDemoServer, isFolder } from "@/services/jellyfinApi";
 import { JellyfinItem } from "@/types/jellyfin";
-import { JustifiedCard, JustifiedRow, packRows } from "@/utils/justified-grid";
 import { logger } from "@/utils/logger";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, BackHandler, FlatList, Platform, StyleSheet, Text, useWindowDimensions, View, useTVEventHandler } from "react-native";
+import { ActivityIndicator, Alert, BackHandler, Dimensions, FlatList, Platform, StyleSheet, Text, View, useTVEventHandler } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Special marker for the ".." back navigation item
 const BACK_ITEM_ID = "__BACK__";
 type GridItem = JellyfinItem | { Id: typeof BACK_ITEM_ID; _isBackItem: true };
 
+// Uniform card sizing constants (all cards are 2:3 portrait)
 const IS_TV = Platform.isTV;
-// Nominal column count for a portrait poster — sets the uniform row height.
-// Landscape posters keep that height and become proportionally wider.
-const NOMINAL_COLUMNS = IS_TV ? 5 : 3;
-const PORTRAIT_RATIO = 2 / 3;
-const GRID_PAD_LEFT = IS_TV ? 80 : 60;
-const GRID_PAD_RIGHT = IS_TV ? 40 : 20;
+const NUM_COLUMNS = IS_TV ? 5 : 3;
+const CARD_PADDING = IS_TV ? 16 : 8;
+const GRID_PADDING_H = (IS_TV ? 80 : 60) + (IS_TV ? 40 : 20);
+const COLUMN_WRAPPER_PADDING_V = 24;
 
 // TV tab bar is ~210px tall, phone tab bars are ~49px + safe area
 const TAB_BAR_HEIGHT = IS_TV ? 210 : 49;
 
-function getGridMetrics(windowWidth: number) {
-  const availableWidth = Math.max(0, windowWidth - GRID_PAD_LEFT - GRID_PAD_RIGHT);
-  const portraitCardWidth = (availableWidth - GRID_ROW_H_GAP * (NOMINAL_COLUMNS - 1)) / NOMINAL_COLUMNS;
-  const rowHeight = Math.round(portraitCardWidth / PORTRAIT_RATIO);
-  return { availableWidth, rowHeight, rowTotalHeight: rowHeight + GRID_ROW_V_GAP };
-}
-
-function getItemAspectRatio(item: GridItem): number | undefined {
-  return "_isBackItem" in item ? undefined : item.PrimaryImageAspectRatio;
-}
+const itemDimensions = (() => {
+  const screenWidth = Dimensions.get("window").width;
+  const availableWidth = screenWidth - GRID_PADDING_H;
+  const columnWidth = availableWidth / NUM_COLUMNS;
+  const imageWidth = columnWidth - 2 * CARD_PADDING;
+  const imageHeight = imageWidth * 1.5; // 2:3 aspect ratio → height = width * 3/2
+  const rowHeight = imageHeight + 2 * CARD_PADDING + 2 * COLUMN_WRAPPER_PADDING_V;
+  return { rowHeight };
+})();
 
 export default function VideoLibraryScreen() {
   const router = useRouter();
@@ -113,8 +109,7 @@ export default function VideoLibraryScreen() {
     [navigateToFolder, showGlobalLoader, router, currentFolder, buildQueue],
   );
 
-  const { width: windowWidth } = useWindowDimensions();
-  const metrics = useMemo(() => getGridMetrics(windowWidth), [windowWidth]);
+  const numColumns = useMemo(() => (Platform.isTV ? 5 : 3), []);
 
   // Dynamic content padding that accounts for tab bar safe area
   const gridContentStyle = useMemo(
@@ -127,12 +122,12 @@ export default function VideoLibraryScreen() {
   );
 
   const getItemLayout = useCallback(
-    (_data: ArrayLike<JustifiedRow<GridItem>> | null | undefined, index: number) => ({
-      length: metrics.rowTotalHeight,
-      offset: metrics.rowTotalHeight * index,
+    (_data: ArrayLike<GridItem> | null | undefined, index: number) => ({
+      length: itemDimensions.rowHeight,
+      offset: itemDimensions.rowHeight * Math.floor(index / numColumns),
       index,
     }),
-    [metrics.rowTotalHeight],
+    [numColumns],
   );
 
   // Show back item when inside a library (can go back to library selection)
@@ -146,37 +141,22 @@ export default function VideoLibraryScreen() {
     return items;
   }, [items, showBackItem]);
 
-  // Pack items into uniform-height rows of variable-width cards (true orientation).
-  const rows = useMemo(
-    () =>
-      packRows<GridItem>(gridData, {
-        containerWidth: metrics.availableWidth,
-        rowHeight: metrics.rowHeight,
-        gap: GRID_ROW_H_GAP,
-        getAspectRatio: getItemAspectRatio,
-        fallbackRatio: PORTRAIT_RATIO,
-        getKey: (item) => item.Id,
-      }),
-    [gridData, metrics.availableWidth, metrics.rowHeight],
-  );
-
-  const renderCard = useCallback(
-    (card: JustifiedCard<GridItem>) => {
-      const { item, index, width, height } = card;
-      const preferred = index === 0;
+  const renderItem = useCallback(
+    ({ item, index }: { item: GridItem; index: number }) => {
+      // Handle back navigation item
       if ("_isBackItem" in item && item._isBackItem) {
-        return <BackGridItem key={item.Id} onPress={navigateBack} width={width} height={height} hasTVPreferredFocus={preferred} isLoading={isLoading} />;
+        return <BackGridItem onPress={navigateBack} hasTVPreferredFocus={index === 0} isLoading={isLoading} />;
       }
+
+      // Handle regular items
       const jellyfinItem = item as JellyfinItem;
       if (isFolder(jellyfinItem)) {
-        return <FolderGridItem key={jellyfinItem.Id} folder={jellyfinItem} onPress={handleItemPress} index={index} width={width} height={height} hasTVPreferredFocus={preferred} />;
+        return <FolderGridItem folder={jellyfinItem} onPress={handleItemPress} index={index} hasTVPreferredFocus={index === 0} />;
       }
-      return <VideoGridItem key={jellyfinItem.Id} video={jellyfinItem} onPress={handleItemPress} index={index} width={width} height={height} hasTVPreferredFocus={preferred} />;
+      return <VideoGridItem video={jellyfinItem} onPress={handleItemPress} index={index} hasTVPreferredFocus={index === 0} />;
     },
     [handleItemPress, navigateBack, isLoading],
   );
-
-  const renderRow = useCallback(({ item }: { item: JustifiedRow<GridItem> }) => <GridRow row={item} renderCard={renderCard} />, [renderCard]);
 
   const renderFooter = useCallback(() => {
     if (!isLoadingMore) {
@@ -281,16 +261,19 @@ export default function VideoLibraryScreen() {
       ) : (
         <FlatList
           testID="library-list"
-          data={rows}
-          renderItem={renderRow}
-          keyExtractor={(row) => row.key}
+          data={gridData}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.Id}
+          numColumns={numColumns}
+          key={numColumns}
           extraData={currentFolder?.id}
           contentContainerStyle={gridContentStyle}
+          columnWrapperStyle={styles.columnWrapper}
           getItemLayout={getItemLayout}
           showsVerticalScrollIndicator={true}
           updateCellsBatchingPeriod={50}
-          initialNumToRender={Platform.isTV ? 4 : 5}
-          maxToRenderPerBatch={Platform.isTV ? 4 : 5}
+          initialNumToRender={Platform.isTV ? 15 : 12}
+          maxToRenderPerBatch={Platform.isTV ? 15 : 12}
           windowSize={5}
           contentInsetAdjustmentBehavior="never"
           removeClippedSubviews={false}
@@ -312,6 +295,10 @@ const styles = StyleSheet.create({
   gridContent: {
     paddingLeft: Platform.isTV ? 80 : 60,
     paddingRight: Platform.isTV ? 40 : 20,
+  },
+  columnWrapper: {
+    justifyContent: "flex-start",
+    paddingVertical: 24,
   },
   centerContainer: {
     flex: 1,

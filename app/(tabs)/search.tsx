@@ -1,30 +1,16 @@
 import { FocusableButton } from "@/components/FocusableButton";
-import { GridRow, GRID_ROW_H_GAP, GRID_ROW_V_GAP } from "@/components/grid-row";
 import { VideoGridItem } from "@/components/video-grid-item";
 import { useLibrary } from "@/contexts/LibraryContext";
 import { useLoading } from "@/contexts/LoadingContext";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { connectToDemoServer, getPosterUrl, searchVideos } from "@/services/jellyfinApi";
 import { JellyfinVideoItem } from "@/types/jellyfin";
-import { JustifiedCard, JustifiedRow, packRows } from "@/utils/justified-grid";
 import { logger } from "@/utils/logger";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { isNativeSearchAvailable, SearchResult, TvosSearchView } from "expo-tvos-search";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, findNodeHandle, FlatList, Platform, StyleSheet, Text, TextInput, TVEventControl, useWindowDimensions, View } from "react-native";
-
-const IS_TV = Platform.isTV;
-const SEARCH_NOMINAL_COLUMNS = IS_TV ? 5 : 3;
-const SEARCH_PORTRAIT_RATIO = 2 / 3;
-const SEARCH_GRID_PAD_H = IS_TV ? 40 : 16; // gridContent paddingHorizontal (each side)
-
-function getSearchGridMetrics(windowWidth: number) {
-  const availableWidth = Math.max(0, windowWidth - SEARCH_GRID_PAD_H * 2);
-  const portraitCardWidth = (availableWidth - GRID_ROW_H_GAP * (SEARCH_NOMINAL_COLUMNS - 1)) / SEARCH_NOMINAL_COLUMNS;
-  const rowHeight = Math.round(portraitCardWidth / SEARCH_PORTRAIT_RATIO);
-  return { availableWidth, rowHeight, rowTotalHeight: rowHeight + GRID_ROW_V_GAP };
-}
+import { ActivityIndicator, Alert, findNodeHandle, FlatList, Platform, StyleSheet, Text, TextInput, TVEventControl, View } from "react-native";
 
 /**
  * Gets the native node handle for TV focus management.
@@ -347,32 +333,26 @@ function ReactNativeSearchScreen() {
 
   const hasSearchQuery = searchQuery.trim().length >= 2;
   const shouldShowResults = hasSearchQuery && searchResults.length > 0;
+  const numColumns = Platform.isTV ? 5 : 3;
 
-  const { width: windowWidth } = useWindowDimensions();
-  const metrics = useMemo(() => getSearchGridMetrics(windowWidth), [windowWidth]);
-
-  const rows = useMemo(
-    () =>
-      packRows<JellyfinVideoItem>(searchResults, {
-        containerWidth: metrics.availableWidth,
-        rowHeight: metrics.rowHeight,
-        gap: GRID_ROW_H_GAP,
-        getAspectRatio: (item) => item.PrimaryImageAspectRatio,
-        fallbackRatio: SEARCH_PORTRAIT_RATIO,
-        getKey: (item) => item.Id,
-      }),
-    [searchResults, metrics.availableWidth, metrics.rowHeight],
-  );
-
-  const firstRowCount = rows[0]?.items.length ?? 0;
+  const itemDimensions = useMemo(() => {
+    const screenWidth = Platform.isTV ? 1080 : 400;
+    const itemWidth = screenWidth / numColumns;
+    const itemHeight = itemWidth * 1.5 + 40;
+    return { itemHeight };
+  }, [numColumns]);
 
   const getItemLayout = useCallback(
-    (_: ArrayLike<JustifiedRow<JellyfinVideoItem>> | null | undefined, index: number) => ({
-      length: metrics.rowTotalHeight,
-      offset: metrics.rowTotalHeight * index,
-      index,
-    }),
-    [metrics.rowTotalHeight],
+    (_: ArrayLike<JellyfinVideoItem> | null | undefined, index: number) => {
+      const rowPadding = (Platform.isTV ? 24 : 12) * 2; // columnWrapper paddingVertical (top + bottom)
+      const rowHeight = itemDimensions.itemHeight + rowPadding;
+      return {
+        length: rowHeight,
+        offset: rowHeight * Math.floor(index / numColumns),
+        index,
+      };
+    },
+    [itemDimensions, numColumns],
   );
 
   const [searchInputHandle, setSearchInputHandle] = useState<number | undefined>(undefined);
@@ -383,28 +363,22 @@ function ReactNativeSearchScreen() {
     searchInputRef.current = node;
   }, []);
 
-  const renderCard = useCallback(
-    (card: JustifiedCard<JellyfinVideoItem>) => {
-      const { item, index, width, height } = card;
-      const isFirstRow = index < firstRowCount;
+  const renderItem = useCallback(
+    ({ item, index }: { item: JellyfinVideoItem; index: number }) => {
+      const isFirstRow = index < numColumns;
       return (
         <VideoGridItem
-          key={item.Id}
           ref={index === 0 ? firstResultRef : undefined}
           video={item}
           onPress={handleVideoPress}
           index={index}
-          width={width}
-          height={height}
           hasTVPreferredFocus={index === 0 && shouldShowResults}
           nextFocusUp={isFirstRow ? searchInputHandle : undefined}
         />
       );
     },
-    [handleVideoPress, shouldShowResults, firstRowCount, searchInputHandle, firstResultRef],
+    [handleVideoPress, shouldShowResults, numColumns, searchInputHandle, firstResultRef],
   );
-
-  const renderRow = useCallback(({ item }: { item: JustifiedRow<JellyfinVideoItem> }) => <GridRow row={item} renderCard={renderCard} />, [renderCard]);
 
   const renderFooter = useCallback(() => {
     if (isLoadingMore) {
@@ -511,14 +485,17 @@ function ReactNativeSearchScreen() {
 
       {shouldShowResults ? (
         <FlatList
-          data={rows}
-          renderItem={renderRow}
-          keyExtractor={(row) => row.key}
+          data={searchResults}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.Id}
           getItemLayout={getItemLayout}
+          numColumns={numColumns}
+          key={numColumns}
           contentContainerStyle={styles.gridContent}
+          columnWrapperStyle={styles.columnWrapper}
           showsVerticalScrollIndicator
-          initialNumToRender={5}
-          maxToRenderPerBatch={5}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
           windowSize={3}
           removeClippedSubviews={!Platform.isTV}
           onEndReached={handleLoadMore}
@@ -579,6 +556,10 @@ const styles = StyleSheet.create({
   gridContent: {
     paddingBottom: Platform.isTV ? 120 : 100,
     paddingHorizontal: Platform.isTV ? 40 : 16,
+  },
+  columnWrapper: {
+    justifyContent: "flex-start",
+    paddingVertical: Platform.isTV ? 24 : 12,
   },
   centerContainer: {
     flex: 1,

@@ -9,21 +9,19 @@ import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native
 import { MarqueeText } from "./MarqueeText";
 
 const IS_TV = Platform.isTV;
+const CARD_PADDING = IS_TV ? 16 : 8;
 const POSTER_SIZE = IS_TV ? 300 : 200;
+const NUM_COLUMNS = IS_TV ? 5 : 3;
 
 interface FolderGridItemProps {
   folder: JellyfinItem;
   onPress: (folder: JellyfinItem) => void;
   index: number;
-  /** Laid-out image width in px (from the justified row packer). */
-  width: number;
-  /** Laid-out image height in px (from the justified row packer). */
-  height: number;
   hasTVPreferredFocus?: boolean;
 }
 
 const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpacity>, FolderGridItemProps>(function FolderGridItemComponent(
-  { folder, onPress, index, width, height, hasTVPreferredFocus = false },
+  { folder, onPress, index, hasTVPreferredFocus = false },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
@@ -53,11 +51,12 @@ const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpac
       activeOpacity={0.95}
       isTVSelectable={true}
       hasTVPreferredFocus={hasTVPreferredFocus}
+      style={styles.container}
       accessibilityLabel={folder.Name || "Folder"}
       accessibilityRole="button"
       accessibilityHint={itemCount !== undefined ? `Navigate to ${folder.Name} with ${itemCount} ${itemCount === 1 ? "item" : "items"}` : `Navigate to ${folder.Name}`}>
       <View style={styles.card}>
-        <View style={[styles.imageContainer, { width, height }]}>
+        <View style={styles.imageContainer}>
           {thumbnailUrl ? (
             <Image source={{ uri: thumbnailUrl }} style={styles.poster} contentFit="cover" transition={0} priority={index < 10 ? "high" : "normal"} cachePolicy="disk" recyclingKey={folder.Id} />
           ) : (
@@ -108,26 +107,24 @@ const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpac
 });
 
 function arePropsEqual(prev: FolderGridItemProps, next: FolderGridItemProps): boolean {
-  return (
-    prev.folder.Id === next.folder.Id &&
-    prev.width === next.width &&
-    prev.height === next.height &&
-    prev.index === next.index &&
-    prev.onPress === next.onPress &&
-    prev.hasTVPreferredFocus === next.hasTVPreferredFocus
-  );
+  return prev.folder.Id === next.folder.Id && prev.index === next.index && prev.onPress === next.onPress && prev.hasTVPreferredFocus === next.hasTVPreferredFocus;
 }
 
 export const FolderGridItem = React.memo(FolderGridItemComponent, arePropsEqual);
 
 const styles = StyleSheet.create({
+  container: {
+    width: `${100 / NUM_COLUMNS}%`,
+    padding: CARD_PADDING,
+  },
   card: {
     borderRadius: DESIGN.BORDER_RADIUS_CARD,
     backgroundColor: "transparent",
     overflow: "hidden",
   },
   imageContainer: {
-    // width/height supplied inline from the justified row packer.
+    width: "100%",
+    aspectRatio: 2 / 3,
     borderRadius: DESIGN.BORDER_RADIUS_CARD,
     overflow: "hidden",
     backgroundColor: "#1C1C1E",

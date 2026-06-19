@@ -9,14 +9,16 @@ import { MarqueeText } from "./MarqueeText";
 
 // Cache platform values at module level for better performance
 const IS_TV = Platform.isTV;
-const CARD_PADDING = IS_TV ? 16 : 8;
 const POSTER_SIZE = IS_TV ? 300 : 200; // Optimized for memory
-const NUM_COLUMNS = IS_TV ? 5 : 3;
 
 interface VideoGridItemProps {
   video: JellyfinVideoItem;
   onPress: (video: JellyfinVideoItem) => void;
   index: number;
+  /** Laid-out image width in px (from the justified row packer). */
+  width: number;
+  /** Laid-out image height in px (from the justified row packer). */
+  height: number;
   onItemFocus?: () => void;
   onItemBlur?: () => void;
   hasTVPreferredFocus?: boolean;
@@ -37,7 +39,7 @@ interface VideoGridItemProps {
  * - BlurView only rendered when focused
  */
 const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpacity>, VideoGridItemProps>(function VideoGridItemComponent(
-  { video, onPress, index, onItemFocus, onItemBlur, hasTVPreferredFocus = false, nextFocusUp },
+  { video, onPress, index, width, height, onItemFocus, onItemBlur, hasTVPreferredFocus = false, nextFocusUp },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
@@ -47,11 +49,6 @@ const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpaci
     () => (hasPoster(video) ? getPosterUrl(video.Id, POSTER_SIZE) : undefined),
     [video], // Only video ID needed, not entire video object
   );
-
-  const contentFit = useMemo(() => {
-    const ratio = video.PrimaryImageAspectRatio;
-    return ratio !== undefined && ratio >= 1 ? ("contain" as const) : ("cover" as const);
-  }, [video.PrimaryImageAspectRatio]);
 
   // Lazy compute metadata ONLY when focused - huge performance win!
   const metadata = useMemo(() => {
@@ -111,15 +108,14 @@ const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpaci
       accessible={true}
       accessibilityLabel={video.Name || "Video"}
       accessibilityRole="button"
-      accessibilityHint="Double tap to play this video"
-      style={styles.container}>
+      accessibilityHint="Double tap to play this video">
       <View style={styles.card}>
-        <View style={styles.imageContainer}>
+        <View style={[styles.imageContainer, { width, height }]}>
           {posterUrl ? (
             <Image
               source={{ uri: posterUrl }}
               style={styles.poster}
-              contentFit={contentFit}
+              contentFit="cover"
               transition={0}
               priority={index < 10 ? "high" : "normal"}
               cachePolicy="disk" // Disk only - saves 60-100MB RAM
@@ -182,7 +178,8 @@ const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpaci
 function arePropsEqual(prevProps: VideoGridItemProps, nextProps: VideoGridItemProps): boolean {
   return (
     prevProps.video.Id === nextProps.video.Id &&
-    prevProps.video.PrimaryImageAspectRatio === nextProps.video.PrimaryImageAspectRatio &&
+    prevProps.width === nextProps.width &&
+    prevProps.height === nextProps.height &&
     prevProps.index === nextProps.index &&
     prevProps.onPress === nextProps.onPress &&
     prevProps.onItemFocus === nextProps.onItemFocus &&
@@ -196,21 +193,17 @@ function arePropsEqual(prevProps: VideoGridItemProps, nextProps: VideoGridItemPr
 export const VideoGridItem = React.memo(VideoGridItemComponent, arePropsEqual);
 
 const styles = StyleSheet.create({
-  container: {
-    width: `${100 / NUM_COLUMNS}%`,
-    padding: CARD_PADDING,
-  },
   card: {
     borderRadius: DESIGN.BORDER_RADIUS_CARD,
     backgroundColor: "transparent",
     overflow: "hidden",
   },
   imageContainer: {
-    width: "100%",
-    aspectRatio: 2 / 3, // Standard movie poster aspect ratio
+    // width/height are supplied inline from the justified row packer so the
+    // card matches the poster's true orientation.
     borderRadius: DESIGN.BORDER_RADIUS_CARD,
     overflow: "hidden",
-    backgroundColor: "#2C2C2E", // Elevated card color - provides backdrop for landscape images
+    backgroundColor: "#2C2C2E", // Elevated card color
   },
   borderOverlay: {
     position: "absolute",

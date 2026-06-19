@@ -1689,7 +1689,7 @@ async function requestLibraryItems(
   const query = new URLSearchParams({
     Recursive: "true",
     IncludeItemTypes: itemTypes,
-    Fields: "Path,MediaStreams,Genres,ProductionYear",
+    Fields: "Path,MediaStreams,Genres,ProductionYear,ImageTags,PrimaryImageAspectRatio",
     StartIndex: String(startIndex),
     Limit: String(limit),
     SortBy: "DateCreated",

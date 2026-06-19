@@ -5,17 +5,7 @@ import { settingsStyles as styles } from "@/components/settings/styles";
 import { UsernamePasswordSection } from "@/components/settings/UsernamePasswordSection";
 import { useFolderNavigation } from "@/contexts/FolderNavigationContext";
 import { useLibrary } from "@/contexts/LibraryContext";
-import {
-  authenticateByName,
-  checkQuickConnectEnabled,
-  connectToDemoServer,
-  evaluateSavedConnection,
-  getStoredServerName,
-  resolveServerConnection,
-  restoreLastConnection,
-  saveAuthResult,
-  signOut,
-} from "@/services/jellyfinApi";
+import { authenticateByName, checkQuickConnectEnabled, connectToDemoServer, getStoredServerName, resolveServerConnection, saveAuthResult, signOut } from "@/services/jellyfinApi";
 import { useQuickConnect } from "@/hooks/useQuickConnect";
 import { logger } from "@/utils/logger";
 import { Ionicons } from "@expo/vector-icons";
@@ -56,7 +46,6 @@ export default function SettingsScreen() {
   const [connectedServerUrl, setConnectedServerUrl] = useState("");
   const [videoQuality, setVideoQuality] = useState(2);
   const [isConnectingDemo, setIsConnectingDemo] = useState(false);
-  const [isRestoring, setIsRestoring] = useState(false);
   const [lastConnection, setLastConnection] = useState<{ url: string; serverName: string } | null>(null);
 
   const quickConnect = useQuickConnect();
@@ -64,7 +53,7 @@ export default function SettingsScreen() {
   const usernameRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
 
-  const loadCurrentState = async () => {
+  const loadCurrentState = async ({ showConnected = false }: { showConnected?: boolean } = {}) => {
     try {
       const [savedUrl, savedKey, savedUserId, savedQuality, savedServerName] = await Promise.all([
         SecureStore.getItemAsync(STORAGE_KEYS.SERVER_URL),
@@ -81,17 +70,11 @@ export default function SettingsScreen() {
         setConnectedServerUrl(savedUrl || "");
         setLastConnection({ url: savedUrl, serverName: savedServerName || savedUrl });
 
-        // Auto-try once per launch: only stay connected if the saved server is
-        // actually reachable. If the IP/address changed, drop to the connect
-        // screen so the user can restore (auto-discovery) or enter a new address.
-        const status = await evaluateSavedConnection();
-        if (status === "connected") {
-          setScreenState("CONNECTED");
-        } else {
-          // Show the last address in the field so the user can reuse or tweak it.
-          setServerUrl((cur) => cur || savedUrl);
-          setScreenState("NOT_CONNECTED");
-        }
+        // No auto-connect: never ping the saved server on a passive focus. Only an
+        // explicit successful login (showConnected) lands on the connected view.
+        // Otherwise show the connect screen — the "Last Connection" CTA is the only
+        // thing that repopulates the stored address.
+        setScreenState(showConnected ? "CONNECTED" : "NOT_CONNECTED");
       } else {
         setLastConnection(null);
         setScreenState("NOT_CONNECTED");
@@ -117,7 +100,7 @@ export default function SettingsScreen() {
       refreshFolderNavigation();
       // loadCurrentState sets state only after awaited I/O (not a synchronous cascade)
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      loadCurrentState();
+      loadCurrentState({ showConnected: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quickConnect.status]);
@@ -150,19 +133,12 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleRestoreConnection = async () => {
-    setIsRestoring(true);
-    try {
-      const { serverName } = await restoreLastConnection();
-      setServerName(serverName);
-      await refreshLibrary();
-      await refreshFolderNavigation();
-      await loadCurrentState();
-    } catch (error) {
-      Alert.alert("Couldn't Restore", error instanceof Error ? error.message : "Unable to reach your last server.");
-    } finally {
-      setIsRestoring(false);
-    }
+  const handleRestoreConnection = () => {
+    if (!lastConnection) return;
+    // Only populate the address field with the last saved server. The user reviews
+    // it and taps Connect — nothing connects automatically.
+    setServerUrl(lastConnection.url);
+    serverUrlRef.current?.focus();
   };
 
   const handleSignIn = async () => {
@@ -179,7 +155,7 @@ export default function SettingsScreen() {
       await saveAuthResult(cleanUrl, auth.AccessToken, auth.User.Id, auth.User.Name, serverName, "password");
       await refreshLibrary();
       await refreshFolderNavigation();
-      await loadCurrentState();
+      await loadCurrentState({ showConnected: true });
     } catch (error) {
       Alert.alert("Sign In Failed", error instanceof Error ? error.message : "Authentication failed.");
     } finally {
@@ -193,7 +169,7 @@ export default function SettingsScreen() {
       await connectToDemoServer();
       await refreshLibrary();
       await refreshFolderNavigation();
-      await loadCurrentState();
+      await loadCurrentState({ showConnected: true });
     } catch (error) {
       Alert.alert("Demo Connection Failed", error instanceof Error ? error.message : "Unable to connect to demo server.");
     } finally {
@@ -291,7 +267,6 @@ export default function SettingsScreen() {
               onConnect={handleConnectServer}
               onConnectDemo={handleConnectDemo}
               canRestore={!!lastConnection}
-              isRestoring={isRestoring}
               onRestore={handleRestoreConnection}
             />
           )}

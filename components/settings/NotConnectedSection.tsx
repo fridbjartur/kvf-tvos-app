@@ -37,11 +37,11 @@ export function NotConnectedSection({
       <View style={styles.section}>
         <View style={[styles.listItem, styles.listItemFirst, styles.listItemLast]}>
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Connect to server:</Text>
+            <Text style={styles.inputLabel}>Connect to:</Text>
             <TextInput
               ref={serverUrlRef}
               value={serverUrl}
-              placeholder="192.168.1.100 or jellyfin.example.com"
+              placeholder="Enter an IP or hostname, or paste a full URL"
               placeholderTextColor="#8E8E93"
               autoCorrect={false}
               autoCapitalize="none"
@@ -54,15 +54,13 @@ export function NotConnectedSection({
               onSubmitEditing={onConnect}
               returnKeyType="go"
             />
-            <Text style={styles.inputHint}>Enter an IP or hostname, or paste a full URL</Text>
+            <View style={styles.buttonGroup}>
+              <FocusableButton title="Connect" variant="primary" onPress={onConnect} disabled={busy} isLoading={isValidating} hasTVPreferredFocus style={styles.fullWidthButton} />
+              {showRestore && <FocusableButton title="Last Connection" variant="secondary" onPress={onRestore} disabled={busy} isLoading={isRestoring} style={styles.fullWidthButton} />}
+              <FocusableButton title="Demo Server" variant="secondary" onPress={onConnectDemo} disabled={busy} isLoading={isConnectingDemo} style={styles.fullWidthButton} />
+            </View>
           </View>
         </View>
-      </View>
-
-      <View style={styles.buttonGroup}>
-        <FocusableButton title="Connect" variant="primary" onPress={onConnect} disabled={busy} isLoading={isValidating} hasTVPreferredFocus style={styles.fullWidthButton} />
-        {showRestore && <FocusableButton title="Restore last connection" variant="secondary" onPress={onRestore} disabled={busy} isLoading={isRestoring} style={styles.fullWidthButton} />}
-        <FocusableButton title="Try Demo Server" variant="secondary" onPress={onConnectDemo} disabled={busy} isLoading={isConnectingDemo} style={styles.fullWidthButton} />
       </View>
     </>
   );

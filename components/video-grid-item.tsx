@@ -245,12 +245,9 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  // Landscape: full width, natural height (aspectRatio inline), pinned ~15% down from the card top.
+  // Landscape: full width, natural height (aspectRatio inline), pinned to the card top.
   posterTop: {
-    position: "absolute",
-    top: GRID.LANDSCAPE_IMAGE_TOP,
-    left: 0,
-    right: 0,
+    width: "100%",
   },
   progressTrack: {
     position: "absolute",

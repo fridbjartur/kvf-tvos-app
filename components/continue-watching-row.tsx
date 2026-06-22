@@ -78,7 +78,9 @@ export function ContinueWatchingRow() {
   );
 
   const renderItem = useCallback(
-    ({ item, index }: { item: ResumeItem; index: number }) => <VideoGridItem video={item.video} onPress={handlePress} index={index} cardWidth={CARD_WIDTH} progressPercent={item.progressPercent} />,
+    ({ item, index }: { item: ResumeItem; index: number }) => (
+      <VideoGridItem video={item.video} onPress={handlePress} index={index} cardWidth={CARD_WIDTH} progressPercent={item.progressPercent} slotOrientation="landscape" />
+    ),
     [handlePress],
   );
 

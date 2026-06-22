@@ -1,4 +1,4 @@
-import { DESIGN, GRID } from "@/constants/app";
+import { DESIGN, GRID, slotColumns, slotRatio, type SlotOrientation } from "@/constants/app";
 import { getFolderThumbnailUrl } from "@/services/jellyfinApi";
 import { JellyfinItem } from "@/types/jellyfin";
 import { BlurView } from "expo-blur";
@@ -11,28 +11,36 @@ import { MarqueeText } from "./MarqueeText";
 const IS_TV = Platform.isTV;
 const CARD_PADDING = IS_TV ? 16 : 8;
 const POSTER_SIZE = IS_TV ? 300 : 200;
-const NUM_COLUMNS = IS_TV ? 5 : 3;
 
 interface FolderGridItemProps {
   folder: JellyfinItem;
   onPress: (folder: JellyfinItem) => void;
   index: number;
   hasTVPreferredFocus?: boolean;
+  /** Slot shape of the grid this card lives in (drives card aspect ratio + column width). */
+  slotOrientation?: SlotOrientation;
 }
 
 const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpacity>, FolderGridItemProps>(function FolderGridItemComponent(
-  { folder, onPress, index, hasTVPreferredFocus = false },
+  { folder, onPress, index, hasTVPreferredFocus = false, slotOrientation = "portrait" },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
 
   const thumbnailUrl = useMemo(() => (folder.ImageTags?.Primary ? getFolderThumbnailUrl(folder.Id, POSTER_SIZE) : undefined), [folder.Id, folder.ImageTags?.Primary]);
 
-  // Landscape art (ratio >= 1) renders full/uncropped in the top band; portrait fills the card.
-  const landscapeRatio = useMemo(() => {
+  const slotIsLandscape = slotOrientation === "landscape";
+
+  // The art fills the slot when their orientations match; otherwise it renders
+  // uncropped (landscape art in a portrait slot → top band; portrait art in a
+  // landscape slot → centered).
+  const imageStyle = useMemo(() => {
     const ratio = folder.PrimaryImageAspectRatio;
-    return ratio !== undefined && ratio >= 1 ? ratio : null;
-  }, [folder.PrimaryImageAspectRatio]);
+    const imageIsLandscape = ratio !== undefined && ratio >= 1;
+    if (imageIsLandscape === slotIsLandscape) return styles.poster;
+    if (imageIsLandscape) return [styles.posterTop, { aspectRatio: ratio }];
+    return [styles.posterCenter, { aspectRatio: ratio ?? GRID.PORTRAIT_RATIO }];
+  }, [folder.PrimaryImageAspectRatio, slotIsLandscape]);
 
   const handleFocus = useCallback(() => {
     setFocused(true);
@@ -57,28 +65,17 @@ const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpac
       activeOpacity={0.95}
       isTVSelectable={true}
       hasTVPreferredFocus={hasTVPreferredFocus}
-      style={styles.container}
+      style={[styles.container, { width: `${100 / slotColumns(slotOrientation, IS_TV)}%` }]}
       accessibilityLabel={folder.Name || "Folder"}
       accessibilityRole="button"
       accessibilityHint={itemCount !== undefined ? `Navigate to ${folder.Name} with ${itemCount} ${itemCount === 1 ? "item" : "items"}` : `Navigate to ${folder.Name}`}>
       <View style={styles.card}>
-        <View style={styles.imageContainer}>
+        <View style={[styles.imageContainer, { aspectRatio: slotRatio(slotOrientation) }, slotIsLandscape && styles.imageContainerCenter]}>
           {thumbnailUrl ? (
-            <Image
-              source={{ uri: thumbnailUrl }}
-              style={landscapeRatio ? [styles.posterTop, { aspectRatio: landscapeRatio }] : styles.poster}
-              contentFit="cover"
-              transition={0}
-              priority={index < 10 ? "high" : "normal"}
-              cachePolicy="disk"
-              recyclingKey={folder.Id}
-            />
+            <Image source={{ uri: thumbnailUrl }} style={imageStyle} contentFit="cover" transition={0} priority={index < 10 ? "high" : "normal"} cachePolicy="disk" recyclingKey={folder.Id} />
           ) : (
             <View style={styles.placeholderPoster}>
               <Ionicons name="folder" size={IS_TV ? 80 : 50} color="#FFC312" />
-              <Text style={styles.placeholderText} numberOfLines={2}>
-                {folder.Name}
-              </Text>
             </View>
           )}
 
@@ -87,19 +84,17 @@ const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpac
             <Ionicons name="folder" size={IS_TV ? 20 : 16} color="#FFC312" />
           </View>
 
-          {/* Always-visible frosted info panel filling the bottom half of the card */}
-          {thumbnailUrl && (
-            <BlurView intensity={IS_TV ? 60 : 40} style={styles.infoOverlay} tint="dark">
-              <MarqueeText active={focused} style={styles.folderName}>
-                {folder.Name}
-              </MarqueeText>
-              {itemCount !== undefined && (
-                <Text style={styles.childCount}>
-                  {itemCount} {itemCount === 1 ? "item" : "items"}
-                </Text>
-              )}
-            </BlurView>
-          )}
+          {/* Frosted info panel — always shown (incl. root library folders that lack art) */}
+          <BlurView intensity={IS_TV ? 60 : 40} style={styles.infoOverlay} tint="dark">
+            <MarqueeText active={focused} style={styles.folderName}>
+              {folder.Name}
+            </MarqueeText>
+            {itemCount !== undefined && (
+              <Text style={styles.childCount}>
+                {itemCount} {itemCount === 1 ? "item" : "items"}
+              </Text>
+            )}
+          </BlurView>
 
           <View style={[styles.borderOverlay, focused && styles.borderOverlayFocused]} pointerEvents="none" />
         </View>
@@ -114,7 +109,8 @@ function arePropsEqual(prev: FolderGridItemProps, next: FolderGridItemProps): bo
     prev.folder.PrimaryImageAspectRatio === next.folder.PrimaryImageAspectRatio &&
     prev.index === next.index &&
     prev.onPress === next.onPress &&
-    prev.hasTVPreferredFocus === next.hasTVPreferredFocus
+    prev.hasTVPreferredFocus === next.hasTVPreferredFocus &&
+    prev.slotOrientation === next.slotOrientation
   );
 }
 
@@ -122,7 +118,7 @@ export const FolderGridItem = React.memo(FolderGridItemComponent, arePropsEqual)
 
 const styles = StyleSheet.create({
   container: {
-    width: `${100 / NUM_COLUMNS}%`,
+    // width is set inline (100/columns% derived from the slot orientation)
     padding: CARD_PADDING,
   },
   card: {
@@ -132,10 +128,14 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: "100%",
-    aspectRatio: GRID.CARD_ASPECT_RATIO, // portrait fills, landscape sits in the top band
+    // aspectRatio set inline from the slot orientation (portrait 2:3 / landscape 16:9)
     borderRadius: DESIGN.BORDER_RADIUS_CARD,
     overflow: "hidden",
     backgroundColor: "#1C1C1E",
+  },
+  imageContainerCenter: {
+    justifyContent: "center",
+    alignItems: "center",
   },
   borderOverlay: {
     position: "absolute",
@@ -159,9 +159,13 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  // Landscape: full width, natural height (aspectRatio inline), pinned to the card top.
+  // Landscape art in a portrait slot: full width, pinned to the top.
   posterTop: {
     width: "100%",
+  },
+  // Portrait art in a landscape slot: full height, centered by the container.
+  posterCenter: {
+    height: "100%",
   },
   placeholderPoster: {
     width: "100%",

@@ -1,20 +1,21 @@
-import { DESIGN, GRID } from "@/constants/app";
+import { DESIGN, slotColumns, slotRatio, type SlotOrientation } from "@/constants/app";
 import { Ionicons } from "@expo/vector-icons";
 import React, { forwardRef, useCallback, useState } from "react";
 import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 const IS_TV = Platform.isTV;
 const CARD_PADDING = IS_TV ? 16 : 8;
-const NUM_COLUMNS = IS_TV ? 5 : 3;
 
 interface BackGridItemProps {
   onPress: () => void;
   hasTVPreferredFocus?: boolean;
   isLoading?: boolean;
+  /** Slot shape of the grid this card lives in (matches sibling cards). */
+  slotOrientation?: SlotOrientation;
 }
 
 const BackGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpacity>, BackGridItemProps>(function BackGridItemComponent(
-  { onPress, hasTVPreferredFocus = false, isLoading = false },
+  { onPress, hasTVPreferredFocus = false, isLoading = false, slotOrientation = "portrait" },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
@@ -39,9 +40,9 @@ const BackGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpacit
       accessibilityLabel="Go Back"
       accessibilityRole="button"
       accessibilityHint="Return to previous folder"
-      style={styles.container}>
+      style={[styles.container, { width: `${100 / slotColumns(slotOrientation, IS_TV)}%` }]}>
       <View style={styles.card}>
-        <View style={styles.imageContainer}>
+        <View style={[styles.imageContainer, { aspectRatio: slotRatio(slotOrientation) }]}>
           <View style={styles.placeholderPoster}>
             {isLoading ? <ActivityIndicator size="small" color="rgba(250, 196, 0, 0.5)" /> : <Ionicons name="return-up-back" size={IS_TV ? 80 : 50} color="rgba(250, 196, 0, 0.5)" />}
             <Text style={styles.placeholderText}> </Text>
@@ -66,7 +67,7 @@ export const BackGridItem = React.memo(BackGridItemComponent);
 
 const styles = StyleSheet.create({
   container: {
-    width: `${100 / NUM_COLUMNS}%`,
+    // width set inline (100/columns% from the slot orientation)
     padding: CARD_PADDING,
   },
   card: {
@@ -76,7 +77,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: "100%",
-    aspectRatio: GRID.CARD_ASPECT_RATIO,
+    // aspectRatio set inline from the slot orientation
     justifyContent: "center",
     borderRadius: DESIGN.BORDER_RADIUS_CARD,
     overflow: "hidden",

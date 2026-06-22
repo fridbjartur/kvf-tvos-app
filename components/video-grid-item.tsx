@@ -1,4 +1,4 @@
-import { DESIGN, GRID } from "@/constants/app";
+import { DESIGN, GRID, slotColumns, slotRatio, type SlotOrientation } from "@/constants/app";
 import { getPosterUrl, hasPoster } from "@/services/jellyfinApi";
 import { JellyfinVideoItem } from "@/types/jellyfin";
 import { BlurView } from "expo-blur";
@@ -11,7 +11,6 @@ import { MarqueeText } from "./MarqueeText";
 const IS_TV = Platform.isTV;
 const CARD_PADDING = IS_TV ? 16 : 8;
 const POSTER_SIZE = IS_TV ? 300 : 200; // Optimized for memory
-const NUM_COLUMNS = IS_TV ? 5 : 3;
 
 interface VideoGridItemProps {
   video: JellyfinVideoItem;
@@ -25,6 +24,8 @@ interface VideoGridItemProps {
   progressPercent?: number;
   /** Fixed card width in px. When set, overrides the default grid-column width (used in horizontal rows). */
   cardWidth?: number;
+  /** Slot shape of the grid this card lives in (drives card aspect ratio + column width). */
+  slotOrientation?: SlotOrientation;
 }
 
 /**
@@ -39,7 +40,7 @@ interface VideoGridItemProps {
  * - Platform values cached at module level
  */
 const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpacity>, VideoGridItemProps>(function VideoGridItemComponent(
-  { video, onPress, index, onItemFocus, onItemBlur, hasTVPreferredFocus = false, nextFocusUp, progressPercent, cardWidth },
+  { video, onPress, index, onItemFocus, onItemBlur, hasTVPreferredFocus = false, nextFocusUp, progressPercent, cardWidth, slotOrientation = "portrait" },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
@@ -50,11 +51,18 @@ const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpaci
     [video], // Only video ID needed, not entire video object
   );
 
-  // Landscape images (ratio >= 1) render full/uncropped in the top band; portrait fills the card.
-  const landscapeRatio = useMemo(() => {
+  const slotIsLandscape = slotOrientation === "landscape";
+
+  // The image fills the slot when their orientations match; otherwise it renders
+  // uncropped (landscape image in a portrait slot → top band; portrait image in a
+  // landscape slot → centered).
+  const imageStyle = useMemo(() => {
     const ratio = video.PrimaryImageAspectRatio;
-    return ratio !== undefined && ratio >= 1 ? ratio : null;
-  }, [video.PrimaryImageAspectRatio]);
+    const imageIsLandscape = ratio !== undefined && ratio >= 1;
+    if (imageIsLandscape === slotIsLandscape) return styles.poster;
+    if (imageIsLandscape) return [styles.posterTop, { aspectRatio: ratio }];
+    return [styles.posterCenter, { aspectRatio: ratio ?? GRID.PORTRAIT_RATIO }];
+  }, [video.PrimaryImageAspectRatio, slotIsLandscape]);
 
   // Codec + duration for the always-visible info panel (resolution intentionally omitted).
   const metadata = useMemo(() => {
@@ -104,13 +112,13 @@ const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpaci
       accessibilityLabel={video.Name || "Video"}
       accessibilityRole="button"
       accessibilityHint="Double tap to play this video"
-      style={[styles.container, cardWidth != null && { width: cardWidth }]}>
+      style={[styles.container, cardWidth != null ? { width: cardWidth } : { width: `${100 / slotColumns(slotOrientation, IS_TV)}%` }]}>
       <View style={styles.card}>
-        <View style={styles.imageContainer}>
+        <View style={[styles.imageContainer, { aspectRatio: slotRatio(slotOrientation) }, slotIsLandscape && styles.imageContainerCenter]}>
           {posterUrl ? (
             <Image
               source={{ uri: posterUrl }}
-              style={landscapeRatio ? [styles.posterTop, { aspectRatio: landscapeRatio }] : styles.poster}
+              style={imageStyle}
               contentFit="cover"
               transition={0}
               priority={index < 10 ? "high" : "normal"}
@@ -171,7 +179,8 @@ function arePropsEqual(prevProps: VideoGridItemProps, nextProps: VideoGridItemPr
     prevProps.hasTVPreferredFocus === nextProps.hasTVPreferredFocus &&
     prevProps.nextFocusUp === nextProps.nextFocusUp &&
     prevProps.progressPercent === nextProps.progressPercent &&
-    prevProps.cardWidth === nextProps.cardWidth
+    prevProps.cardWidth === nextProps.cardWidth &&
+    prevProps.slotOrientation === nextProps.slotOrientation
   );
 }
 
@@ -180,7 +189,7 @@ export const VideoGridItem = React.memo(VideoGridItemComponent, arePropsEqual);
 
 const styles = StyleSheet.create({
   container: {
-    width: `${100 / NUM_COLUMNS}%`,
+    // width is set inline (cardWidth px, or 100/columns% derived from the slot)
     padding: CARD_PADDING,
   },
   card: {
@@ -190,10 +199,15 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: "100%",
-    aspectRatio: GRID.CARD_ASPECT_RATIO, // Fixed portrait card; portrait fills, landscape sits in the top band
+    // aspectRatio set inline from the slot orientation (portrait 2:3 / landscape 16:9)
     borderRadius: DESIGN.BORDER_RADIUS_CARD,
     overflow: "hidden",
     backgroundColor: "#2C2C2E",
+  },
+  imageContainerCenter: {
+    // Landscape slots center their content (so a portrait image is centered, not top-pinned).
+    justifyContent: "center",
+    alignItems: "center",
   },
   borderOverlay: {
     position: "absolute",
@@ -217,9 +231,13 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  // Landscape: full width, natural height (aspectRatio inline), pinned to the card top.
+  // Landscape image in a portrait slot: full width, natural height, pinned to the top.
   posterTop: {
     width: "100%",
+  },
+  // Portrait image in a landscape slot: full height, natural width, centered by the container.
+  posterCenter: {
+    height: "100%",
   },
   progressTrack: {
     position: "absolute",

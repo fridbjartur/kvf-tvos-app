@@ -4,6 +4,7 @@ import { ContinueWatchingRow } from "@/components/continue-watching-row";
 import { FocusableButton } from "@/components/FocusableButton";
 import { FolderGridItem } from "@/components/folder-grid-item";
 import { VideoGridItem } from "@/components/video-grid-item";
+import { slotColumns, type SlotOrientation } from "@/constants/app";
 import { useFolderNavigation } from "@/contexts/FolderNavigationContext";
 import { useLoading } from "@/contexts/LoadingContext";
 import { usePlayQueue } from "@/contexts/PlayQueueContext";
@@ -95,7 +96,15 @@ export default function VideoLibraryScreen() {
     [navigateToFolder, showGlobalLoader, router, currentFolder, buildQueue],
   );
 
-  const numColumns = useMemo(() => (Platform.isTV ? 5 : 3), []);
+  // Pick the grid's slot shape from the folder's dominant content orientation.
+  const slotOrientation = useMemo<SlotOrientation>(() => {
+    const rated = items.filter((i) => i.PrimaryImageAspectRatio != null);
+    if (rated.length === 0) return "portrait";
+    const landscape = rated.filter((i) => (i.PrimaryImageAspectRatio as number) >= 1).length;
+    return landscape > rated.length / 2 ? "landscape" : "portrait";
+  }, [items]);
+
+  const numColumns = useMemo(() => slotColumns(slotOrientation, IS_TV), [slotOrientation]);
 
   // Dynamic content padding that accounts for tab bar safe area
   const gridContentStyle = useMemo(
@@ -122,16 +131,16 @@ export default function VideoLibraryScreen() {
     ({ item, index }: { item: GridItem; index: number }) => {
       // Back navigation item — grabs initial focus so you can go back quickly.
       if ("_isBackItem" in item && item._isBackItem) {
-        return <BackGridItem onPress={navigateBack} hasTVPreferredFocus={true} isLoading={isLoading} />;
+        return <BackGridItem onPress={navigateBack} hasTVPreferredFocus={true} isLoading={isLoading} slotOrientation={slotOrientation} />;
       }
 
       const jellyfinItem = item as JellyfinItem;
       if (isFolder(jellyfinItem)) {
-        return <FolderGridItem folder={jellyfinItem} onPress={handleItemPress} index={index} hasTVPreferredFocus={index === 0} />;
+        return <FolderGridItem folder={jellyfinItem} onPress={handleItemPress} index={index} hasTVPreferredFocus={index === 0} slotOrientation={slotOrientation} />;
       }
-      return <VideoGridItem video={jellyfinItem} onPress={handleItemPress} index={index} hasTVPreferredFocus={index === 0} />;
+      return <VideoGridItem video={jellyfinItem} onPress={handleItemPress} index={index} hasTVPreferredFocus={index === 0} slotOrientation={slotOrientation} />;
     },
-    [handleItemPress, navigateBack, isLoading],
+    [handleItemPress, navigateBack, isLoading, slotOrientation],
   );
 
   const renderFooter = useCallback(() => {

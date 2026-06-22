@@ -1,3 +1,4 @@
+import { AmbientBackground } from "@/components/ambient-background";
 import { FocusableButton } from "@/components/FocusableButton";
 import { VideoGridItem } from "@/components/video-grid-item";
 import { slotColumns, slotRatio, type SlotOrientation } from "@/constants/app";
@@ -491,6 +492,7 @@ function ReactNativeSearchScreen() {
 
   return (
     <View style={styles.container}>
+      <AmbientBackground />
       {headerComponent}
 
       {shouldShowResults ? (
@@ -529,11 +531,12 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1C1C1E",
   },
   nativeSearchView: {
     flex: 1,
-    backgroundColor: "#1C1C1E",
+    // Native tvOS search is an opaque native view; glows can't render behind it.
+    // Match the ambient canvas base color for consistency.
+    backgroundColor: "#141414",
   },
   emptyContainer: {
     flex: 1,

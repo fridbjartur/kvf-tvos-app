@@ -1,3 +1,4 @@
+import { AmbientBackground } from "@/components/ambient-background";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image, Platform, StyleSheet, Text, View } from "react-native";
@@ -23,9 +24,7 @@ const DOCS_URL = "tomotv.app";
 export default function HelpScreen() {
   return (
     <View style={styles.container}>
-      {/* Ambient glow effects */}
-      <View style={styles.glowTopRight} />
-      <View style={styles.glowBottomLeft} />
+      <AmbientBackground baseColor="#0D0D0F" glows={{ top: "rgba(255, 195, 18, 0.06)", bottom: "rgba(52, 199, 89, 0.04)" }} />
 
       <View style={styles.columns}>
         {/* Left Column */}
@@ -86,27 +85,6 @@ const TV = Platform.isTV;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0D0D0F",
-  },
-
-  // Ambient background glows
-  glowTopRight: {
-    position: "absolute",
-    top: -200,
-    right: -200,
-    width: 600,
-    height: 600,
-    borderRadius: 300,
-    backgroundColor: "rgba(255, 195, 18, 0.06)",
-  },
-  glowBottomLeft: {
-    position: "absolute",
-    bottom: -300,
-    left: -200,
-    width: 700,
-    height: 700,
-    borderRadius: 350,
-    backgroundColor: "rgba(52, 199, 89, 0.04)",
   },
 
   // Layout

@@ -1,3 +1,4 @@
+import { AmbientBackground } from "@/components/ambient-background";
 import { ConnectedSection } from "@/components/settings/ConnectedSection";
 import { NotConnectedSection } from "@/components/settings/NotConnectedSection";
 import { QuickConnectSection } from "@/components/settings/QuickConnectSection";
@@ -242,6 +243,7 @@ export default function SettingsScreen() {
   if (screenState === "LOADING") {
     return (
       <View style={screenStyles.container}>
+        <AmbientBackground />
         <View style={screenStyles.loadingContainer}>
           <ActivityIndicator size="small" color="#FFC312" />
           <Text style={screenStyles.loadingText}>Loading settings...</Text>
@@ -252,6 +254,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={screenStyles.container}>
+      <AmbientBackground />
       <ScrollView
         style={screenStyles.scrollView}
         contentContainerStyle={screenStyles.scrollContent}
@@ -344,7 +347,6 @@ export default function SettingsScreen() {
 const screenStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1C1C1E",
   },
   scrollView: {
     flex: 1,

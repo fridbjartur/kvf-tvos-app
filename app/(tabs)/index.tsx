@@ -1,3 +1,4 @@
+import { AmbientBackground } from "@/components/ambient-background";
 import { BackGridItem } from "@/components/back-grid-item";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { ContinueWatchingRow } from "@/components/continue-watching-row";
@@ -241,6 +242,7 @@ export default function VideoLibraryScreen() {
 
   return (
     <View style={styles.container}>
+      <AmbientBackground />
       {items.length === 0 && !showBackItem ? (
         renderEmpty()
       ) : (
@@ -275,7 +277,6 @@ export default function VideoLibraryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1C1C1E",
   },
   gridContent: {
     paddingLeft: Platform.isTV ? 80 : 60,

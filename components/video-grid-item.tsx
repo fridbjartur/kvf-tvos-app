@@ -18,7 +18,7 @@ interface VideoGridItemProps {
   /** Optional long-press handler (e.g. to prompt removal). */
   onLongPress?: (video: JellyfinVideoItem) => void;
   index: number;
-  onItemFocus?: () => void;
+  onItemFocus?: (video: JellyfinVideoItem) => void;
   onItemBlur?: () => void;
   hasTVPreferredFocus?: boolean;
   nextFocusUp?: number;
@@ -47,11 +47,17 @@ const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpaci
 ) {
   const [focused, setFocused] = useState(false);
 
-  // Only compute poster URL - this is always needed for display
-  const posterUrl = useMemo(
-    () => (hasPoster(video) ? getPosterUrl(video.Id, POSTER_SIZE) : undefined),
-    [video], // Only video ID needed, not entire video object
-  );
+  // Poster source with a STABLE cache key: keyed by item id + image tag + size,
+  // independent of the api_key/token in the URL. This keeps the disk/memory cache
+  // hot across reloads and token changes (no re-download, no flash), while still
+  // invalidating when the server image actually changes (the tag is a content hash).
+  const posterSource = useMemo(() => {
+    if (!hasPoster(video)) return undefined;
+    return {
+      uri: getPosterUrl(video.Id, POSTER_SIZE),
+      cacheKey: `${video.Id}-${video.ImageTags?.Primary}-${POSTER_SIZE}`,
+    };
+  }, [video]);
 
   const slotIsLandscape = slotOrientation === "landscape";
 
@@ -69,8 +75,8 @@ const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpaci
   // Focus handlers - no animations
   const handleFocus = useCallback(() => {
     setFocused(true);
-    onItemFocus?.();
-  }, [onItemFocus]);
+    onItemFocus?.(video);
+  }, [onItemFocus, video]);
 
   const handleBlur = useCallback(() => {
     setFocused(false);
@@ -103,14 +109,14 @@ const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpaci
       style={[styles.container, cardWidth != null ? { width: cardWidth } : { width: `${100 / slotColumns(slotOrientation, IS_TV)}%` }]}>
       <View style={styles.card}>
         <View style={[styles.imageContainer, { aspectRatio: slotRatio(slotOrientation) }, slotIsLandscape && styles.imageContainerCenter]}>
-          {posterUrl ? (
+          {posterSource ? (
             <Image
-              source={{ uri: posterUrl }}
+              source={posterSource}
               style={imageStyle}
               contentFit="cover"
               transition={0}
               priority={index < 10 ? "high" : "normal"}
-              cachePolicy="disk" // Disk only - saves 60-100MB RAM
+              cachePolicy="memory-disk" // Keep decoded posters in memory + disk so they don't re-decode/flash on reload
               recyclingKey={video.Id} // Helps with memory recycling
               accessible={true}
               accessibilityLabel={`${video.Name || "Video"} poster`}
@@ -124,7 +130,7 @@ const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpaci
           )}
 
           {/* Thin frosted title sliver at the very bottom */}
-          {posterUrl && (
+          {posterSource && (
             <BlurView intensity={IS_TV ? 60 : 40} style={styles.infoOverlay} tint="dark">
               <MarqueeText active={focused} style={styles.infoValueTitle}>
                 {video?.Name || "Unknown"}

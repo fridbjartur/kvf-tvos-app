@@ -16,18 +16,25 @@ interface FolderGridItemProps {
   folder: JellyfinItem;
   onPress: (folder: JellyfinItem) => void;
   index: number;
+  onItemFocus?: (folder: JellyfinItem) => void;
+  onItemBlur?: () => void;
   hasTVPreferredFocus?: boolean;
   /** Slot shape of the grid this card lives in (drives card aspect ratio + column width). */
   slotOrientation?: SlotOrientation;
 }
 
 const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpacity>, FolderGridItemProps>(function FolderGridItemComponent(
-  { folder, onPress, index, hasTVPreferredFocus = false, slotOrientation = "portrait" },
+  { folder, onPress, index, onItemFocus, onItemBlur, hasTVPreferredFocus = false, slotOrientation = "portrait" },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
 
-  const thumbnailUrl = useMemo(() => (folder.ImageTags?.Primary ? getFolderThumbnailUrl(folder.Id, POSTER_SIZE) : undefined), [folder.Id, folder.ImageTags?.Primary]);
+  // Stable cache key (id + image tag + size) keeps the disk/memory cache hot across
+  // reloads and token changes — independent of the api_key in the URL.
+  const thumbnailSource = useMemo(
+    () => (folder.ImageTags?.Primary ? { uri: getFolderThumbnailUrl(folder.Id, POSTER_SIZE), cacheKey: `${folder.Id}-${folder.ImageTags.Primary}-${POSTER_SIZE}` } : undefined),
+    [folder.Id, folder.ImageTags?.Primary],
+  );
 
   const slotIsLandscape = slotOrientation === "landscape";
 
@@ -44,11 +51,13 @@ const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpac
 
   const handleFocus = useCallback(() => {
     setFocused(true);
-  }, []);
+    onItemFocus?.(folder);
+  }, [onItemFocus, folder]);
 
   const handleBlur = useCallback(() => {
     setFocused(false);
-  }, []);
+    onItemBlur?.();
+  }, [onItemBlur]);
 
   const handlePress = useCallback(() => {
     onPress(folder);
@@ -71,8 +80,8 @@ const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpac
       accessibilityHint={itemCount !== undefined ? `Navigate to ${folder.Name} with ${itemCount} ${itemCount === 1 ? "item" : "items"}` : `Navigate to ${folder.Name}`}>
       <View style={styles.card}>
         <View style={[styles.imageContainer, { aspectRatio: slotRatio(slotOrientation) }, slotIsLandscape && styles.imageContainerCenter]}>
-          {thumbnailUrl ? (
-            <Image source={{ uri: thumbnailUrl }} style={imageStyle} contentFit="cover" transition={0} priority={index < 10 ? "high" : "normal"} cachePolicy="disk" recyclingKey={folder.Id} />
+          {thumbnailSource ? (
+            <Image source={thumbnailSource} style={imageStyle} contentFit="cover" transition={0} priority={index < 10 ? "high" : "normal"} cachePolicy="memory-disk" recyclingKey={folder.Id} />
           ) : (
             <View style={styles.placeholderPoster}>
               <Ionicons name="folder" size={IS_TV ? 80 : 50} color="#FFC312" />
@@ -111,6 +120,8 @@ function arePropsEqual(prev: FolderGridItemProps, next: FolderGridItemProps): bo
     prev.folder.PrimaryImageAspectRatio === next.folder.PrimaryImageAspectRatio &&
     prev.index === next.index &&
     prev.onPress === next.onPress &&
+    prev.onItemFocus === next.onItemFocus &&
+    prev.onItemBlur === next.onItemBlur &&
     prev.hasTVPreferredFocus === next.hasTVPreferredFocus &&
     prev.slotOrientation === next.slotOrientation
   );

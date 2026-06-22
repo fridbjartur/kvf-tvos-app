@@ -7,6 +7,7 @@ import {
   JellyfinVideoItem,
   JellyfinVideosResponse,
   QuickConnectResult,
+  SavedServer,
 } from "@/types/jellyfin";
 import { logger } from "@/utils/logger";
 import { retryWithBackoff } from "@/utils/retry";
@@ -23,11 +24,12 @@ const STORAGE_KEYS = {
   USER_NAME: "jellyfin_user_name",
   AUTH_METHOD: "jellyfin_auth_method",
   SERVER_NAME: "jellyfin_server_name",
+  SAVED_SERVERS: "jellyfin_saved_servers",
 };
 
 // Demo server credentials (Jellyfin's official public demo server)
 // Credentials are fetched dynamically as the demo server resets hourly
-const DEMO_SERVER_STABLE = "https://demo.jellyfin.org/stable";
+export const DEMO_SERVER_STABLE = "https://demo.jellyfin.org/stable";
 const DEMO_USERNAME = "demo";
 const DEMO_PASSWORD = ""; // Empty password
 
@@ -698,6 +700,81 @@ export async function getSavedConnectionInfo(): Promise<{ url: string; serverNam
   return { url, serverName: serverName || url };
 }
 
+/** Normalize a server URL for use as a stable dedup id (trim + strip trailing slashes). */
+function normalizeServerUrl(url: string): string {
+  return url.trim().replace(/\/+$/, "");
+}
+
+/**
+ * Read the locally persisted list of servers, most-recently-connected first.
+ *
+ * One-time seed-migration: only when the key has NEVER been written do we seed
+ * from the legacy single-server keys, so existing users see their last
+ * connection as a card. Seeding on every empty list would make the last server
+ * impossible to remove (it would be re-seeded from the still-present
+ * single-server keys on the very next read).
+ */
+export async function getSavedServers(): Promise<SavedServer[]> {
+  const raw = await SecureStore.getItemAsync(STORAGE_KEYS.SAVED_SERVERS);
+
+  if (raw === null) {
+    const info = await getSavedConnectionInfo();
+    const url = info ? normalizeServerUrl(info.url) : "";
+    const seeded: SavedServer[] = info ? [{ id: url, name: url, url, lastConnectedAt: Date.now() }] : [];
+    await SecureStore.setItemAsync(STORAGE_KEYS.SAVED_SERVERS, JSON.stringify(seeded));
+    return seeded;
+  }
+
+  let servers: SavedServer[] = [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) servers = parsed as SavedServer[];
+  } catch {
+    servers = [];
+  }
+
+  return servers.sort((a, b) => b.lastConnectedAt - a.lastConnectedAt);
+}
+
+/**
+ * Add or update a saved server (deduped by normalized url). New servers default
+ * to their connection string as the display name; existing servers keep their
+ * (possibly user-renamed) name and just bump lastConnectedAt to sort to front.
+ */
+export async function upsertSavedServer(url: string, name?: string): Promise<void> {
+  const normalized = normalizeServerUrl(url);
+  if (!normalized) return;
+
+  const servers = await getSavedServers();
+  const existing = servers.find((s) => s.id === normalized);
+  if (existing) {
+    existing.lastConnectedAt = Date.now();
+  } else {
+    servers.push({ id: normalized, name: name?.trim() || normalized, url: normalized, lastConnectedAt: Date.now() });
+  }
+
+  await SecureStore.setItemAsync(STORAGE_KEYS.SAVED_SERVERS, JSON.stringify(servers));
+}
+
+/** Rename a saved server by id. No-op if the name is blank or the id is unknown. */
+export async function renameSavedServer(id: string, name: string): Promise<void> {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+
+  const servers = await getSavedServers();
+  const target = servers.find((s) => s.id === id);
+  if (!target) return;
+  target.name = trimmed;
+  await SecureStore.setItemAsync(STORAGE_KEYS.SAVED_SERVERS, JSON.stringify(servers));
+}
+
+/** Remove a saved server by id. */
+export async function removeSavedServer(id: string): Promise<void> {
+  const servers = await getSavedServers();
+  const next = servers.filter((s) => s.id !== id);
+  await SecureStore.setItemAsync(STORAGE_KEYS.SAVED_SERVERS, JSON.stringify(next));
+}
+
 /**
  * Auto-try the saved connection once per app launch.
  *
@@ -1010,6 +1087,10 @@ export async function saveAuthResult(serverUrl: string, accessToken: string, use
     // Clear demo mode flag when signing in with real credentials
     SecureStore.deleteItemAsync(STORAGE_KEYS.IS_DEMO_MODE).catch(() => {}),
   ]);
+
+  // Persist this server as a saved destination (no credentials stored).
+  // New servers default to their connection string as the title; user renames persist.
+  await upsertSavedServer(cleanUrl);
 
   // Refresh config cache so all API calls pick up the new credentials
   await refreshConfig();
@@ -2067,6 +2148,19 @@ export function getPosterUrl(itemId: string, maxHeight: number = 450): string {
     return "";
   }
   return `${cachedConfig.server}/Items/${itemId}/Images/Primary?api_key=${cachedConfig.apiKey}&maxHeight=${maxHeight}&quality=90`;
+}
+
+/**
+ * Get a tiny, server-blurred poster URL for use as an ambient background wash.
+ * The image is requested small (48px tall) and upscaled full-screen by the renderer,
+ * which is what produces the soft blur — no client-side blur pass needed. The optional
+ * imageTag only matters for the stable cacheKey the caller builds; it isn't in the URL.
+ */
+export function getBackdropBlurUrl(itemId: string): string {
+  if (!cachedConfig.server || !cachedConfig.apiKey) {
+    return "";
+  }
+  return `${cachedConfig.server}/Items/${itemId}/Images/Primary?api_key=${cachedConfig.apiKey}&maxHeight=48&quality=60&blur=20`;
 }
 
 /**

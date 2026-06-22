@@ -6,7 +6,19 @@ import { settingsStyles as styles } from "@/components/settings/styles";
 import { UsernamePasswordSection } from "@/components/settings/UsernamePasswordSection";
 import { useFolderNavigation } from "@/contexts/FolderNavigationContext";
 import { useLibrary } from "@/contexts/LibraryContext";
-import { authenticateByName, checkQuickConnectEnabled, connectToDemoServer, getStoredServerName, resolveServerConnection, saveAuthResult, signOut } from "@/services/jellyfinApi";
+import {
+  authenticateByName,
+  checkQuickConnectEnabled,
+  connectToDemoServer,
+  getSavedServers,
+  getStoredServerName,
+  removeSavedServer,
+  renameSavedServer,
+  resolveServerConnection,
+  saveAuthResult,
+  signOut,
+} from "@/services/jellyfinApi";
+import { SavedServer } from "@/types/jellyfin";
 import { useQuickConnect } from "@/hooks/useQuickConnect";
 import { logger } from "@/utils/logger";
 import { Ionicons } from "@expo/vector-icons";
@@ -48,37 +60,37 @@ export default function SettingsScreen() {
   const [connectedServerUrl, setConnectedServerUrl] = useState("");
   const [videoQuality, setVideoQuality] = useState(2);
   const [isConnectingDemo, setIsConnectingDemo] = useState(false);
-  const [lastConnection, setLastConnection] = useState<{ url: string; serverName: string } | null>(null);
+  const [savedServers, setSavedServers] = useState<SavedServer[]>([]);
+  const [connectingServerId, setConnectingServerId] = useState<string | null>(null);
 
   const quickConnect = useQuickConnect();
   const serverUrlRef = useRef<TextInput>(null);
   const usernameRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
 
-  const loadCurrentState = async ({ showConnected = false }: { showConnected?: boolean } = {}) => {
+  const loadCurrentState = async () => {
     try {
-      const [savedUrl, savedKey, savedUserId, savedQuality, savedServerName] = await Promise.all([
+      const [savedUrl, savedKey, savedUserId, savedQuality, savedServerName, servers] = await Promise.all([
         SecureStore.getItemAsync(STORAGE_KEYS.SERVER_URL),
         SecureStore.getItemAsync(STORAGE_KEYS.API_KEY),
         SecureStore.getItemAsync(STORAGE_KEYS.USER_ID),
         SecureStore.getItemAsync(STORAGE_KEYS.VIDEO_QUALITY),
         getStoredServerName(),
+        getSavedServers(),
       ]);
 
       if (savedQuality) setVideoQuality(parseInt(savedQuality, 10));
+      setSavedServers(servers);
 
+      // A stored session shows the connected card + Sign Out (and Video Quality).
+      // This only reads saved creds — it never pings the server, preserving the
+      // no-auto-connect behavior. The saved-server list stays available below for
+      // switching without a destructive sign-out.
       if (savedUrl && savedKey && savedUserId) {
         setConnectedServerName(savedServerName || savedUrl);
         setConnectedServerUrl(savedUrl || "");
-        setLastConnection({ url: savedUrl, serverName: savedServerName || savedUrl });
-
-        // No auto-connect: never ping the saved server on a passive focus. Only an
-        // explicit successful login (showConnected) lands on the connected view.
-        // Otherwise show the connect screen — the "Last Connection" CTA is the only
-        // thing that repopulates the stored address.
-        setScreenState(showConnected ? "CONNECTED" : "NOT_CONNECTED");
+        setScreenState("CONNECTED");
       } else {
-        setLastConnection(null);
         setScreenState("NOT_CONNECTED");
       }
     } catch (error) {
@@ -107,18 +119,19 @@ export default function SettingsScreen() {
       refreshLibrary();
       // loadCurrentState sets state only after awaited I/O (not a synchronous cascade)
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      loadCurrentState({ showConnected: true });
+      loadCurrentState();
       goToLibraryRoot();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quickConnect.status]);
 
-  const handleConnectServer = async () => {
-    const trimmed = serverUrl.trim();
+  const handleConnectServer = async (address?: string) => {
+    const trimmed = (address ?? serverUrl).trim();
     if (!trimmed) {
       Alert.alert("Missing Address", "Please enter your Jellyfin server IP, hostname, or URL.");
       return;
     }
+    if (address !== undefined) setServerUrl(address);
 
     setIsValidating(true);
     try {
@@ -138,15 +151,64 @@ export default function SettingsScreen() {
       Alert.alert("Connection Failed", error instanceof Error ? error.message : "Unable to connect to server.");
     } finally {
       setIsValidating(false);
+      setConnectingServerId(null);
     }
   };
 
-  const handleRestoreConnection = () => {
-    if (!lastConnection) return;
-    // Only populate the address field with the last saved server. The user reviews
-    // it and taps Connect — nothing connects automatically.
-    setServerUrl(lastConnection.url);
-    serverUrlRef.current?.focus();
+  const handleSelectServer = (server: SavedServer) => {
+    // Tapping a saved card prefills the address and runs the normal login flow.
+    setConnectingServerId(server.id);
+    handleConnectServer(server.url);
+  };
+
+  const reloadSavedServers = async () => {
+    try {
+      setSavedServers(await getSavedServers());
+    } catch (error) {
+      logger.error("Error reloading saved servers", error);
+    }
+  };
+
+  const promptRenameServer = (server: SavedServer) => {
+    Alert.prompt(
+      "Rename Server",
+      "Enter a name for this server.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Save",
+          onPress: async (text?: string) => {
+            await renameSavedServer(server.id, text ?? "");
+            await reloadSavedServers();
+          },
+        },
+      ],
+      "plain-text",
+      server.name,
+    );
+  };
+
+  const confirmRemoveServer = (server: SavedServer) => {
+    Alert.alert("Remove Server", "Remove this saved server?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: async () => {
+          await removeSavedServer(server.id);
+          await reloadSavedServers();
+        },
+      },
+    ]);
+  };
+
+  // Long-press a saved card → edit (rename) or remove it.
+  const handleServerOptions = (server: SavedServer) => {
+    Alert.alert(server.name, undefined, [
+      { text: "Edit Name", onPress: () => promptRenameServer(server) },
+      { text: "Remove", style: "destructive", onPress: () => confirmRemoveServer(server) },
+      { text: "Cancel", style: "cancel" },
+    ]);
   };
 
   const handleSignIn = async () => {
@@ -162,7 +224,7 @@ export default function SettingsScreen() {
       const auth = await authenticateByName(cleanUrl, trimmedUser, password);
       await saveAuthResult(cleanUrl, auth.AccessToken, auth.User.Id, auth.User.Name, serverName, "password");
       await refreshLibrary();
-      await loadCurrentState({ showConnected: true });
+      await loadCurrentState();
       await goToLibraryRoot();
     } catch (error) {
       Alert.alert("Sign In Failed", error instanceof Error ? error.message : "Authentication failed.");
@@ -176,7 +238,7 @@ export default function SettingsScreen() {
     try {
       await connectToDemoServer();
       await refreshLibrary();
-      await loadCurrentState({ showConnected: true });
+      await loadCurrentState();
       await goToLibraryRoot();
     } catch (error) {
       Alert.alert("Demo Connection Failed", error instanceof Error ? error.message : "Unable to connect to demo server.");
@@ -276,8 +338,10 @@ export default function SettingsScreen() {
               isConnectingDemo={isConnectingDemo}
               onConnect={handleConnectServer}
               onConnectDemo={handleConnectDemo}
-              canRestore={!!lastConnection}
-              onRestore={handleRestoreConnection}
+              savedServers={savedServers}
+              connectingServerId={connectingServerId}
+              onSelectServer={handleSelectServer}
+              onServerOptions={handleServerOptions}
             />
           )}
 

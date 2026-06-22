@@ -9,6 +9,7 @@ import { slotColumns, type SlotOrientation } from "@/constants/app";
 import { useFolderNavigation } from "@/contexts/FolderNavigationContext";
 import { useLoading } from "@/contexts/LoadingContext";
 import { usePlayQueue } from "@/contexts/PlayQueueContext";
+import { PosterBackdropProvider, usePosterBackdropDispatch } from "@/contexts/PosterBackdropContext";
 import { connectToDemoServer, isFolder } from "@/services/jellyfinApi";
 import { JellyfinItem } from "@/types/jellyfin";
 import { logger } from "@/utils/logger";
@@ -27,12 +28,13 @@ const IS_TV = Platform.isTV;
 // TV tab bar is ~210px tall, phone tab bars are ~49px + safe area
 const TAB_BAR_HEIGHT = IS_TV ? 210 : 49;
 
-export default function VideoLibraryScreen() {
+function LibraryGrid() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { showGlobalLoader, hideGlobalLoader } = useLoading();
   const { items, isLoading, isLoadingMore, hasMoreResults, error, folderStack, currentFolder, navigateToFolder, navigateBack, loadMore, refresh } = useFolderNavigation();
   const { buildQueue } = usePlayQueue();
+  const backdrop = usePosterBackdropDispatch();
   const [isConnectingToDemo, setIsConnectingToDemo] = useState(false);
 
   // Handle TV menu button for back navigation
@@ -128,6 +130,13 @@ export default function VideoLibraryScreen() {
     return items;
   }, [items, showBackItem]);
 
+  // Stable focus handler that drives the dynamic poster backdrop. Stable identity keeps
+  // the grid cards' React.memo intact so they don't re-render on focus changes.
+  // Focus-only (no blur→clear): on tvOS the incoming card's onFocus can fire before the
+  // outgoing card's onBlur, so clearing on blur would race and cancel the new poster. We
+  // keep the last focused poster instead (Netflix-style) and let each new focus replace it.
+  const handleItemFocus = useCallback((item: JellyfinItem) => backdrop.focus(item), [backdrop]);
+
   const renderItem = useCallback(
     ({ item, index }: { item: GridItem; index: number }) => {
       // Back navigation item — grabs initial focus so you can go back quickly.
@@ -137,11 +146,11 @@ export default function VideoLibraryScreen() {
 
       const jellyfinItem = item as JellyfinItem;
       if (isFolder(jellyfinItem)) {
-        return <FolderGridItem folder={jellyfinItem} onPress={handleItemPress} index={index} hasTVPreferredFocus={index === 0} slotOrientation={slotOrientation} />;
+        return <FolderGridItem folder={jellyfinItem} onPress={handleItemPress} index={index} onItemFocus={handleItemFocus} hasTVPreferredFocus={index === 0} slotOrientation={slotOrientation} />;
       }
-      return <VideoGridItem video={jellyfinItem} onPress={handleItemPress} index={index} hasTVPreferredFocus={index === 0} slotOrientation={slotOrientation} />;
+      return <VideoGridItem video={jellyfinItem} onPress={handleItemPress} index={index} onItemFocus={handleItemFocus} hasTVPreferredFocus={index === 0} slotOrientation={slotOrientation} />;
     },
-    [handleItemPress, navigateBack, isLoading, slotOrientation],
+    [handleItemPress, navigateBack, isLoading, slotOrientation, handleItemFocus],
   );
 
   const renderFooter = useCallback(() => {
@@ -242,7 +251,7 @@ export default function VideoLibraryScreen() {
 
   return (
     <View style={styles.container}>
-      <AmbientBackground />
+      <AmbientBackground dynamic />
       {items.length === 0 && !showBackItem ? (
         renderEmpty()
       ) : (
@@ -271,6 +280,15 @@ export default function VideoLibraryScreen() {
       )}
       <Breadcrumb stack={folderStack} />
     </View>
+  );
+}
+
+export default function VideoLibraryScreen() {
+  // Scope the backdrop to this tab so its poster wash never leaks into other tabs.
+  return (
+    <PosterBackdropProvider>
+      <LibraryGrid />
+    </PosterBackdropProvider>
   );
 }
 

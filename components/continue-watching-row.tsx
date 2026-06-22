@@ -74,11 +74,10 @@ export function ContinueWatchingRow() {
             setHasItems(merged.length > 0); // collapse if everything was deleted server-side
           }
         } catch (err) {
+          // A transient hydration failure (e.g. a network hiccup on reload) must not
+          // hide a row that has saved progress. Keep whatever is already shown and let
+          // the next focus retry — only an empty progress store collapses the row.
           logger.warn("Failed to load continue watching row", err, { service: "ContinueWatching" });
-          if (!cancelled) {
-            setHasItems(false);
-            setItems([]);
-          }
         }
       })();
 

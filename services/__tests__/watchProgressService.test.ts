@@ -1,26 +1,29 @@
 import { getProgress, saveProgress, clearProgress, clearAllProgress, getRecentProgress, _resetForTesting } from "../watchProgressService";
 
-// Mock expo-secure-store
-const mockStore: Record<string, string> = {};
+// Mock expo-file-system/legacy with a single in-memory file (watch progress is
+// persisted as one JSON file, not in SecureStore — see watchProgressService).
+let mockFileContent: string | null = null;
 
-jest.mock("expo-secure-store", () => ({
-  getItemAsync: jest.fn(async (key: string) => mockStore[key] ?? null),
-  setItemAsync: jest.fn(async (key: string, value: string) => {
-    mockStore[key] = value;
+jest.mock("expo-file-system/legacy", () => ({
+  documentDirectory: "file:///documents/",
+  getInfoAsync: jest.fn(async () => ({ exists: mockFileContent !== null })),
+  readAsStringAsync: jest.fn(async () => {
+    if (mockFileContent === null) throw new Error("File does not exist");
+    return mockFileContent;
   }),
-  deleteItemAsync: jest.fn(async (key: string) => {
-    delete mockStore[key];
+  writeAsStringAsync: jest.fn(async (_uri: string, value: string) => {
+    mockFileContent = value;
+  }),
+  deleteAsync: jest.fn(async () => {
+    mockFileContent = null;
   }),
 }));
 
 // Import mocked module for assertions
-import * as SecureStore from "expo-secure-store";
+import * as FileSystem from "expo-file-system/legacy";
 
 beforeEach(() => {
-  // Clear mock store and reset service cache between tests
-  for (const key of Object.keys(mockStore)) {
-    delete mockStore[key];
-  }
+  mockFileContent = null;
   _resetForTesting();
   jest.clearAllMocks();
 });
@@ -60,7 +63,7 @@ describe("watchProgressService", () => {
 
       expect(await getProgress("video-1")).toBeNull();
       expect(await getProgress("video-2")).toBeNull();
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith("watch_progress_data");
+      expect(FileSystem.deleteAsync).toHaveBeenCalled();
     });
 
     it("overwrites existing progress on save", async () => {
@@ -122,7 +125,7 @@ describe("watchProgressService", () => {
       const twoDaysAgo = now - 2 * 24 * 60 * 60 * 1000;
 
       // Pre-populate store with stale and fresh entries
-      mockStore["watch_progress_data"] = JSON.stringify({
+      mockFileContent = JSON.stringify({
         "old-video": { position: 100, duration: 3600, updatedAt: thirtyOneDaysAgo },
         "fresh-video": { position: 200, duration: 7200, updatedAt: twoDaysAgo },
       });
@@ -138,8 +141,8 @@ describe("watchProgressService", () => {
   });
 
   describe("corrupt JSON recovery", () => {
-    it("resets to empty cache on corrupt JSON in SecureStore", async () => {
-      mockStore["watch_progress_data"] = "not valid json {{{";
+    it("resets to empty cache on corrupt JSON on disk", async () => {
+      mockFileContent = "not valid json {{{";
 
       // Should not throw — recovers gracefully
       const result = await getProgress("video-1");
@@ -153,7 +156,7 @@ describe("watchProgressService", () => {
 
   describe("concurrent loads", () => {
     it("deduplicates concurrent ensureCacheLoaded calls", async () => {
-      mockStore["watch_progress_data"] = JSON.stringify({
+      mockFileContent = JSON.stringify({
         "video-1": { position: 100, duration: 3600, updatedAt: Date.now() },
       });
 
@@ -164,18 +167,18 @@ describe("watchProgressService", () => {
       expect(r2).not.toBeNull();
       expect(r3).not.toBeNull();
 
-      // SecureStore.getItemAsync should only be called once for the cache load
-      expect(SecureStore.getItemAsync).toHaveBeenCalledTimes(1);
+      // The file should only be read once for the cache load
+      expect(FileSystem.readAsStringAsync).toHaveBeenCalledTimes(1);
     });
   });
 
   describe("write failures", () => {
-    it("does not throw on SecureStore write failure", async () => {
+    it("does not throw on disk write failure", async () => {
       // First load succeeds normally
       await getProgress("video-1");
 
-      // Now make setItemAsync fail
-      (SecureStore.setItemAsync as jest.Mock).mockRejectedValueOnce(new Error("SecureStore write failed"));
+      // Now make the file write fail
+      (FileSystem.writeAsStringAsync as jest.Mock).mockRejectedValueOnce(new Error("disk write failed"));
 
       // Should not throw
       await expect(saveProgress("video-1", 120, 3600)).resolves.not.toThrow();
@@ -186,10 +189,10 @@ describe("watchProgressService", () => {
       expect(result!.position).toBe(120);
     });
 
-    it("does not throw on SecureStore delete failure in clearAllProgress", async () => {
+    it("does not throw on disk delete failure in clearAllProgress", async () => {
       await saveProgress("video-1", 120, 3600);
 
-      (SecureStore.deleteItemAsync as jest.Mock).mockRejectedValueOnce(new Error("delete failed"));
+      (FileSystem.deleteAsync as jest.Mock).mockRejectedValueOnce(new Error("delete failed"));
 
       await expect(clearAllProgress()).resolves.not.toThrow();
     });
@@ -208,7 +211,7 @@ describe("watchProgressService", () => {
           updatedAt: now - (50 - i) * 1000, // oldest first
         };
       }
-      mockStore["watch_progress_data"] = JSON.stringify(entries);
+      mockFileContent = JSON.stringify(entries);
 
       // Load cache by reading any entry
       await getProgress("video-0");
@@ -228,7 +231,7 @@ describe("watchProgressService", () => {
       expect(await getProgress("video-49")).not.toBeNull();
 
       // Total entries should be exactly 50
-      const persisted = JSON.parse(mockStore["watch_progress_data"]);
+      const persisted = JSON.parse(mockFileContent ?? "{}");
       expect(Object.keys(persisted).length).toBe(50);
     });
   });
@@ -236,7 +239,7 @@ describe("watchProgressService", () => {
   describe("getRecentProgress", () => {
     it("returns entries sorted by updatedAt descending (most recent first)", async () => {
       const now = Date.now();
-      mockStore["watch_progress_data"] = JSON.stringify({
+      mockFileContent = JSON.stringify({
         "video-old": { position: 100, duration: 3600, updatedAt: now - 3000 },
         "video-new": { position: 200, duration: 3600, updatedAt: now - 1000 },
         "video-mid": { position: 150, duration: 3600, updatedAt: now - 2000 },
@@ -250,7 +253,7 @@ describe("watchProgressService", () => {
 
     it("drops near-finished entries (>= 95% watched)", async () => {
       const now = Date.now();
-      mockStore["watch_progress_data"] = JSON.stringify({
+      mockFileContent = JSON.stringify({
         "video-partial": { position: 1800, duration: 3600, updatedAt: now }, // 50%
         "video-done": { position: 3500, duration: 3600, updatedAt: now }, // ~97%
       });
@@ -266,7 +269,7 @@ describe("watchProgressService", () => {
       for (let i = 0; i < 10; i++) {
         entries[`video-${i}`] = { position: 120, duration: 3600, updatedAt: now - i * 1000 };
       }
-      mockStore["watch_progress_data"] = JSON.stringify(entries);
+      mockFileContent = JSON.stringify(entries);
 
       const recent = await getRecentProgress(3);
 
@@ -280,13 +283,13 @@ describe("watchProgressService", () => {
   });
 
   describe("persistence", () => {
-    it("persists to SecureStore on save", async () => {
+    it("persists to disk on save", async () => {
       await saveProgress("video-1", 120, 3600);
 
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith("watch_progress_data", expect.any(String));
+      expect(FileSystem.writeAsStringAsync).toHaveBeenCalledWith(expect.any(String), expect.any(String));
 
       // Verify the persisted data is correct
-      const persisted = JSON.parse(mockStore["watch_progress_data"]);
+      const persisted = JSON.parse(mockFileContent ?? "{}");
       expect(persisted["video-1"].position).toBe(120);
     });
 

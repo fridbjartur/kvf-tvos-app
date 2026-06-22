@@ -101,3 +101,11 @@ export interface JellyfinPublicServerInfo {
   Version: string;
   Id: string;
 }
+
+// A locally persisted Jellyfin server destination (no credentials stored).
+export interface SavedServer {
+  id: string; // normalized url (dedup key)
+  name: string; // server display name
+  url: string; // normalized base url
+  lastConnectedAt: number; // ms epoch, for sort order
+}

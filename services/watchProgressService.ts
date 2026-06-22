@@ -1,7 +1,11 @@
-import * as SecureStore from "expo-secure-store";
+import * as FileSystem from "expo-file-system/legacy";
 import { logger } from "@/utils/logger";
 
-const STORAGE_KEY = "watch_progress_data";
+// Watch progress is non-sensitive and the full map (up to 50 entries ≈ 4–5KB)
+// exceeds expo-secure-store's ~2KB Keychain value limit, which silently fails to
+// persist on tvOS. Store it as a plain JSON file instead: no size limit, survives
+// app reopen. (Credentials stay in SecureStore — they are small and sensitive.)
+const STORAGE_FILE = FileSystem.documentDirectory + "watch_progress.json";
 const MIN_POSITION_SECONDS = 4;
 const COMPLETION_THRESHOLD = 0.95;
 const STALE_DAYS = 30;
@@ -34,7 +38,8 @@ async function ensureCacheLoaded(): Promise<void> {
 
   loadPromise = (async () => {
     try {
-      const raw = await SecureStore.getItemAsync(STORAGE_KEY);
+      const info = await FileSystem.getInfoAsync(STORAGE_FILE);
+      const raw = info.exists ? await FileSystem.readAsStringAsync(STORAGE_FILE) : null;
       if (raw) {
         cache = JSON.parse(raw) as ProgressMap;
         // Prune in-memory only — deferred disk write happens on next save
@@ -113,14 +118,14 @@ function evictIfNeeded(): void {
 }
 
 /**
- * Write the in-memory cache to SecureStore.
+ * Write the in-memory cache to disk.
  * Failures are logged but not thrown — the in-memory cache remains valid.
  */
 async function persistCache(): Promise<void> {
   if (!cache) return;
 
   try {
-    await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(cache));
+    await FileSystem.writeAsStringAsync(STORAGE_FILE, JSON.stringify(cache));
   } catch (error) {
     logger.warn("Failed to persist watch progress", error, {
       service: "WatchProgress",
@@ -243,7 +248,7 @@ export async function clearAllProgress(): Promise<void> {
   });
 
   try {
-    await SecureStore.deleteItemAsync(STORAGE_KEY);
+    await FileSystem.deleteAsync(STORAGE_FILE, { idempotent: true });
   } catch (error) {
     logger.warn("Failed to delete watch progress storage", error, {
       service: "WatchProgress",

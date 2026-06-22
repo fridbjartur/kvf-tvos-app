@@ -23,6 +23,8 @@ interface VideoGridItemProps {
   nextFocusUp?: number;
   /** Resume progress as a 0–1 fraction. When set (> 0), renders a bottom progress bar. */
   progressPercent?: number;
+  /** Fixed card width in px. When set, overrides the default grid-column width (used in horizontal rows). */
+  cardWidth?: number;
 }
 
 /**
@@ -37,7 +39,7 @@ interface VideoGridItemProps {
  * - Platform values cached at module level
  */
 const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpacity>, VideoGridItemProps>(function VideoGridItemComponent(
-  { video, onPress, index, onItemFocus, onItemBlur, hasTVPreferredFocus = false, nextFocusUp, progressPercent },
+  { video, onPress, index, onItemFocus, onItemBlur, hasTVPreferredFocus = false, nextFocusUp, progressPercent, cardWidth },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
@@ -102,7 +104,7 @@ const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpaci
       accessibilityLabel={video.Name || "Video"}
       accessibilityRole="button"
       accessibilityHint="Double tap to play this video"
-      style={styles.container}>
+      style={[styles.container, cardWidth != null && { width: cardWidth }]}>
       <View style={styles.card}>
         <View style={styles.imageContainer}>
           {posterUrl ? (
@@ -168,7 +170,8 @@ function arePropsEqual(prevProps: VideoGridItemProps, nextProps: VideoGridItemPr
     prevProps.onItemBlur === nextProps.onItemBlur &&
     prevProps.hasTVPreferredFocus === nextProps.hasTVPreferredFocus &&
     prevProps.nextFocusUp === nextProps.nextFocusUp &&
-    prevProps.progressPercent === nextProps.progressPercent
+    prevProps.progressPercent === nextProps.progressPercent &&
+    prevProps.cardWidth === nextProps.cardWidth
   );
 }
 

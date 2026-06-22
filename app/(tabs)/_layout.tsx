@@ -11,11 +11,6 @@ export default function TabLayout() {
         <Label>Library</Label>
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="continue-watching">
-        <Icon sf="clock.fill" />
-        <Label>Continue</Label>
-      </NativeTabs.Trigger>
-
       <NativeTabs.Trigger name="search">
         <Icon sf="magnifyingglass" />
         <Label>Search</Label>

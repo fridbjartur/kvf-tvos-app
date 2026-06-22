@@ -1,9 +1,9 @@
 import { BackGridItem } from "@/components/back-grid-item";
 import { Breadcrumb } from "@/components/breadcrumb";
+import { ContinueWatchingRow } from "@/components/continue-watching-row";
 import { FocusableButton } from "@/components/FocusableButton";
 import { FolderGridItem } from "@/components/folder-grid-item";
 import { VideoGridItem } from "@/components/video-grid-item";
-import { GRID } from "@/constants/app";
 import { useFolderNavigation } from "@/contexts/FolderNavigationContext";
 import { useLoading } from "@/contexts/LoadingContext";
 import { usePlayQueue } from "@/contexts/PlayQueueContext";
@@ -13,32 +13,17 @@ import { logger } from "@/utils/logger";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, BackHandler, Dimensions, FlatList, Platform, StyleSheet, Text, View, useTVEventHandler } from "react-native";
+import { ActivityIndicator, Alert, BackHandler, FlatList, Platform, StyleSheet, Text, View, useTVEventHandler } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Special marker for the ".." back navigation item
 const BACK_ITEM_ID = "__BACK__";
 type GridItem = JellyfinItem | { Id: typeof BACK_ITEM_ID; _isBackItem: true };
 
-// Uniform card sizing constants (fixed portrait cards, GRID.CARD_ASPECT_RATIO)
 const IS_TV = Platform.isTV;
-const NUM_COLUMNS = IS_TV ? 5 : 3;
-const CARD_PADDING = IS_TV ? 16 : 8;
-const GRID_PADDING_H = (IS_TV ? 80 : 60) + (IS_TV ? 40 : 20);
-const COLUMN_WRAPPER_PADDING_V = 24;
 
 // TV tab bar is ~210px tall, phone tab bars are ~49px + safe area
 const TAB_BAR_HEIGHT = IS_TV ? 210 : 49;
-
-const itemDimensions = (() => {
-  const screenWidth = Dimensions.get("window").width;
-  const availableWidth = screenWidth - GRID_PADDING_H;
-  const columnWidth = availableWidth / NUM_COLUMNS;
-  const imageWidth = columnWidth - 2 * CARD_PADDING;
-  const imageHeight = imageWidth / GRID.CARD_ASPECT_RATIO; // height = width / (w:h)
-  const rowHeight = imageHeight + 2 * CARD_PADDING + 2 * COLUMN_WRAPPER_PADDING_V;
-  return { rowHeight };
-})();
 
 export default function VideoLibraryScreen() {
   const router = useRouter();
@@ -120,15 +105,6 @@ export default function VideoLibraryScreen() {
       paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 20,
     }),
     [insets.top, insets.bottom],
-  );
-
-  const getItemLayout = useCallback(
-    (_data: ArrayLike<GridItem> | null | undefined, index: number) => ({
-      length: itemDimensions.rowHeight,
-      offset: itemDimensions.rowHeight * Math.floor(index / numColumns),
-      index,
-    }),
-    [numColumns],
   );
 
   // Show back item when inside a library (can go back to library selection)
@@ -269,7 +245,7 @@ export default function VideoLibraryScreen() {
           extraData={currentFolder?.id}
           contentContainerStyle={gridContentStyle}
           columnWrapperStyle={styles.columnWrapper}
-          getItemLayout={getItemLayout}
+          ListHeaderComponent={showBackItem ? undefined : <ContinueWatchingRow />}
           showsVerticalScrollIndicator={true}
           updateCellsBatchingPeriod={50}
           initialNumToRender={Platform.isTV ? 15 : 12}

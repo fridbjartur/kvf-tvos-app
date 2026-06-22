@@ -1,4 +1,5 @@
 import { VideoGridItem } from "@/components/video-grid-item";
+import { slotRatio } from "@/constants/app";
 import { useLoading } from "@/contexts/LoadingContext";
 import { fetchItemsByIds } from "@/services/jellyfinApi";
 import { getRecentProgress } from "@/services/watchProgressService";
@@ -15,6 +16,9 @@ const GRID_PADDING_H = (IS_TV ? 80 : 60) + (IS_TV ? 40 : 20);
 const CARD_PADDING = IS_TV ? 16 : 8;
 
 const CARD_WIDTH = (Dimensions.get("window").width - GRID_PADDING_H) / NUM_COLUMNS;
+// Deterministic card height (landscape slot) so we can reserve the row's space
+// up front and avoid a layout jump when the async metadata finishes loading.
+const CARD_HEIGHT = Math.round((CARD_WIDTH - 2 * CARD_PADDING) / slotRatio("landscape") + 2 * CARD_PADDING);
 
 interface ResumeItem {
   video: JellyfinVideoItem;
@@ -24,10 +28,16 @@ interface ResumeItem {
 /**
  * Horizontal "Continue Watching" shelf shown at the top of the Library root.
  * Self-contained: loads in-progress items on focus and renders nothing when empty.
+ *
+ * To avoid a layout jump, the row's space is reserved as soon as the (fast, local)
+ * progress lookup confirms there are items — before the slower metadata hydration
+ * fills the cards in. It collapses to nothing only when there is genuinely nothing
+ * to resume.
  */
 export function ContinueWatchingRow() {
   const router = useRouter();
   const { showGlobalLoader } = useLoading();
+  const [hasItems, setHasItems] = useState(false);
   const [items, setItems] = useState<ResumeItem[]>([]);
 
   // Reload each time the Library tab regains focus (e.g. after returning from the player).
@@ -39,9 +49,16 @@ export function ContinueWatchingRow() {
         try {
           const progress = await getRecentProgress();
           if (progress.length === 0) {
-            if (!cancelled) setItems([]);
+            if (!cancelled) {
+              setHasItems(false);
+              setItems([]);
+            }
             return;
           }
+
+          // Reserve the row's space now — count is known from the local store before
+          // the network hydration below completes.
+          if (!cancelled) setHasItems(true);
 
           const ids = progress.map((entry) => entry.videoId);
           const hydrated = await fetchItemsByIds(ids);
@@ -52,10 +69,16 @@ export function ContinueWatchingRow() {
             progressPercent: percentById.get(video.Id) ?? 0,
           }));
 
-          if (!cancelled) setItems(merged);
+          if (!cancelled) {
+            setItems(merged);
+            setHasItems(merged.length > 0); // collapse if everything was deleted server-side
+          }
         } catch (err) {
           logger.warn("Failed to load continue watching row", err, { service: "ContinueWatching" });
-          if (!cancelled) setItems([]);
+          if (!cancelled) {
+            setHasItems(false);
+            setItems([]);
+          }
         }
       })();
 
@@ -84,14 +107,17 @@ export function ContinueWatchingRow() {
     [handlePress],
   );
 
-  if (items.length === 0) {
+  if (!hasItems) {
     return null;
   }
 
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>Continue Watching</Text>
-      <FlatList data={items} renderItem={renderItem} keyExtractor={(item) => item.video.Id} horizontal showsHorizontalScrollIndicator={false} removeClippedSubviews={false} />
+      {/* Fixed-height area reserved up front; the cards fill it once hydrated (no jump). */}
+      <View style={styles.rowArea}>
+        <FlatList data={items} renderItem={renderItem} keyExtractor={(item) => item.video.Id} horizontal showsHorizontalScrollIndicator={false} removeClippedSubviews={false} />
+      </View>
     </View>
   );
 }
@@ -106,5 +132,8 @@ const styles = StyleSheet.create({
     fontSize: IS_TV ? 28 : 18,
     fontWeight: "700",
     color: "#FFFFFF",
+  },
+  rowArea: {
+    height: CARD_HEIGHT,
   },
 });

@@ -2,7 +2,7 @@ import * as SecureStore from "expo-secure-store";
 import { logger } from "@/utils/logger";
 
 const STORAGE_KEY = "watch_progress_data";
-const MIN_POSITION_SECONDS = 10;
+const MIN_POSITION_SECONDS = 4;
 const COMPLETION_THRESHOLD = 0.95;
 const STALE_DAYS = 30;
 const STALE_MS = STALE_DAYS * 24 * 60 * 60 * 1000;
@@ -155,7 +155,7 @@ export async function getProgress(videoId: string): Promise<WatchProgressEntry |
 
 /**
  * Save playback progress for a video.
- * - Skips if position < 10s (too early to be useful)
+ * - Skips if position < 4s (too early to be useful)
  * - Clears entry if position/duration >= 95% (video is finished)
  * - Evicts oldest entries if cache exceeds MAX_ENTRIES
  */

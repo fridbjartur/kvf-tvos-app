@@ -265,7 +265,14 @@ function LibraryGrid() {
           extraData={currentFolder?.id}
           contentContainerStyle={gridContentStyle}
           columnWrapperStyle={styles.columnWrapper}
-          ListHeaderComponent={showBackItem ? undefined : <ContinueWatchingRow />}
+          ListHeaderComponent={
+            showBackItem ? undefined : (
+              <>
+                <ContinueWatchingRow />
+                <Text style={styles.serverHeading}>Libraries</Text>
+              </>
+            )
+          }
           showsVerticalScrollIndicator={true}
           updateCellsBatchingPeriod={50}
           initialNumToRender={Platform.isTV ? 15 : 12}
@@ -303,6 +310,13 @@ const styles = StyleSheet.create({
   columnWrapper: {
     justifyContent: "flex-start",
     paddingVertical: 24,
+  },
+  serverHeading: {
+    marginLeft: IS_TV ? 16 : 8,
+    marginBottom: IS_TV ? 4 : 2,
+    fontSize: IS_TV ? 28 : 18,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
   centerContainer: {
     flex: 1,

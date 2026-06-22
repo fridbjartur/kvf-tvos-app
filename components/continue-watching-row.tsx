@@ -135,7 +135,10 @@ export function ContinueWatchingRow() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Continue Watching</Text>
+      <View style={styles.headingRow}>
+        <Text style={styles.heading}>Continue Watching</Text>
+        <Text style={styles.localTag}>(local)</Text>
+      </View>
       {/* Fixed-height area reserved up front; the cards fill it once hydrated (no jump). */}
       <View style={styles.rowArea}>
         <FlatList data={items} renderItem={renderItem} keyExtractor={(item) => item.video.Id} horizontal showsHorizontalScrollIndicator={false} removeClippedSubviews={false} />
@@ -148,12 +151,22 @@ const styles = StyleSheet.create({
   container: {
     marginBottom: IS_TV ? 24 : 16,
   },
-  heading: {
+  headingRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
     marginLeft: CARD_PADDING,
     marginBottom: IS_TV ? 12 : 8,
+  },
+  heading: {
     fontSize: IS_TV ? 28 : 18,
     fontWeight: "700",
     color: "#FFFFFF",
+  },
+  localTag: {
+    marginLeft: IS_TV ? 10 : 6,
+    fontSize: IS_TV ? 18 : 12,
+    fontWeight: "600",
+    color: "#8E8E93",
   },
   rowArea: {
     height: CARD_HEIGHT,

@@ -79,6 +79,9 @@ const styles = StyleSheet.create({
     fontSize: IS_TV ? 24 : 16,
     lineHeight: IS_TV ? 24 : 16,
     fontWeight: "600",
+    // Cap each level label so one long folder name can't hog the bar; longer names
+    // truncate with an ellipsis (numberOfLines=1) so more depth stays visible.
+    maxWidth: 200,
   },
   breadcrumbTextCurrent: {
     color: "#FFFFFF",

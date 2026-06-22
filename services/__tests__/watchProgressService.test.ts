@@ -73,13 +73,13 @@ describe("watchProgressService", () => {
   });
 
   describe("threshold checks", () => {
-    it("skips save when position < 10s", async () => {
-      await saveProgress("video-1", 5, 3600);
+    it("skips save when position below the minimum (4s)", async () => {
+      await saveProgress("video-1", 2, 3600);
       expect(await getProgress("video-1")).toBeNull();
     });
 
-    it("saves when position is exactly 10s", async () => {
-      await saveProgress("video-1", 10, 3600);
+    it("saves when position is exactly the minimum (4s)", async () => {
+      await saveProgress("video-1", 4, 3600);
       expect(await getProgress("video-1")).not.toBeNull();
     });
 

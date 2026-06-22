@@ -196,11 +196,11 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: IS_TV ? 16 : 10,
     left: IS_TV ? 16 : 10,
+    width: IS_TV ? 40 : 26,
+    height: IS_TV ? 40 : 26,
+    borderRadius: IS_TV ? 20 : 13, // half of width/height → perfect circle
     backgroundColor: "rgba(0, 0, 0, 0.6)",
-    borderRadius: DESIGN.BORDER_RADIUS_ROUND,
-    paddingHorizontal: IS_TV ? 12 : 8,
-    paddingVertical: IS_TV ? 5 : 3,
-    minWidth: IS_TV ? 32 : 22,
+    justifyContent: "center",
     alignItems: "center",
   },
   countBadgeText: {

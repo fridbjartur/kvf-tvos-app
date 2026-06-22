@@ -2,12 +2,12 @@ import { VideoGridItem } from "@/components/video-grid-item";
 import { slotRatio } from "@/constants/app";
 import { useLoading } from "@/contexts/LoadingContext";
 import { fetchItemsByIds } from "@/services/jellyfinApi";
-import { getRecentProgress } from "@/services/watchProgressService";
+import { clearProgress, getRecentProgress } from "@/services/watchProgressService";
 import { JellyfinVideoItem } from "@/types/jellyfin";
 import { logger } from "@/utils/logger";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { Dimensions, FlatList, Platform, StyleSheet, Text, View } from "react-native";
+import { Alert, Dimensions, FlatList, Platform, StyleSheet, Text, View } from "react-native";
 
 // Mirror the Library grid sizing so shelf cards match a grid column.
 const IS_TV = Platform.isTV;
@@ -100,11 +100,34 @@ export function ContinueWatchingRow() {
     [showGlobalLoader, router],
   );
 
+  const removeItem = useCallback(async (video: JellyfinVideoItem) => {
+    try {
+      await clearProgress(video.Id);
+    } catch (err) {
+      logger.warn("Failed to remove continue watching item", err, { service: "ContinueWatching" });
+    }
+    setItems((prev) => {
+      const next = prev.filter((entry) => entry.video.Id !== video.Id);
+      setHasItems(next.length > 0);
+      return next;
+    });
+  }, []);
+
+  const handleLongPress = useCallback(
+    (video: JellyfinVideoItem) => {
+      Alert.alert("Remove from Continue Watching?", video.Name || undefined, [
+        { text: "Cancel", style: "cancel" },
+        { text: "Remove", style: "destructive", onPress: () => removeItem(video) },
+      ]);
+    },
+    [removeItem],
+  );
+
   const renderItem = useCallback(
     ({ item, index }: { item: ResumeItem; index: number }) => (
-      <VideoGridItem video={item.video} onPress={handlePress} index={index} cardWidth={CARD_WIDTH} progressPercent={item.progressPercent} slotOrientation="landscape" />
+      <VideoGridItem video={item.video} onPress={handlePress} onLongPress={handleLongPress} index={index} cardWidth={CARD_WIDTH} progressPercent={item.progressPercent} slotOrientation="landscape" />
     ),
-    [handlePress],
+    [handlePress, handleLongPress],
   );
 
   if (!hasItems) {

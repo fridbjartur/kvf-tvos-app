@@ -15,6 +15,8 @@ const POSTER_SIZE = IS_TV ? 300 : 200; // Optimized for memory
 interface VideoGridItemProps {
   video: JellyfinVideoItem;
   onPress: (video: JellyfinVideoItem) => void;
+  /** Optional long-press handler (e.g. to prompt removal). */
+  onLongPress?: (video: JellyfinVideoItem) => void;
   index: number;
   onItemFocus?: () => void;
   onItemBlur?: () => void;
@@ -40,7 +42,7 @@ interface VideoGridItemProps {
  * - Platform values cached at module level
  */
 const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpacity>, VideoGridItemProps>(function VideoGridItemComponent(
-  { video, onPress, index, onItemFocus, onItemBlur, hasTVPreferredFocus = false, nextFocusUp, progressPercent, cardWidth, slotOrientation = "portrait" },
+  { video, onPress, onLongPress, index, onItemFocus, onItemBlur, hasTVPreferredFocus = false, nextFocusUp, progressPercent, cardWidth, slotOrientation = "portrait" },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
@@ -79,10 +81,15 @@ const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpaci
     onPress(video);
   }, [onPress, video]);
 
+  const handleLongPress = useCallback(() => {
+    onLongPress?.(video);
+  }, [onLongPress, video]);
+
   return (
     <TouchableOpacity
       ref={ref}
       onPress={handlePress}
+      onLongPress={onLongPress ? handleLongPress : undefined}
       onFocus={handleFocus}
       onBlur={handleBlur}
       activeOpacity={0.95}
@@ -151,6 +158,7 @@ function arePropsEqual(prevProps: VideoGridItemProps, nextProps: VideoGridItemPr
     prevProps.video.PrimaryImageAspectRatio === nextProps.video.PrimaryImageAspectRatio &&
     prevProps.index === nextProps.index &&
     prevProps.onPress === nextProps.onPress &&
+    prevProps.onLongPress === nextProps.onLongPress &&
     prevProps.onItemFocus === nextProps.onItemFocus &&
     prevProps.onItemBlur === nextProps.onItemBlur &&
     prevProps.hasTVPreferredFocus === nextProps.hasTVPreferredFocus &&

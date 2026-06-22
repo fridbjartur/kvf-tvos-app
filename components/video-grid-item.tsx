@@ -64,25 +64,6 @@ const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpaci
     return [styles.posterCenter, { aspectRatio: ratio ?? GRID.PORTRAIT_RATIO }];
   }, [video.PrimaryImageAspectRatio, slotIsLandscape]);
 
-  // Codec + duration for the always-visible info panel (resolution intentionally omitted).
-  const metadata = useMemo(() => {
-    const videoStream = video.MediaStreams?.find((stream) => stream.Type === "Video");
-    const audioStream = video.MediaStreams?.find((stream) => stream.Type === "Audio");
-
-    const videoCodec = videoStream?.Codec?.toUpperCase() || "Unknown";
-    const audioCodec = audioStream?.Codec?.toUpperCase() || "Unknown";
-
-    let duration: string | null = null;
-    if (video.RunTimeTicks) {
-      const totalMinutes = Math.floor(video.RunTimeTicks / 10000000 / 60);
-      const hours = Math.floor(totalMinutes / 60);
-      const minutes = totalMinutes % 60;
-      duration = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-    }
-
-    return { videoCodec, audioCodec, duration };
-  }, [video.MediaStreams, video.RunTimeTicks]);
-
   // Focus handlers - no animations
   const handleFocus = useCallback(() => {
     setFocused(true);
@@ -135,13 +116,9 @@ const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpaci
             </View>
           )}
 
-          {/* Always-visible frosted info panel filling the bottom half of the card */}
+          {/* Thin frosted title sliver at the very bottom */}
           {posterUrl && (
             <BlurView intensity={IS_TV ? 60 : 40} style={styles.infoOverlay} tint="dark">
-              <Text style={styles.infoValue}>
-                {metadata.videoCodec} / {metadata.audioCodec}
-              </Text>
-              {metadata.duration && <Text style={styles.infoValue}>{metadata.duration}</Text>}
               <MarqueeText active={focused} style={styles.infoValueTitle}>
                 {video?.Name || "Unknown"}
               </MarqueeText>
@@ -266,35 +243,25 @@ const styles = StyleSheet.create({
     width: "90%",
     textAlign: "center",
   },
+  // Thin frosted sliver at the very bottom showing just the title.
   infoOverlay: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    height: "50%", // bottom half of the card
-    paddingVertical: IS_TV ? 28 : 16,
-    paddingHorizontal: IS_TV ? 20 : 16,
+    paddingVertical: IS_TV ? 10 : 6,
+    paddingHorizontal: IS_TV ? 16 : 12,
     overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
   },
-  infoValue: {
-    color: "#FFFFFF",
-    fontSize: IS_TV ? 22 : 12,
-    fontWeight: "700",
-    textAlign: "center",
-    marginVertical: IS_TV ? 3 : 2,
-    width: "100%",
-  },
   infoValueTitle: {
     color: "#FFFFFF",
-    fontSize: IS_TV ? 30 : 14,
+    fontSize: IS_TV ? 22 : 13,
     fontWeight: "700",
     textAlign: "center",
-    marginTop: IS_TV ? 16 : 8, // extra padding above/below the title marquee
-    marginBottom: IS_TV ? 12 : 6,
     width: "100%",
   },
 });

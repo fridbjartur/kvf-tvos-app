@@ -79,21 +79,23 @@ const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpac
             </View>
           )}
 
-          {/* Folder badge indicator - always visible */}
+          {/* Folder badge (top-right) */}
           <View style={styles.folderBadge}>
             <Ionicons name="folder" size={IS_TV ? 20 : 16} color="#FFC312" />
           </View>
 
-          {/* Frosted info panel — always shown (incl. root library folders that lack art) */}
+          {/* Item-count badge (top-left) */}
+          {itemCount !== undefined && (
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>{itemCount}</Text>
+            </View>
+          )}
+
+          {/* Frosted title sliver at the very bottom */}
           <BlurView intensity={IS_TV ? 60 : 40} style={styles.infoOverlay} tint="dark">
             <MarqueeText active={focused} style={styles.folderName}>
               {folder.Name}
             </MarqueeText>
-            {itemCount !== undefined && (
-              <Text style={styles.childCount}>
-                {itemCount} {itemCount === 1 ? "item" : "items"}
-              </Text>
-            )}
           </BlurView>
 
           <View style={[styles.borderOverlay, focused && styles.borderOverlayFocused]} pointerEvents="none" />
@@ -190,14 +192,30 @@ const styles = StyleSheet.create({
     borderRadius: DESIGN.BORDER_RADIUS_ROUND,
     padding: IS_TV ? 8 : 6,
   },
+  countBadge: {
+    position: "absolute",
+    top: IS_TV ? 16 : 10,
+    left: IS_TV ? 16 : 10,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    borderRadius: DESIGN.BORDER_RADIUS_ROUND,
+    paddingHorizontal: IS_TV ? 12 : 8,
+    paddingVertical: IS_TV ? 5 : 3,
+    minWidth: IS_TV ? 32 : 22,
+    alignItems: "center",
+  },
+  countBadgeText: {
+    color: "#FFFFFF",
+    fontSize: IS_TV ? 18 : 11,
+    fontWeight: "700",
+  },
+  // Thin frosted sliver at the very bottom showing just the title.
   infoOverlay: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    height: "50%", // bottom half of the card
-    paddingVertical: IS_TV ? 28 : 16,
-    paddingHorizontal: IS_TV ? 20 : 16,
+    paddingVertical: IS_TV ? 10 : 6,
+    paddingHorizontal: IS_TV ? 16 : 12,
     overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
@@ -206,16 +224,8 @@ const styles = StyleSheet.create({
   },
   folderName: {
     color: "#FFFFFF",
-    fontSize: IS_TV ? 30 : 14,
+    fontSize: IS_TV ? 22 : 13,
     fontWeight: "700",
     textAlign: "center",
-    marginTop: IS_TV ? 16 : 8, // extra padding above/below the title marquee
-    marginBottom: IS_TV ? 12 : 6,
-  },
-  childCount: {
-    color: "#98989D",
-    fontSize: IS_TV ? 22 : 11,
-    fontWeight: "500",
-    marginTop: 4,
   },
 });

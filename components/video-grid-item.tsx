@@ -159,6 +159,8 @@ const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpaci
 function arePropsEqual(prevProps: VideoGridItemProps, nextProps: VideoGridItemProps): boolean {
   return (
     prevProps.video.Id === nextProps.video.Id &&
+    prevProps.video.Name === nextProps.video.Name &&
+    prevProps.video.ImageTags?.Primary === nextProps.video.ImageTags?.Primary &&
     prevProps.video.PrimaryImageAspectRatio === nextProps.video.PrimaryImageAspectRatio &&
     prevProps.index === nextProps.index &&
     prevProps.onPress === nextProps.onPress &&

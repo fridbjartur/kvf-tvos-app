@@ -5,7 +5,7 @@ import { logger } from "@/utils/logger";
 // exceeds expo-secure-store's ~2KB Keychain value limit, which silently fails to
 // persist on tvOS. Store it as a plain JSON file instead: no size limit.
 // Use the cache directory, not documentDirectory — tvOS denies writes to Documents
-// (NSFileWriteNoPermissionError). Caches survives app reopen but may be purged by
+// (NSFileWriteNoPermissionError). Cache survives app reopen but may be purged by
 // the system under storage pressure. (Credentials stay in SecureStore — small and sensitive.)
 const STORAGE_FILE = FileSystem.cacheDirectory + "watch_progress.json";
 const MIN_POSITION_SECONDS = 4;

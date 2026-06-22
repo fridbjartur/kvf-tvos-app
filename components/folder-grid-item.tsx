@@ -115,6 +115,9 @@ const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpac
 function arePropsEqual(prev: FolderGridItemProps, next: FolderGridItemProps): boolean {
   return (
     prev.folder.Id === next.folder.Id &&
+    prev.folder.Name === next.folder.Name &&
+    prev.folder.ChildCount === next.folder.ChildCount &&
+    prev.folder.ImageTags?.Primary === next.folder.ImageTags?.Primary &&
     prev.folder.PrimaryImageAspectRatio === next.folder.PrimaryImageAspectRatio &&
     prev.index === next.index &&
     prev.onPress === next.onPress &&

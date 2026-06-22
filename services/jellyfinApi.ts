@@ -739,7 +739,7 @@ export async function getSavedServers(): Promise<SavedServer[]> {
   if (raw === null) {
     const info = await getSavedConnectionInfo();
     const url = info ? normalizeServerUrl(info.url) : "";
-    const seeded: SavedServer[] = info ? [{ id: url, name: url, url, lastConnectedAt: Date.now() }] : [];
+    const seeded: SavedServer[] = info ? [{ id: url, name: info.serverName, url, lastConnectedAt: Date.now() }] : [];
     await SecureStore.setItemAsync(STORAGE_KEYS.SAVED_SERVERS, JSON.stringify(seeded));
     return seeded;
   }

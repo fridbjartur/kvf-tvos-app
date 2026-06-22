@@ -138,6 +138,27 @@ export function isConfigReady(): boolean {
   return configInitialized && !!cachedConfig.server && !!cachedConfig.apiKey;
 }
 
+// Auth-change pub/sub so UI (e.g. the tab bar) can react synchronously to login/logout.
+const authListeners = new Set<() => void>();
+
+/** Subscribe to login/logout transitions. Returns an unsubscribe function. */
+export function subscribeAuthChange(cb: () => void): () => void {
+  authListeners.add(cb);
+  return () => authListeners.delete(cb);
+}
+
+function notifyAuthChange(): void {
+  authListeners.forEach((cb) => cb());
+}
+
+/**
+ * Synchronous "is the user logged in" check. True only once config is loaded and all three
+ * credential pieces are present (mirrors how settings derives the connected state).
+ */
+export function isAuthenticated(): boolean {
+  return configInitialized && !!cachedConfig.server && !!cachedConfig.apiKey && !!cachedConfig.userId;
+}
+
 /**
  * Wait for config to be initialized
  * Call this before rendering components that need images
@@ -435,10 +456,8 @@ export async function connectToDemoServer(clearCaches: boolean = true): Promise<
       try {
         const { libraryManager } = await import("@/services/libraryManager");
         const { folderNavigationManager } = await import("@/services/folderNavigationManager");
-        const { clearAllProgress } = await import("@/services/watchProgressService");
         libraryManager.clearCache();
         folderNavigationManager.clearCache();
-        await clearAllProgress();
         logger.debug("Manager caches cleared", {
           service: "JellyfinAPI",
         });
@@ -460,6 +479,8 @@ export async function connectToDemoServer(clearCaches: boolean = true): Promise<
       service: "JellyfinAPI",
       server: demoServerUrl,
     });
+
+    notifyAuthChange();
   } catch (error) {
     logger.error("Failed to connect to demo server", error, {
       service: "JellyfinAPI",
@@ -510,14 +531,12 @@ export async function disconnectFromDemo(): Promise<void> {
     await refreshConfig();
     setSavedConnectionStatus("none");
 
-    // Clear manager caches and watch progress (defensive - don't fail on cache clear errors)
+    // Clear manager caches (stale server content). Watch progress is preserved.
     try {
       const { libraryManager } = await import("@/services/libraryManager");
       const { folderNavigationManager } = await import("@/services/folderNavigationManager");
-      const { clearAllProgress } = await import("@/services/watchProgressService");
       libraryManager.clearCache();
       folderNavigationManager.clearCache();
-      await clearAllProgress();
     } catch (cacheError) {
       // Log but don't fail - cache clearing is not critical for functionality
       logger.warn("Failed to clear manager caches", cacheError, {
@@ -1114,6 +1133,8 @@ export async function saveAuthResult(serverUrl: string, accessToken: string, use
     userName,
     method,
   });
+
+  notifyAuthChange();
 }
 
 /**
@@ -1134,14 +1155,13 @@ export async function signOut(): Promise<void> {
   await refreshConfig();
   setSavedConnectionStatus("none");
 
-  // Clear manager caches and watch progress
+  // Clear manager caches (stale server content). Watch progress is intentionally
+  // preserved so resume history survives sign-out/login (it's local, keyed by item id).
   try {
     const { libraryManager } = await import("@/services/libraryManager");
     const { folderNavigationManager } = await import("@/services/folderNavigationManager");
-    const { clearAllProgress } = await import("@/services/watchProgressService");
     libraryManager.clearCache();
     folderNavigationManager.clearCache();
-    await clearAllProgress();
   } catch (cacheError) {
     logger.warn("Failed to clear manager caches on sign out", cacheError, {
       service: "JellyfinAPI",
@@ -1149,6 +1169,8 @@ export async function signOut(): Promise<void> {
   }
 
   logger.info("User signed out", { service: "JellyfinAPI" });
+
+  notifyAuthChange();
 }
 
 /**

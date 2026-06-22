@@ -5,6 +5,8 @@ import { useEffect } from "react";
 import "react-native-reanimated";
 
 import { ErrorBoundary } from "@/components/error-boundary";
+import { SearchPreloader } from "@/components/search-preloader";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { LoadingProvider } from "@/contexts/LoadingContext";
 import { LibraryProvider } from "@/contexts/LibraryContext";
 import { FolderNavigationProvider } from "@/contexts/FolderNavigationContext";
@@ -24,26 +26,30 @@ export default function RootLayout() {
 
   return (
     <ErrorBoundary>
-      <LoadingProvider>
-        <LibraryProvider>
-          <FolderNavigationProvider>
-            <PlayQueueProvider>
-              <Stack screenOptions={{ contentStyle: { backgroundColor: "#3d3d3d" } }}>
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen
-                  name="player"
-                  options={{
-                    headerShown: false,
-                    presentation: "fullScreenModal",
-                    animation: "fade",
-                  }}
-                />
-              </Stack>
-              <StatusBar style="light" />
-            </PlayQueueProvider>
-          </FolderNavigationProvider>
-        </LibraryProvider>
-      </LoadingProvider>
+      <AuthProvider>
+        <LoadingProvider>
+          <LibraryProvider>
+            <FolderNavigationProvider>
+              <PlayQueueProvider>
+                <Stack screenOptions={{ contentStyle: { backgroundColor: "#3d3d3d" } }}>
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                  <Stack.Screen
+                    name="player"
+                    options={{
+                      headerShown: false,
+                      presentation: "fullScreenModal",
+                      animation: "fade",
+                    }}
+                  />
+                </Stack>
+                {/* Warm the native search subsystem from launch; lives for the whole session. */}
+                <SearchPreloader />
+                <StatusBar style="light" />
+              </PlayQueueProvider>
+            </FolderNavigationProvider>
+          </LibraryProvider>
+        </LoadingProvider>
+      </AuthProvider>
     </ErrorBoundary>
   );
 }

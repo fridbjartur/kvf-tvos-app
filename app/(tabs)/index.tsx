@@ -222,14 +222,14 @@ function LibraryGrid() {
           <Text style={styles.errorText}>{error}</Text>
 
           <View style={styles.buttonGroup}>
-            <FocusableButton
+            {/* <FocusableButton
               title="Try Demo Server"
               variant="secondary"
               onPress={handleTryDemo}
               disabled={isConnectingToDemo}
               icon={<Ionicons name="play-circle-outline" size={Platform.isTV ? 24 : 20} color="#FFC312" />}
               hasTVPreferredFocus={true}
-            />
+            /> */}
             <FocusableButton
               title="Go to Settings"
               variant="primary"

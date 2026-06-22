@@ -129,9 +129,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: "35%",
-    paddingVertical: IS_TV ? 16 : 12,
-    paddingHorizontal: IS_TV ? 20 : 16,
+    paddingVertical: IS_TV ? 10 : 6,
+    paddingHorizontal: IS_TV ? 16 : 12,
     overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
@@ -147,8 +146,8 @@ const styles = StyleSheet.create({
   },
   hint: {
     color: "rgba(250, 196, 0, 0.5)",
-    fontSize: IS_TV ? 22 : 11,
-    fontWeight: "500",
-    marginTop: 4,
+    fontSize: IS_TV ? 22 : 13,
+    fontWeight: "700",
+    textAlign: "center",
   },
 });

@@ -115,13 +115,15 @@ export default function SettingsScreen() {
   }, [loadFolderRoot, router]);
 
   React.useEffect(() => {
-    if (quickConnect.status === "AUTHENTICATED" && quickConnect.authResult) {
-      refreshLibrary();
-      // loadCurrentState sets state only after awaited I/O (not a synchronous cascade)
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      loadCurrentState();
-      goToLibraryRoot();
-    }
+    if (quickConnect.status !== "AUTHENTICATED" || !quickConnect.authResult) return;
+    // Mirror the demo-connect flow: await each step in sequence. Login reveals the Search tab,
+    // which remounts the tab navigator; the awaits let that remount settle before goToLibraryRoot
+    // navigates, otherwise navigate("/") races the remount and the user is left on Settings.
+    (async () => {
+      await refreshLibrary();
+      await loadCurrentState();
+      await goToLibraryRoot();
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quickConnect.status]);
 

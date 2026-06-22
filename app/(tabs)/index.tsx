@@ -10,13 +10,13 @@ import { useFolderNavigation } from "@/contexts/FolderNavigationContext";
 import { useLoading } from "@/contexts/LoadingContext";
 import { usePlayQueue } from "@/contexts/PlayQueueContext";
 import { PosterBackdropProvider, usePosterBackdropDispatch } from "@/contexts/PosterBackdropContext";
-import { connectToDemoServer, isFolder } from "@/services/jellyfinApi";
+import { isFolder } from "@/services/jellyfinApi";
 import { JellyfinItem } from "@/types/jellyfin";
 import { logger } from "@/utils/logger";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, BackHandler, FlatList, Platform, StyleSheet, Text, View, useTVEventHandler } from "react-native";
+import React, { useCallback, useEffect, useMemo } from "react";
+import { ActivityIndicator, BackHandler, FlatList, Platform, StyleSheet, Text, View, useTVEventHandler } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Special marker for the ".." back navigation item
@@ -31,11 +31,10 @@ const TAB_BAR_HEIGHT = IS_TV ? 210 : 49;
 function LibraryGrid() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { showGlobalLoader, hideGlobalLoader } = useLoading();
-  const { items, isLoading, isLoadingMore, hasMoreResults, error, folderStack, currentFolder, navigateToFolder, navigateBack, loadMore, refresh } = useFolderNavigation();
+  const { showGlobalLoader } = useLoading();
+  const { items, isLoading, isLoadingMore, hasMoreResults, error, folderStack, currentFolder, navigateToFolder, navigateBack, loadMore } = useFolderNavigation();
   const { buildQueue } = usePlayQueue();
   const backdrop = usePosterBackdropDispatch();
-  const [isConnectingToDemo, setIsConnectingToDemo] = useState(false);
 
   // Handle TV menu button for back navigation
   useTVEventHandler((event) => {
@@ -172,38 +171,6 @@ function LibraryGrid() {
     }
   }, [hasMoreResults, isLoadingMore, isLoading, loadMore]);
 
-  const handleTryDemo = useCallback(async () => {
-    if (isConnectingToDemo) return; // Prevent double-click
-
-    setIsConnectingToDemo(true);
-    let connected = false;
-
-    try {
-      showGlobalLoader();
-      await connectToDemoServer();
-      connected = true;
-
-      // Refresh folder navigation to load demo content
-      await refresh();
-
-      hideGlobalLoader();
-
-      Alert.alert("Demo Server Connected", "You're now browsing Jellyfin's demo library. You can switch to your own server in Settings.", [{ text: "OK" }]);
-    } catch (error) {
-      hideGlobalLoader();
-
-      if (connected) {
-        // Connection succeeded but refresh failed
-        Alert.alert("Connected to Demo", "Connected to demo server, but couldn't load the library. Please check your internet connection and try navigating again.", [{ text: "OK" }]);
-      } else {
-        // Connection failed
-        Alert.alert("Connection Failed", error instanceof Error ? error.message : "Unable to connect to demo server", [{ text: "OK" }]);
-      }
-    } finally {
-      setIsConnectingToDemo(false);
-    }
-  }, [isConnectingToDemo, showGlobalLoader, hideGlobalLoader, refresh]);
-
   const renderEmpty = useCallback(() => {
     if (isLoading) {
       return (
@@ -222,19 +189,12 @@ function LibraryGrid() {
           <Text style={styles.errorText}>{error}</Text>
 
           <View style={styles.buttonGroup}>
-            {/* <FocusableButton
-              title="Try Demo Server"
-              variant="secondary"
-              onPress={handleTryDemo}
-              disabled={isConnectingToDemo}
-              icon={<Ionicons name="play-circle-outline" size={Platform.isTV ? 24 : 20} color="#FFC312" />}
-              hasTVPreferredFocus={true}
-            /> */}
             <FocusableButton
               title="Go to Settings"
               variant="primary"
               onPress={() => router.push("/(tabs)/settings")}
               icon={<Ionicons name="settings-outline" size={Platform.isTV ? 24 : 20} color="#000000" />}
+              hasTVPreferredFocus={true}
             />
           </View>
         </View>
@@ -247,7 +207,7 @@ function LibraryGrid() {
         <Text style={styles.emptyText}>This folder is empty</Text>
       </View>
     );
-  }, [isLoading, error, isConnectingToDemo, router, handleTryDemo]);
+  }, [isLoading, error, router]);
 
   return (
     <View style={styles.container}>

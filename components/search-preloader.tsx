@@ -9,7 +9,7 @@ const noop = () => {};
  * The Search tab is hidden until login, so its screen (and the expensive SwiftUI
  * `.searchable`/`UIHostingController` init) only mounts after the user connects. This parks a
  * minimal, off-screen, inert `TvosSearchView` in the root layout so that native machinery is
- * already initialized — making the first real Search open instant once the tab appears.
+ * already initialized, making the first real Search open instant once the tab appears.
  *
  * Off-screen + 1×1 + opacity 0 + pointerEvents none keeps it out of the layout and out of the
  * way; it exists only to prime native init.

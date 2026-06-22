@@ -2175,7 +2175,7 @@ export function getPosterUrl(itemId: string, maxHeight: number = 450): string {
 /**
  * Get a tiny, server-blurred poster URL for use as an ambient background wash.
  * The image is requested small (48px tall) and upscaled full-screen by the renderer,
- * which is what produces the soft blur — no client-side blur pass needed. The optional
+ * which is what produces the soft blur, so no client-side blur pass is needed. The optional
  * imageTag only matters for the stable cacheKey the caller builds; it isn't in the URL.
  */
 export function getBackdropBlurUrl(itemId: string): string {

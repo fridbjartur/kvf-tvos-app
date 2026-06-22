@@ -73,7 +73,7 @@ export function FolderNavigationProvider({ children }: { children: ReactNode }) 
 
   // Reload the root the moment the user logs in. This provider is mounted above the tab navigator
   // (so it survives the navigator remount that hiding/showing the Search tab triggers on login),
-  // and saveAuthResult/connectToDemoServer clear the folder cache before firing this — so the
+  // and saveAuthResult/connectToDemoServer clear the folder cache before firing this, so the
   // reload always fetches fresh and reliably reaches the Library, regardless of remount timing.
   useEffect(() => {
     return subscribeAuthChange(() => {

@@ -1,7 +1,7 @@
 import { getBackdropBlurUrl } from "@/services/jellyfinApi";
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
-/** Minimal shape needed to build a backdrop source — both video and folder items satisfy it. */
+/** Minimal shape needed to build a backdrop source; both video and folder items satisfy it. */
 interface BackdropItem {
   Id: string;
   ImageTags?: { Primary?: string };
@@ -65,7 +65,7 @@ export function PosterBackdropProvider({ children }: { children: ReactNode }) {
   );
 }
 
-/** Stable focus/clear dispatch — safe to thread into memoized cards. */
+/** Stable focus dispatch, safe to thread into memoized cards. */
 export function usePosterBackdropDispatch(): BackdropDispatch {
   const ctx = useContext(DispatchContext);
   if (ctx === undefined) {

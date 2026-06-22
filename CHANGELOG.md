@@ -2,6 +2,36 @@
 
 All notable changes to Tomo TV are documented here.
 
+## [1.4.0] - 2026-06-22
+
+### Added
+
+- Saved servers list on the connect screen, shown as selectable cards
+- Server auto-discovery from a bare IP or hostname (no full URL needed)
+- On-demand restore of the last connection with a reachability check
+- Ambient background (dark canvas, soft glows) across all tabs
+- Library background tinted by the focused card's poster
+
+### Changed
+
+- Upgraded to Expo SDK 56 (React Native 0.85, React 19.2)
+- Search tab hidden until signed in; native search preloaded for instant open
+- Grid adapts to content orientation (portrait or landscape) with per-card image fit
+- Redesigned cards: frosted title panel, folder count badge, shorter aspect
+- Continue Watching moved from a dedicated tab to a Library row
+- Watch progress stored on the local filesystem instead of SecureStore
+- Breadcrumb labels capped in width for deep paths
+
+### Fixed
+
+- Watch progress now persists on tvOS (cache directory; Documents writes are denied)
+- Login (Quick Connect, password, demo) lands on the Library
+- Library no longer empty immediately after sign-in
+- Stale disconnected load no longer overwrites the library after connecting
+- Removed dev-credential mechanism; Quick Connect sessions persist across launches
+- Sign-out no longer issues a request with empty credentials
+- Help tab no longer shows the version string
+
 ## [1.3.4] - 2026-03-21
 
 ### Fixed

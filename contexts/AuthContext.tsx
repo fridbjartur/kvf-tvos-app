@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Route to the Library tab on a runtime login. Revealing the Search tab remounts the whole tab
   // navigator, which tears down per-screen effects mid-login (e.g. Quick Connect's polling lives in
-  // a SettingsScreen effect that resets on remount), so navigation must happen here — above the
+  // a SettingsScreen effect that resets on remount), so navigation must happen here, above the
   // navigator and after the remount has committed (a passive effect runs post-commit). Guarded so
   // the initial launch resolution (false→true alongside isReady) doesn't hijack a deep link.
   useEffect(() => {

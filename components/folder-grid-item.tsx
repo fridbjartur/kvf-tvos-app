@@ -17,14 +17,13 @@ interface FolderGridItemProps {
   onPress: (folder: JellyfinItem) => void;
   index: number;
   onItemFocus?: (folder: JellyfinItem) => void;
-  onItemBlur?: () => void;
   hasTVPreferredFocus?: boolean;
   /** Slot shape of the grid this card lives in (drives card aspect ratio + column width). */
   slotOrientation?: SlotOrientation;
 }
 
 const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpacity>, FolderGridItemProps>(function FolderGridItemComponent(
-  { folder, onPress, index, onItemFocus, onItemBlur, hasTVPreferredFocus = false, slotOrientation = "portrait" },
+  { folder, onPress, index, onItemFocus, hasTVPreferredFocus = false, slotOrientation = "portrait" },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
@@ -56,8 +55,7 @@ const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpac
 
   const handleBlur = useCallback(() => {
     setFocused(false);
-    onItemBlur?.();
-  }, [onItemBlur]);
+  }, []);
 
   const handlePress = useCallback(() => {
     onPress(folder);
@@ -121,7 +119,6 @@ function arePropsEqual(prev: FolderGridItemProps, next: FolderGridItemProps): bo
     prev.index === next.index &&
     prev.onPress === next.onPress &&
     prev.onItemFocus === next.onItemFocus &&
-    prev.onItemBlur === next.onItemBlur &&
     prev.hasTVPreferredFocus === next.hasTVPreferredFocus &&
     prev.slotOrientation === next.slotOrientation
   );

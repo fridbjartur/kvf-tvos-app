@@ -1,5 +1,5 @@
 import { VideoGridItem } from "@/components/video-grid-item";
-import { slotRatio } from "@/constants/app";
+import { slotColumns, slotRatio } from "@/constants/app";
 import { useLoading } from "@/contexts/LoadingContext";
 import { fetchItemsByIds } from "@/services/jellyfinApi";
 import { clearProgress, getRecentProgress } from "@/services/watchProgressService";
@@ -9,9 +9,9 @@ import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import { Alert, Dimensions, FlatList, Platform, StyleSheet, Text, View } from "react-native";
 
-// Mirror the Library grid sizing so shelf cards match a grid column.
+// Mirror the Library grid sizing so shelf cards match a landscape grid column.
 const IS_TV = Platform.isTV;
-const NUM_COLUMNS = IS_TV ? 5 : 3;
+const NUM_COLUMNS = slotColumns("landscape", IS_TV);
 const GRID_PADDING_H = (IS_TV ? 80 : 60) + (IS_TV ? 40 : 20);
 const CARD_PADDING = IS_TV ? 16 : 8;
 

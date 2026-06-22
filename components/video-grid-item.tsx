@@ -19,7 +19,6 @@ interface VideoGridItemProps {
   onLongPress?: (video: JellyfinVideoItem) => void;
   index: number;
   onItemFocus?: (video: JellyfinVideoItem) => void;
-  onItemBlur?: () => void;
   hasTVPreferredFocus?: boolean;
   nextFocusUp?: number;
   /** Resume progress as a 0–1 fraction. When set (> 0), renders a bottom progress bar. */
@@ -42,7 +41,7 @@ interface VideoGridItemProps {
  * - Platform values cached at module level
  */
 const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpacity>, VideoGridItemProps>(function VideoGridItemComponent(
-  { video, onPress, onLongPress, index, onItemFocus, onItemBlur, hasTVPreferredFocus = false, nextFocusUp, progressPercent, cardWidth, slotOrientation = "portrait" },
+  { video, onPress, onLongPress, index, onItemFocus, hasTVPreferredFocus = false, nextFocusUp, progressPercent, cardWidth, slotOrientation = "portrait" },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
@@ -80,8 +79,7 @@ const VideoGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpaci
 
   const handleBlur = useCallback(() => {
     setFocused(false);
-    onItemBlur?.();
-  }, [onItemBlur]);
+  }, []);
 
   const handlePress = useCallback(() => {
     onPress(video);
@@ -166,7 +164,6 @@ function arePropsEqual(prevProps: VideoGridItemProps, nextProps: VideoGridItemPr
     prevProps.onPress === nextProps.onPress &&
     prevProps.onLongPress === nextProps.onLongPress &&
     prevProps.onItemFocus === nextProps.onItemFocus &&
-    prevProps.onItemBlur === nextProps.onItemBlur &&
     prevProps.hasTVPreferredFocus === nextProps.hasTVPreferredFocus &&
     prevProps.nextFocusUp === nextProps.nextFocusUp &&
     prevProps.progressPercent === nextProps.progressPercent &&

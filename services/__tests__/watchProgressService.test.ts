@@ -5,7 +5,7 @@ import { getProgress, saveProgress, clearProgress, clearAllProgress, getRecentPr
 let mockFileContent: string | null = null;
 
 jest.mock("expo-file-system/legacy", () => ({
-  documentDirectory: "file:///documents/",
+  cacheDirectory: "file:///caches/",
   getInfoAsync: jest.fn(async () => ({ exists: mockFileContent !== null })),
   readAsStringAsync: jest.fn(async () => {
     if (mockFileContent === null) throw new Error("File does not exist");

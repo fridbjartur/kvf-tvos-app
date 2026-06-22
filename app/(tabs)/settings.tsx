@@ -263,8 +263,8 @@ export default function SettingsScreen() {
             setPassword("");
             setServerName("");
             setScreenState("NOT_CONNECTED");
-            refreshLibrary();
-            loadFolderRoot();
+            // signOut() already clears both manager caches; don't re-fetch here, since with
+            // credentials gone that would just fire a request with an empty server URL.
           } catch (error) {
             logger.error("Error signing out", error);
             Alert.alert("Error", "Failed to sign out.");

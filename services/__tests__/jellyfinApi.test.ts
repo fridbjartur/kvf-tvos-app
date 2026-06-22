@@ -16,7 +16,9 @@ import {
   getSubtitleUrl,
   getSubtitleTracks,
   refreshConfig,
-  syncDevCredentials,
+  getConfig,
+  buildServerUrlCandidates,
+  evaluateSavedConnection,
 } from "../jellyfinApi";
 import { JellyfinVideoItem } from "@/types/jellyfin";
 
@@ -1279,7 +1281,7 @@ describe("jellyfinApi", () => {
         return Promise.resolve(oldConfig[key] || null);
       });
 
-      await syncDevCredentials();
+      await getConfig();
 
       // Should have migrated to new URL format
       expect(mockSecureStore.setItemAsync).toHaveBeenCalledWith("jellyfin_server_url", "http://192.168.1.100:8096");
@@ -1296,7 +1298,7 @@ describe("jellyfinApi", () => {
         return Promise.resolve(null);
       });
 
-      await syncDevCredentials();
+      await getConfig();
 
       // Should not have called setItemAsync for migration
       expect(mockSecureStore.setItemAsync).not.toHaveBeenCalledWith("jellyfin_server_url", expect.any(String));
@@ -1305,7 +1307,7 @@ describe("jellyfinApi", () => {
     it("should skip migration if old format doesn't exist", async () => {
       mockSecureStore.getItemAsync.mockResolvedValue(null);
 
-      await syncDevCredentials();
+      await getConfig();
 
       // Should not have called setItemAsync for migration
       expect(mockSecureStore.setItemAsync).not.toHaveBeenCalledWith("jellyfin_server_url", expect.any(String));
@@ -1322,7 +1324,7 @@ describe("jellyfinApi", () => {
         return Promise.resolve(oldConfig[key] || null);
       });
 
-      await syncDevCredentials();
+      await getConfig();
 
       expect(mockSecureStore.setItemAsync).toHaveBeenCalledWith("jellyfin_server_url", "https://jellyfin.example.com:443");
     });
@@ -1337,10 +1339,106 @@ describe("jellyfinApi", () => {
         return Promise.resolve(oldConfig[key] || null);
       });
 
-      await syncDevCredentials();
+      await getConfig();
 
       // Should default to http://ip:8096
       expect(mockSecureStore.setItemAsync).toHaveBeenCalledWith("jellyfin_server_url", "http://192.168.1.50:8096");
+    });
+  });
+
+  describe("buildServerUrlCandidates", () => {
+    it("uses a full http/https URL exactly as entered", () => {
+      expect(buildServerUrlCandidates("http://192.168.1.100:8096")).toEqual(["http://192.168.1.100:8096"]);
+      expect(buildServerUrlCandidates("https://jellyfin.example.com")).toEqual(["https://jellyfin.example.com"]);
+    });
+
+    it("strips trailing slashes from a full URL", () => {
+      expect(buildServerUrlCandidates("https://jellyfin.example.com/")).toEqual(["https://jellyfin.example.com"]);
+    });
+
+    it("treats the scheme case-insensitively", () => {
+      expect(buildServerUrlCandidates("HTTPS://host")).toEqual(["HTTPS://host"]);
+    });
+
+    it("probes both protocols when a bare host includes a port", () => {
+      expect(buildServerUrlCandidates("192.168.1.100:8096")).toEqual(["https://192.168.1.100:8096", "http://192.168.1.100:8096"]);
+    });
+
+    it("probes default and standard ports (https first) for a bare IP", () => {
+      expect(buildServerUrlCandidates("192.168.1.100")).toEqual(["https://192.168.1.100:8920", "https://192.168.1.100", "http://192.168.1.100:8096", "http://192.168.1.100"]);
+    });
+
+    it("probes default and standard ports for a bare hostname", () => {
+      expect(buildServerUrlCandidates("jellyfin.example.com")).toEqual([
+        "https://jellyfin.example.com:8920",
+        "https://jellyfin.example.com",
+        "http://jellyfin.example.com:8096",
+        "http://jellyfin.example.com",
+      ]);
+    });
+
+    it("returns no candidates for empty input", () => {
+      expect(buildServerUrlCandidates("")).toEqual([]);
+      expect(buildServerUrlCandidates("   ")).toEqual([]);
+    });
+  });
+
+  describe("evaluateSavedConnection", () => {
+    const mockSecureStore = require("expo-secure-store");
+
+    beforeEach(() => {
+      global.fetch = jest.fn();
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    const withCreds = () =>
+      mockSecureStore.getItemAsync.mockImplementation((key: string) =>
+        Promise.resolve(
+          (
+            {
+              jellyfin_server_url: "http://192.168.1.100:8096",
+              jellyfin_api_key: "tok",
+              jellyfin_user_id: "uid",
+            } as Record<string, string>
+          )[key] || null,
+        ),
+      );
+
+    it("returns 'none' when there is no saved connection", async () => {
+      mockSecureStore.getItemAsync.mockResolvedValue(null);
+      expect(await evaluateSavedConnection(true)).toBe("none");
+    });
+
+    it("returns 'connected' when the saved server is reachable", async () => {
+      withCreds();
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ ServerName: "Living Room", Version: "10.9.0" }),
+      });
+      expect(await evaluateSavedConnection(true)).toBe("connected");
+    });
+
+    it("returns 'needs_restore' when the saved server is unreachable", async () => {
+      withCreds();
+      (global.fetch as jest.Mock).mockRejectedValueOnce(new Error("network down"));
+      expect(await evaluateSavedConnection(true)).toBe("needs_restore");
+    });
+
+    it("caches the result until forced to re-evaluate", async () => {
+      withCreds();
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ ServerName: "Living Room", Version: "10.9.0" }),
+      });
+      expect(await evaluateSavedConnection(true)).toBe("connected");
+
+      // Without force it must not probe again (fetch not called a second time).
+      (global.fetch as jest.Mock).mockClear();
+      expect(await evaluateSavedConnection()).toBe("connected");
+      expect(global.fetch).not.toHaveBeenCalled();
     });
   });
 });

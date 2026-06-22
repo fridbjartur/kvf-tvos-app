@@ -3,18 +3,17 @@
     "name": "Tomo TV",
     "slug": "tomotv",
     "description": "Stream any video from your Jellyfin server. Automatic transcoding handles incompatible formats so you can just hit play and watch.",
-    "version": "1.3.4",
+    "version": "1.4.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "tomotv",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#1C1C1E",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "dev.keiver.tomotv",
       "buildNumber": "1",
-      "version": "1.3.4",
+      "version": "1.4.0",
       "config": {
         "usesNonExemptEncryption": false
       },
@@ -44,12 +43,13 @@
         "@react-native-tvos/config-tv",
         {
           "isTV": true,
-          "tvosDeploymentTarget": "15.1"
+          "tvosDeploymentTarget": "16.4"
         }
       ],
       "expo-secure-store",
       "./plugins/withMultiAudioResourceLoader",
-      "./plugins/withTVImageAssets"
+      "./plugins/withTVImageAssets",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -45,12 +45,10 @@ jest.mock("react-native-safe-area-context", () => ({
 
 describe("Search Screen Pagination", () => {
   const mockSearchVideos = jellyfinApi.searchVideos as jest.MockedFunction<typeof jellyfinApi.searchVideos>;
-  const mockSyncDevCredentials = jellyfinApi.syncDevCredentials as jest.MockedFunction<typeof jellyfinApi.syncDevCredentials>;
 
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
-    mockSyncDevCredentials.mockResolvedValue();
   });
 
   afterEach(() => {

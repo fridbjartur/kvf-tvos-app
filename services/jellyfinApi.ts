@@ -7,21 +7,12 @@ import {
   JellyfinVideoItem,
   JellyfinVideosResponse,
   QuickConnectResult,
+  SavedServer,
 } from "@/types/jellyfin";
 import { logger } from "@/utils/logger";
 import { retryWithBackoff } from "@/utils/retry";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
-
-// Development fallback credentials from .env.local
-// Gated on __DEV__ so EXPO_PUBLIC_DEV_* refs are never reached in release
-// builds. babel-preset-expo replaces __DEV__ with `false` in production and
-// Metro's minifier folds the dead ternary branch out of the bundle, so the
-// inlined env literals don't ship to users. .gitignore alone does NOT prevent
-// the bundle from carrying these values, since the build machine reads the file.
-const DEV_SERVER = __DEV__ ? process.env.EXPO_PUBLIC_DEV_JELLYFIN_SERVER || "" : "";
-const DEV_API_KEY = __DEV__ ? process.env.EXPO_PUBLIC_DEV_JELLYFIN_API_KEY || "" : "";
-const DEV_USER_ID = __DEV__ ? process.env.EXPO_PUBLIC_DEV_JELLYFIN_USER_ID || "" : "";
 
 const STORAGE_KEYS = {
   SERVER_URL: "jellyfin_server_url",
@@ -33,11 +24,12 @@ const STORAGE_KEYS = {
   USER_NAME: "jellyfin_user_name",
   AUTH_METHOD: "jellyfin_auth_method",
   SERVER_NAME: "jellyfin_server_name",
+  SAVED_SERVERS: "jellyfin_saved_servers",
 };
 
 // Demo server credentials (Jellyfin's official public demo server)
 // Credentials are fetched dynamically as the demo server resets hourly
-const DEMO_SERVER_STABLE = "https://demo.jellyfin.org/stable";
+export const DEMO_SERVER_STABLE = "https://demo.jellyfin.org/stable";
 const DEMO_USERNAME = "demo";
 const DEMO_PASSWORD = ""; // Empty password
 
@@ -82,6 +74,12 @@ let cachedConfig = {
 // Promise that resolves when config is first loaded
 let configInitPromise: Promise<void> | null = null;
 let configInitialized = false;
+
+// Reachability of the saved connection, evaluated once per app launch.
+// "unknown" until the first evaluation; cached afterwards so we don't re-probe
+// (and stall) on every settings focus.
+type SavedConnectionStatus = "unknown" | "connected" | "needs_restore" | "none";
+let savedConnectionStatus: SavedConnectionStatus = "unknown";
 
 // Old storage keys for migration (deprecated format)
 const OLD_STORAGE_KEYS = {
@@ -140,6 +138,27 @@ export function isConfigReady(): boolean {
   return configInitialized && !!cachedConfig.server && !!cachedConfig.apiKey;
 }
 
+// Auth-change pub/sub so UI (e.g. the tab bar) can react synchronously to login/logout.
+const authListeners = new Set<() => void>();
+
+/** Subscribe to login/logout transitions. Returns an unsubscribe function. */
+export function subscribeAuthChange(cb: () => void): () => void {
+  authListeners.add(cb);
+  return () => authListeners.delete(cb);
+}
+
+function notifyAuthChange(): void {
+  authListeners.forEach((cb) => cb());
+}
+
+/**
+ * Synchronous "is the user logged in" check. True only once config is loaded and all three
+ * credential pieces are present (mirrors how settings derives the connected state).
+ */
+export function isAuthenticated(): boolean {
+  return configInitialized && !!cachedConfig.server && !!cachedConfig.apiKey && !!cachedConfig.userId;
+}
+
 /**
  * Wait for config to be initialized
  * Call this before rendering components that need images
@@ -156,7 +175,7 @@ export async function waitForConfig(): Promise<void> {
 
 /**
  * Get Jellyfin configuration from SecureStore
- * Falls back to .env.local development credentials if user hasn't configured settings
+ * Returns empty strings when the user hasn't configured a server yet
  * Also updates the cache for synchronous functions
  */
 export async function getConfig(): Promise<{
@@ -174,14 +193,12 @@ export async function getConfig(): Promise<{
       SecureStore.getItemAsync(STORAGE_KEYS.USER_ID),
     ]);
 
-    // Use migrated URL, stored URL, or dev fallback
-    const cleanServerUrl = (migratedUrl || serverUrl?.trim() || DEV_SERVER).replace(/\/+$/, "");
+    const cleanServerUrl = (migratedUrl || serverUrl?.trim() || "").replace(/\/+$/, "");
 
     const config = {
-      // Use user settings if available, otherwise fall back to dev env vars
       server: cleanServerUrl,
-      apiKey: apiKey?.trim() || DEV_API_KEY,
-      userId: userId?.trim() || DEV_USER_ID,
+      apiKey: apiKey?.trim() || "",
+      userId: userId?.trim() || "",
     };
 
     // Update cache for synchronous functions
@@ -191,29 +208,20 @@ export async function getConfig(): Promise<{
     logger.debug("Config loaded", {
       service: "JellyfinAPI",
       hasStoredUrl: !!serverUrl,
-      hasDevServer: !!DEV_SERVER,
       server: config.server,
       hasApiKey: !!config.apiKey,
       hasUserId: !!config.userId,
     });
-
-    // Log when using dev credentials (helpful for debugging)
-    if (!serverUrl && DEV_SERVER) {
-      logger.debug("Using development credentials from .env.local", {
-        service: "JellyfinAPI",
-      });
-    }
 
     return config;
   } catch (error) {
     logger.error("Error reading Jellyfin config from SecureStore", error, {
       service: "JellyfinAPI",
     });
-    // Fall back to dev credentials on error
     return {
-      server: DEV_SERVER,
-      apiKey: DEV_API_KEY,
-      userId: DEV_USER_ID,
+      server: "",
+      apiKey: "",
+      userId: "",
     };
   }
 }
@@ -223,86 +231,6 @@ export async function getConfig(): Promise<{
  */
 export async function refreshConfig(): Promise<void> {
   await getConfig();
-}
-
-/**
- * Sync dev environment variables to SecureStore if not already set
- * This ensures dev credentials are visible in SecureStore for debugging
- * CRITICAL: Does NOT overwrite demo server credentials
- */
-export async function syncDevCredentials(): Promise<void> {
-  try {
-    // CRITICAL: Never overwrite demo mode credentials with dev credentials
-    const demoModeFlag = await SecureStore.getItemAsync(STORAGE_KEYS.IS_DEMO_MODE);
-    if (demoModeFlag === "true") {
-      logger.debug("Skipping dev credential sync (demo mode active)", {
-        service: "JellyfinAPI",
-      });
-      return;
-    }
-
-    // Migrate old config format if needed
-    const migratedUrl = await migrateOldConfigFormat();
-    if (migratedUrl) {
-      return; // Migration done, no need to sync dev credentials
-    }
-
-    // Only sync dev credentials if we have them
-    if (!DEV_SERVER || !DEV_API_KEY || !DEV_USER_ID) {
-      return;
-    }
-
-    // Dev-only: DEV_* are gated on __DEV__ at module top, so they're "" in release builds
-    await Promise.all([
-      SecureStore.setItemAsync(STORAGE_KEYS.SERVER_URL, DEV_SERVER),
-      SecureStore.setItemAsync(STORAGE_KEYS.API_KEY, DEV_API_KEY),
-      SecureStore.setItemAsync(STORAGE_KEYS.USER_ID, DEV_USER_ID),
-      SecureStore.setItemAsync(STORAGE_KEYS.AUTH_METHOD, "apikey"),
-    ]);
-    logger.debug("Synced dev credentials to SecureStore", {
-      service: "JellyfinAPI",
-    });
-
-    // Fetch and store the user's display name (non-blocking)
-    try {
-      const response = await fetch(`${DEV_SERVER}/Users/${DEV_USER_ID}`, {
-        headers: { Authorization: `MediaBrowser Token="${DEV_API_KEY}"` },
-      });
-      if (response.ok) {
-        const userData = await response.json();
-        if (userData.Name) {
-          await SecureStore.setItemAsync(STORAGE_KEYS.USER_NAME, userData.Name);
-          logger.debug("Stored dev user name", { service: "JellyfinAPI", userName: userData.Name });
-        }
-      }
-    } catch {
-      logger.debug("Could not fetch dev user name, will show fallback", {
-        service: "JellyfinAPI",
-      });
-    }
-
-    // Fetch and store server name (non-blocking)
-    try {
-      const infoResponse = await fetch(`${DEV_SERVER}/System/Info/Public`, {
-        headers: { Accept: "application/json" },
-      });
-      if (infoResponse.ok) {
-        const serverInfo = await infoResponse.json();
-        if (serverInfo.ServerName) {
-          await SecureStore.setItemAsync(STORAGE_KEYS.SERVER_NAME, serverInfo.ServerName);
-          logger.debug("Stored dev server name", { service: "JellyfinAPI", serverName: serverInfo.ServerName });
-        }
-      }
-    } catch {
-      logger.debug("Could not fetch dev server name, URL fallback will be used", {
-        service: "JellyfinAPI",
-      });
-    }
-  } catch (error) {
-    logger.error("Error syncing dev credentials", error, {
-      service: "JellyfinAPI",
-    });
-  }
 }
 
 /**
@@ -528,10 +456,8 @@ export async function connectToDemoServer(clearCaches: boolean = true): Promise<
       try {
         const { libraryManager } = await import("@/services/libraryManager");
         const { folderNavigationManager } = await import("@/services/folderNavigationManager");
-        const { clearAllProgress } = await import("@/services/watchProgressService");
         libraryManager.clearCache();
         folderNavigationManager.clearCache();
-        await clearAllProgress();
         logger.debug("Manager caches cleared", {
           service: "JellyfinAPI",
         });
@@ -547,10 +473,14 @@ export async function connectToDemoServer(clearCaches: boolean = true): Promise<
       });
     }
 
+    setSavedConnectionStatus("connected");
+
     logger.info("Connected to demo server", {
       service: "JellyfinAPI",
       server: demoServerUrl,
     });
+
+    notifyAuthChange();
   } catch (error) {
     logger.error("Failed to connect to demo server", error, {
       service: "JellyfinAPI",
@@ -599,15 +529,14 @@ export async function disconnectFromDemo(): Promise<void> {
 
     // Refresh config to reset to defaults
     await refreshConfig();
+    setSavedConnectionStatus("none");
 
-    // Clear manager caches and watch progress (defensive - don't fail on cache clear errors)
+    // Clear manager caches (stale server content). Watch progress is preserved.
     try {
       const { libraryManager } = await import("@/services/libraryManager");
       const { folderNavigationManager } = await import("@/services/folderNavigationManager");
-      const { clearAllProgress } = await import("@/services/watchProgressService");
       libraryManager.clearCache();
       folderNavigationManager.clearCache();
-      await clearAllProgress();
     } catch (cacheError) {
       // Log but don't fail - cache clearing is not critical for functionality
       logger.warn("Failed to clear manager caches", cacheError, {
@@ -704,6 +633,249 @@ export async function checkServerInfo(serverUrl: string): Promise<JellyfinPublic
     }
     throw new Error("Unable to reach Jellyfin server. Check the URL and ensure the server is running.");
   }
+}
+
+/**
+ * Build the ordered list of candidate base URLs to probe for a user-entered address.
+ *
+ * - A full URL (http:// or https://) is used exactly as entered.
+ * - A bare host/IP with an explicit port is probed over both protocols.
+ * - A bare host/IP without a port is probed over Jellyfin's default ports
+ *   (8920 https, 8096 http) and the standard ports (443, 80), https first.
+ */
+export function buildServerUrlCandidates(input: string): string[] {
+  const trimmed = input.trim().replace(/\/+$/, "");
+  if (!trimmed) return [];
+
+  // Already has a scheme — respect the user's exact URL.
+  if (/^https?:\/\//i.test(trimmed)) {
+    return [trimmed];
+  }
+
+  const host = trimmed.replace(/^\/+/, "");
+  if (!host) return [];
+
+  // Explicit port given — keep it, just try both protocols.
+  if (/:\d+$/.test(host)) {
+    return [`https://${host}`, `http://${host}`];
+  }
+
+  // Bare host/IP — try Jellyfin defaults and standard ports, https first.
+  return [`https://${host}:8920`, `https://${host}`, `http://${host}:8096`, `http://${host}`];
+}
+
+/**
+ * Resolve a user-entered server address to a working Jellyfin base URL.
+ *
+ * Accepts a full URL (used as-is) or a bare IP/hostname (auto-discovers the
+ * protocol and port by probing candidates concurrently). Returns the first
+ * candidate that responds as a valid Jellyfin server, along with its info.
+ */
+export async function resolveServerConnection(input: string): Promise<{ url: string; info: JellyfinPublicServerInfo }> {
+  const candidates = buildServerUrlCandidates(input);
+  if (candidates.length === 0) {
+    throw new Error("Please enter a server address.");
+  }
+
+  // Single candidate (a full URL): probe directly so its specific error surfaces.
+  if (candidates.length === 1) {
+    const info = await checkServerInfo(candidates[0]);
+    return { url: candidates[0], info };
+  }
+
+  // Multiple candidates: probe concurrently and take the first that works.
+  try {
+    return await Promise.any(
+      candidates.map(async (url) => {
+        const info = await checkServerInfo(url);
+        return { url, info };
+      }),
+    );
+  } catch {
+    throw new Error("Couldn't reach a Jellyfin server at that address. Check the IP or hostname, or paste the full URL (e.g. http://192.168.1.100:8096).");
+  }
+}
+
+/**
+ * Mark the saved-connection status. Call after a manual connect/restore (connected)
+ * or sign out (none) so the cached launch evaluation stays accurate.
+ */
+export function setSavedConnectionStatus(status: Exclude<SavedConnectionStatus, "unknown">): void {
+  savedConnectionStatus = status;
+}
+
+/**
+ * Read saved connection details for the "Restore last connection" CTA.
+ * Returns null when there is no complete saved connection.
+ */
+export async function getSavedConnectionInfo(): Promise<{ url: string; serverName: string } | null> {
+  const [url, serverName, apiKey, userId] = await Promise.all([
+    SecureStore.getItemAsync(STORAGE_KEYS.SERVER_URL),
+    SecureStore.getItemAsync(STORAGE_KEYS.SERVER_NAME),
+    SecureStore.getItemAsync(STORAGE_KEYS.API_KEY),
+    SecureStore.getItemAsync(STORAGE_KEYS.USER_ID),
+  ]);
+  if (!url || !apiKey || !userId) return null;
+  return { url, serverName: serverName || url };
+}
+
+/** Normalize a server URL for use as a stable dedup id (trim + strip trailing slashes). */
+function normalizeServerUrl(url: string): string {
+  return url.trim().replace(/\/+$/, "");
+}
+
+/**
+ * Read the locally persisted list of servers, most-recently-connected first.
+ *
+ * One-time seed-migration: only when the key has NEVER been written do we seed
+ * from the legacy single-server keys, so existing users see their last
+ * connection as a card. Seeding on every empty list would make the last server
+ * impossible to remove (it would be re-seeded from the still-present
+ * single-server keys on the very next read).
+ */
+export async function getSavedServers(): Promise<SavedServer[]> {
+  const raw = await SecureStore.getItemAsync(STORAGE_KEYS.SAVED_SERVERS);
+
+  if (raw === null) {
+    const info = await getSavedConnectionInfo();
+    const url = info ? normalizeServerUrl(info.url) : "";
+    const seeded: SavedServer[] = info ? [{ id: url, name: info.serverName, url, lastConnectedAt: Date.now() }] : [];
+    await SecureStore.setItemAsync(STORAGE_KEYS.SAVED_SERVERS, JSON.stringify(seeded));
+    return seeded;
+  }
+
+  let servers: SavedServer[] = [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) servers = parsed as SavedServer[];
+  } catch {
+    servers = [];
+  }
+
+  return servers.sort((a, b) => b.lastConnectedAt - a.lastConnectedAt);
+}
+
+/**
+ * Add or update a saved server (deduped by normalized url). New servers default
+ * to their connection string as the display name; existing servers keep their
+ * (possibly user-renamed) name and just bump lastConnectedAt to sort to front.
+ */
+export async function upsertSavedServer(url: string, name?: string): Promise<void> {
+  const normalized = normalizeServerUrl(url);
+  if (!normalized) return;
+
+  const servers = await getSavedServers();
+  const existing = servers.find((s) => s.id === normalized);
+  if (existing) {
+    existing.lastConnectedAt = Date.now();
+  } else {
+    servers.push({ id: normalized, name: name?.trim() || normalized, url: normalized, lastConnectedAt: Date.now() });
+  }
+
+  await SecureStore.setItemAsync(STORAGE_KEYS.SAVED_SERVERS, JSON.stringify(servers));
+}
+
+/** Rename a saved server by id. No-op if the name is blank or the id is unknown. */
+export async function renameSavedServer(id: string, name: string): Promise<void> {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+
+  const servers = await getSavedServers();
+  const target = servers.find((s) => s.id === id);
+  if (!target) return;
+  target.name = trimmed;
+  await SecureStore.setItemAsync(STORAGE_KEYS.SAVED_SERVERS, JSON.stringify(servers));
+}
+
+/** Remove a saved server by id. */
+export async function removeSavedServer(id: string): Promise<void> {
+  const servers = await getSavedServers();
+  const next = servers.filter((s) => s.id !== id);
+  await SecureStore.setItemAsync(STORAGE_KEYS.SAVED_SERVERS, JSON.stringify(next));
+}
+
+/**
+ * Auto-try the saved connection once per app launch.
+ *
+ * - "none": no complete saved connection.
+ * - "connected": the saved server URL is reachable — safe to keep using it.
+ * - "needs_restore": creds exist but the saved URL is unreachable (e.g. the IP
+ *   changed), so the UI should offer manual restore / re-entry.
+ *
+ * The result is cached for the session; pass force=true to re-evaluate.
+ */
+export async function evaluateSavedConnection(force = false): Promise<Exclude<SavedConnectionStatus, "unknown">> {
+  if (savedConnectionStatus !== "unknown" && !force) {
+    return savedConnectionStatus;
+  }
+
+  const [url, apiKey, userId] = await Promise.all([SecureStore.getItemAsync(STORAGE_KEYS.SERVER_URL), SecureStore.getItemAsync(STORAGE_KEYS.API_KEY), SecureStore.getItemAsync(STORAGE_KEYS.USER_ID)]);
+
+  if (!url || !apiKey || !userId) {
+    savedConnectionStatus = "none";
+    return savedConnectionStatus;
+  }
+
+  try {
+    await checkServerInfo(url);
+    savedConnectionStatus = "connected";
+  } catch {
+    savedConnectionStatus = "needs_restore";
+  }
+  return savedConnectionStatus;
+}
+
+/**
+ * Restore the last connection: probe the saved server (exact URL plus
+ * auto-discovered protocol/port candidates for the same host) and, if reachable,
+ * reconnect with the saved login. Updates the stored URL if the protocol/port
+ * changed. Throws if the host can't be reached (likely the IP itself changed).
+ */
+export async function restoreLastConnection(): Promise<{ url: string; serverName: string }> {
+  const [savedUrl, serverName, apiKey, userId] = await Promise.all([
+    SecureStore.getItemAsync(STORAGE_KEYS.SERVER_URL),
+    SecureStore.getItemAsync(STORAGE_KEYS.SERVER_NAME),
+    SecureStore.getItemAsync(STORAGE_KEYS.API_KEY),
+    SecureStore.getItemAsync(STORAGE_KEYS.USER_ID),
+  ]);
+
+  if (!savedUrl || !apiKey || !userId) {
+    throw new Error("No saved connection to restore.");
+  }
+
+  // Try the exact saved URL first, then auto-discovered candidates for the host.
+  const host = savedUrl.replace(/^https?:\/\//i, "");
+  const candidates = Array.from(new Set([savedUrl, ...buildServerUrlCandidates(host)]));
+
+  let workingUrl: string;
+  try {
+    workingUrl = await Promise.any(
+      candidates.map(async (candidate) => {
+        await checkServerInfo(candidate);
+        return candidate;
+      }),
+    );
+  } catch {
+    throw new Error(`Couldn't reach ${serverName || "your last server"}. Its address may have changed — enter the new IP or hostname below.`);
+  }
+
+  // Persist a corrected URL (protocol/port may have changed) and refresh config.
+  if (workingUrl !== savedUrl) {
+    await SecureStore.setItemAsync(STORAGE_KEYS.SERVER_URL, workingUrl);
+  }
+  await refreshConfig();
+  setSavedConnectionStatus("connected");
+
+  // Clear stale navigation cache so the library reloads against the live URL.
+  try {
+    const { folderNavigationManager } = await import("@/services/folderNavigationManager");
+    folderNavigationManager.clearCache();
+  } catch (cacheError) {
+    logger.warn("Failed to clear nav cache during restore", cacheError, { service: "JellyfinAPI" });
+  }
+
+  logger.info("Restored last connection", { service: "JellyfinAPI", url: workingUrl, serverName });
+  return { url: workingUrl, serverName: serverName || workingUrl };
 }
 
 /**
@@ -935,8 +1107,13 @@ export async function saveAuthResult(serverUrl: string, accessToken: string, use
     SecureStore.deleteItemAsync(STORAGE_KEYS.IS_DEMO_MODE).catch(() => {}),
   ]);
 
+  // Persist this server as a saved destination (no credentials stored).
+  // New servers default to their connection string as the title; user renames persist.
+  await upsertSavedServer(cleanUrl);
+
   // Refresh config cache so all API calls pick up the new credentials
   await refreshConfig();
+  setSavedConnectionStatus("connected");
 
   // Clear manager caches to prevent stale data from old server
   try {
@@ -956,6 +1133,8 @@ export async function saveAuthResult(serverUrl: string, accessToken: string, use
     userName,
     method,
   });
+
+  notifyAuthChange();
 }
 
 /**
@@ -974,15 +1153,15 @@ export async function signOut(): Promise<void> {
 
   // Refresh config to reset to defaults
   await refreshConfig();
+  setSavedConnectionStatus("none");
 
-  // Clear manager caches and watch progress
+  // Clear manager caches (stale server content). Watch progress is intentionally
+  // preserved so resume history survives sign-out/login (it's local, keyed by item id).
   try {
     const { libraryManager } = await import("@/services/libraryManager");
     const { folderNavigationManager } = await import("@/services/folderNavigationManager");
-    const { clearAllProgress } = await import("@/services/watchProgressService");
     libraryManager.clearCache();
     folderNavigationManager.clearCache();
-    await clearAllProgress();
   } catch (cacheError) {
     logger.warn("Failed to clear manager caches on sign out", cacheError, {
       service: "JellyfinAPI",
@@ -990,6 +1169,8 @@ export async function signOut(): Promise<void> {
   }
 
   logger.info("User signed out", { service: "JellyfinAPI" });
+
+  notifyAuthChange();
 }
 
 /**
@@ -1637,6 +1818,67 @@ export async function fetchPlaylistContents(playlistId: string, { limit = 60, st
 }
 
 /**
+ * Fetch full metadata for a set of item IDs in a single request.
+ * Used to hydrate the locally-tracked Continue Watching list (which stores only
+ * playback position, not titles/posters). Items missing from the response
+ * (deleted on the server) are dropped, and the result is re-ordered to match
+ * the input `ids` so caller-supplied ordering (e.g. most-recent-first) survives.
+ */
+export async function fetchItemsByIds(ids: string[]): Promise<JellyfinVideoItem[]> {
+  if (ids.length === 0) {
+    return [];
+  }
+
+  const config = await getConfig();
+
+  if (!config.server || !config.apiKey || !config.userId) {
+    throw new Error("Jellyfin server not configured.");
+  }
+
+  return retryWithBackoff(
+    async () => {
+      const query = new URLSearchParams({
+        Ids: ids.join(","),
+        Recursive: "true",
+        Fields: "Path,MediaStreams,Genres,ProductionYear,ImageTags,PrimaryImageAspectRatio",
+      });
+
+      const url = `${config.server}/Users/${config.userId}/Items?${query.toString()}`;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUTS.NORMAL);
+
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: `MediaBrowser Token="${config.apiKey}"`,
+          },
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch items by ids: ${response.status}`);
+        }
+
+        const data: JellyfinVideosResponse = await response.json();
+        const byId = new Map((data.Items || []).map((item) => [item.Id, item]));
+
+        // Preserve caller order; silently drop ids the server no longer knows.
+        return ids.map((id) => byId.get(id)).filter((item): item is JellyfinVideoItem => item !== undefined);
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+      }
+    },
+    { maxAttempts: 3 },
+  );
+}
+
+/**
  * Get thumbnail URL for a folder
  * Returns empty string if config not yet loaded (prevents broken image requests)
  */
@@ -1689,7 +1931,7 @@ async function requestLibraryItems(
   const query = new URLSearchParams({
     Recursive: "true",
     IncludeItemTypes: itemTypes,
-    Fields: "Path,MediaStreams,Genres,ProductionYear",
+    Fields: "Path,MediaStreams,Genres,ProductionYear,ImageTags,PrimaryImageAspectRatio",
     StartIndex: String(startIndex),
     Limit: String(limit),
     SortBy: "DateCreated",
@@ -1928,6 +2170,19 @@ export function getPosterUrl(itemId: string, maxHeight: number = 450): string {
     return "";
   }
   return `${cachedConfig.server}/Items/${itemId}/Images/Primary?api_key=${cachedConfig.apiKey}&maxHeight=${maxHeight}&quality=90`;
+}
+
+/**
+ * Get a tiny, server-blurred poster URL for use as an ambient background wash.
+ * The image is requested small (48px tall) and upscaled full-screen by the renderer,
+ * which is what produces the soft blur, so no client-side blur pass is needed. The optional
+ * imageTag only matters for the stable cacheKey the caller builds; it isn't in the URL.
+ */
+export function getBackdropBlurUrl(itemId: string): string {
+  if (!cachedConfig.server || !cachedConfig.apiKey) {
+    return "";
+  }
+  return `${cachedConfig.server}/Items/${itemId}/Images/Primary?api_key=${cachedConfig.apiKey}&maxHeight=48&quality=60&blur=20`;
 }
 
 /**

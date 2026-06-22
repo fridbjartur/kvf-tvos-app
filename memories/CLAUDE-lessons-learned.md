@@ -328,3 +328,35 @@ When adding new lessons, use this format:
 - Hash: [commit hash]
 - Message: "[commit message]"
 ```
+
+---
+
+## Watch Progress Never Persisted on tvOS (June 2026)
+
+### Problem
+
+Continue-watching never updated. Every 8s during playback the app logged "Failed to persist watch progress" with `NSFileWriteNoPermissionError`: "You don't have permission to save the file watch_progress.json in the folder Documents." Reads succeeded, writes always failed.
+
+### Root Cause
+
+`watchProgressService.ts` stored the file in `FileSystem.documentDirectory`. The build is tvOS (`SDKROOT = appletvos`), and tvOS denies apps writing to `Documents` — local persistent storage is restricted to `Library/Caches` (purgeable) or iCloud key-value store. In `expo-file-system@56`, the legacy module's `ensurePathPermission` (sandbox scoped-access check) passes, but the real `data.write(to:url, .atomic)` at `FileSystemLegacyModule.swift:112` throws the OS-level no-permission error.
+
+### Solution
+
+Switched `STORAGE_FILE` to `FileSystem.cacheDirectory`. Updated the test mock to expose `cacheDirectory`.
+
+### What Worked
+
+- ✅ Traced the native write path (legacy Swift module) instead of guessing at JS.
+- ✅ Confirmed the platform from `project.pbxproj` (`SDKROOT = appletvos`) before concluding.
+- ✅ Separated the scoped-permission check (passed) from the OS write (failed) via the `causedBy` error chain.
+
+### Key Takeaways
+
+1. On tvOS, never write to `documentDirectory` — use `cacheDirectory` (purgeable) or iCloud KV.
+2. A passing expo scoped-permission check does not mean the OS will allow the write.
+
+### Files Affected
+
+- `services/watchProgressService.ts:8`
+- `services/__tests__/watchProgressService.test.ts:8`

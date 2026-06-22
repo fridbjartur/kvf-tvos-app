@@ -77,10 +77,6 @@ cd tomotv
 # Install dependencies
 npm install
 
-# Configure environment (development only)
-cp .env.example .env.local
-# Edit .env.local with your Jellyfin server details
-
 # Prebuild for tvOS
 npm run prebuild:tv
 
@@ -90,6 +86,9 @@ npm run ios
 # Or build for Apple TV device
 npx expo run:ios
 ```
+
+Connect to your server from the in-app **Settings** screen: enter the server IP
+address (or full URL) and authorize with a Quick Connect code (or username/password).
 
 ### Jellyfin Server Configuration
 

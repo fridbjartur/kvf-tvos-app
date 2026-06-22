@@ -105,5 +105,8 @@ const styles = StyleSheet.create({
   },
   slider: {
     flexDirection: "row",
+    // Center the text when it fits; when it overflows the slider is given an
+    // explicit text-width and scrolls from the left, so centering is a no-op.
+    justifyContent: "center",
   },
 });

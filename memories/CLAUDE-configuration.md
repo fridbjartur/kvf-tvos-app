@@ -5,9 +5,9 @@
 ## Quick Reference
 
 **Category:** Implementation
-**Keywords:** configuration, credentials, SecureStore, demo mode, environment, settings, fallback
+**Keywords:** configuration, credentials, SecureStore, demo mode, settings
 
-Smart three-tier configuration fallback system with SecureStore, development credentials, and demo mode support.
+Runtime configuration backed by SecureStore, with demo mode support. Users connect from the Settings screen (server IP + Quick Connect code, or username/password); there is no build-time credential mechanism.
 
 ## Related Documentation
 
@@ -17,21 +17,11 @@ Smart three-tier configuration fallback system with SecureStore, development cre
 
 ---
 
-## Development vs Production Configuration
+## Configuration Source
 
-The app uses a smart fallback system:
-
-### Development (with `.env.local`)
-
-1. Checks SecureStore for user-configured settings
-2. Falls back to `.env.local` credentials if empty
-3. `syncDevCredentials()` runs on app load to populate SecureStore
-
-### Production (App Store builds)
-
-1. `.env.local` is NOT included (git-ignored)
-2. Users must configure via Settings screen
-3. Credentials stored securely in native secure storage
+1. `getConfig()` reads server URL, API key, and user ID from SecureStore
+2. Returns empty strings when nothing is configured (no server connected yet)
+3. Users connect via the Settings screen; credentials are stored in native secure storage
 
 ### Demo Mode (Testing without setup)
 
@@ -67,29 +57,9 @@ connectToDemoServer(clearCaches: boolean = true)
 
 **Note:** All keys are stored in device Keychain via expo-secure-store.
 
-## Protection Logic
-
-The `syncDevCredentials()` function checks the `jellyfin_is_demo_mode` flag before syncing development credentials to SecureStore. This prevents `.env.local` credentials from overwriting demo server credentials during development.
-
 ## Configuration Initialization Pattern
 
-The app uses `configInitPromise` to prevent race conditions between:
-
-1. `syncDevCredentials()` writing to SecureStore (async, runs on app load)
-2. Components calling `getConfig()` (sync, reads from cache)
-
-**Solution:**
-
-```typescript
-let configInitPromise: Promise<void> | null = null;
-
-export function waitForConfig(): Promise<void> {
-  if (configInitPromise) return configInitPromise;
-  return Promise.resolve();
-}
-```
-
-Components that need guaranteed initialized config can await `waitForConfig()`.
+`getConfig()` reads SecureStore and updates an in-memory `cachedConfig` for the synchronous URL builders. Components that need guaranteed initialized config can await `waitForConfig()`, which resolves once `getConfig()` has run at least once.
 
 ## Configuration Migration
 
@@ -112,19 +82,8 @@ On first load, `migrateOldConfigFormat()` in `services/jellyfinApi.ts`:
 4. Deletes old keys
 5. One-time operation, no user intervention required
 
-## Environment Variables
-
-All environment variables must use `EXPO_PUBLIC_` prefix:
-
-```bash
-EXPO_PUBLIC_DEV_JELLYFIN_SERVER=http://localhost:8096
-EXPO_PUBLIC_DEV_JELLYFIN_API_KEY=your_api_key
-EXPO_PUBLIC_DEV_JELLYFIN_USER_ID=your_user_id
-```
-
 ## Security Considerations
 
-- Never commit `.env.local` (already in `.gitignore`)
 - No hardcoded credentials in source code
 - ATS (App Transport Security) allows HTTP for all networks (HTTPS recommended for internet servers)
 - Credentials stored in device Keychain
@@ -149,17 +108,6 @@ This is a Jellyfin API requirement - these native components cannot add custom h
 - API keys have limited scope (Jellyfin API access only, not system-level)
 - Users can regenerate API keys from Jellyfin dashboard if compromised
 - For maximum security, use a dedicated API key for this app with minimal permissions
-
-## Testing Production Behavior
-
-To test the app without dev credentials:
-
-```bash
-mv .env.local .env.local.backup
-npm start
-# App will require manual configuration via Settings screen
-mv .env.local.backup .env.local
-```
 
 ## Settings Screen Implementation
 

@@ -1,4 +1,4 @@
-import { DESIGN } from "@/constants/app";
+import { DESIGN, GRID, slotColumns, slotRatio, type SlotOrientation } from "@/constants/app";
 import { getFolderThumbnailUrl } from "@/services/jellyfinApi";
 import { JellyfinItem } from "@/types/jellyfin";
 import { BlurView } from "expo-blur";
@@ -11,31 +11,47 @@ import { MarqueeText } from "./MarqueeText";
 const IS_TV = Platform.isTV;
 const CARD_PADDING = IS_TV ? 16 : 8;
 const POSTER_SIZE = IS_TV ? 300 : 200;
-const NUM_COLUMNS = IS_TV ? 5 : 3;
 
 interface FolderGridItemProps {
   folder: JellyfinItem;
   onPress: (folder: JellyfinItem) => void;
   index: number;
+  onItemFocus?: (folder: JellyfinItem) => void;
   hasTVPreferredFocus?: boolean;
+  /** Slot shape of the grid this card lives in (drives card aspect ratio + column width). */
+  slotOrientation?: SlotOrientation;
 }
 
 const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpacity>, FolderGridItemProps>(function FolderGridItemComponent(
-  { folder, onPress, index, hasTVPreferredFocus = false },
+  { folder, onPress, index, onItemFocus, hasTVPreferredFocus = false, slotOrientation = "portrait" },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
 
-  const thumbnailUrl = useMemo(() => (folder.ImageTags?.Primary ? getFolderThumbnailUrl(folder.Id, POSTER_SIZE) : undefined), [folder.Id, folder.ImageTags?.Primary]);
+  // Stable cache key (id + image tag + size) keeps the disk/memory cache hot across
+  // reloads and token changes — independent of the api_key in the URL.
+  const thumbnailSource = useMemo(
+    () => (folder.ImageTags?.Primary ? { uri: getFolderThumbnailUrl(folder.Id, POSTER_SIZE), cacheKey: `${folder.Id}-${folder.ImageTags.Primary}-${POSTER_SIZE}` } : undefined),
+    [folder.Id, folder.ImageTags?.Primary],
+  );
 
-  const contentFit = useMemo(() => {
+  const slotIsLandscape = slotOrientation === "landscape";
+
+  // The art fills the slot when their orientations match; otherwise it renders
+  // uncropped (landscape art in a portrait slot → top band; portrait art in a
+  // landscape slot → centered).
+  const imageStyle = useMemo(() => {
     const ratio = folder.PrimaryImageAspectRatio;
-    return ratio !== undefined && ratio >= 1 ? ("contain" as const) : ("cover" as const);
-  }, [folder.PrimaryImageAspectRatio]);
+    const imageIsLandscape = ratio !== undefined && ratio >= 1;
+    if (imageIsLandscape === slotIsLandscape) return styles.poster;
+    if (imageIsLandscape) return [styles.posterTop, { aspectRatio: ratio }];
+    return [styles.posterCenter, { aspectRatio: ratio ?? GRID.PORTRAIT_RATIO }];
+  }, [folder.PrimaryImageAspectRatio, slotIsLandscape]);
 
   const handleFocus = useCallback(() => {
     setFocused(true);
-  }, []);
+    onItemFocus?.(folder);
+  }, [onItemFocus, folder]);
 
   const handleBlur = useCallback(() => {
     setFocused(false);
@@ -56,53 +72,38 @@ const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpac
       activeOpacity={0.95}
       isTVSelectable={true}
       hasTVPreferredFocus={hasTVPreferredFocus}
-      style={styles.container}
+      style={[styles.container, { width: `${100 / slotColumns(slotOrientation, IS_TV)}%` }]}
       accessibilityLabel={folder.Name || "Folder"}
       accessibilityRole="button"
       accessibilityHint={itemCount !== undefined ? `Navigate to ${folder.Name} with ${itemCount} ${itemCount === 1 ? "item" : "items"}` : `Navigate to ${folder.Name}`}>
       <View style={styles.card}>
-        <View style={styles.imageContainer}>
-          {thumbnailUrl ? (
-            <Image source={{ uri: thumbnailUrl }} style={styles.poster} contentFit={contentFit} transition={0} priority={index < 10 ? "high" : "normal"} cachePolicy="disk" recyclingKey={folder.Id} />
+        <View style={[styles.imageContainer, { aspectRatio: slotRatio(slotOrientation) }, slotIsLandscape && styles.imageContainerCenter]}>
+          {thumbnailSource ? (
+            <Image source={thumbnailSource} style={imageStyle} contentFit="cover" transition={0} priority={index < 10 ? "high" : "normal"} cachePolicy="memory-disk" recyclingKey={folder.Id} />
           ) : (
             <View style={styles.placeholderPoster}>
               <Ionicons name="folder" size={IS_TV ? 80 : 50} color="#FFC312" />
-              <Text style={styles.placeholderText} numberOfLines={2}>
-                {folder.Name}
-              </Text>
             </View>
           )}
 
-          {/* Folder badge indicator - always visible */}
+          {/* Folder badge (top-right) */}
           <View style={styles.folderBadge}>
             <Ionicons name="folder" size={IS_TV ? 20 : 16} color="#FFC312" />
           </View>
 
-          {/* Info overlay - only show on focus like video items */}
-          {focused &&
-            (thumbnailUrl ? (
-              <BlurView intensity={80} style={styles.infoOverlay} tint="dark">
-                <MarqueeText active={focused} style={styles.folderName}>
-                  {folder.Name}
-                </MarqueeText>
-                {itemCount !== undefined && (
-                  <Text style={styles.childCount}>
-                    {itemCount} {itemCount === 1 ? "item" : "items"}
-                  </Text>
-                )}
-              </BlurView>
-            ) : (
-              <View style={styles.infoOverlayNoBlur}>
-                <MarqueeText active={focused} style={styles.folderName}>
-                  {folder.Name}
-                </MarqueeText>
-                {itemCount !== undefined && (
-                  <Text style={styles.childCount}>
-                    {itemCount} {itemCount === 1 ? "item" : "items"}
-                  </Text>
-                )}
-              </View>
-            ))}
+          {/* Item-count badge (top-left) */}
+          {itemCount !== undefined && (
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>{itemCount}</Text>
+            </View>
+          )}
+
+          {/* Frosted title sliver at the very bottom */}
+          <BlurView intensity={IS_TV ? 60 : 40} style={styles.infoOverlay} tint="dark">
+            <MarqueeText active={focused} style={styles.folderName}>
+              {folder.Name}
+            </MarqueeText>
+          </BlurView>
 
           <View style={[styles.borderOverlay, focused && styles.borderOverlayFocused]} pointerEvents="none" />
         </View>
@@ -114,10 +115,15 @@ const FolderGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpac
 function arePropsEqual(prev: FolderGridItemProps, next: FolderGridItemProps): boolean {
   return (
     prev.folder.Id === next.folder.Id &&
+    prev.folder.Name === next.folder.Name &&
+    prev.folder.ChildCount === next.folder.ChildCount &&
+    prev.folder.ImageTags?.Primary === next.folder.ImageTags?.Primary &&
     prev.folder.PrimaryImageAspectRatio === next.folder.PrimaryImageAspectRatio &&
     prev.index === next.index &&
     prev.onPress === next.onPress &&
-    prev.hasTVPreferredFocus === next.hasTVPreferredFocus
+    prev.onItemFocus === next.onItemFocus &&
+    prev.hasTVPreferredFocus === next.hasTVPreferredFocus &&
+    prev.slotOrientation === next.slotOrientation
   );
 }
 
@@ -125,7 +131,7 @@ export const FolderGridItem = React.memo(FolderGridItemComponent, arePropsEqual)
 
 const styles = StyleSheet.create({
   container: {
-    width: `${100 / NUM_COLUMNS}%`,
+    // width is set inline (100/columns% derived from the slot orientation)
     padding: CARD_PADDING,
   },
   card: {
@@ -135,10 +141,14 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: "100%",
-    aspectRatio: 2 / 3,
+    // aspectRatio set inline from the slot orientation (portrait 2:3 / landscape 16:9)
     borderRadius: DESIGN.BORDER_RADIUS_CARD,
     overflow: "hidden",
     backgroundColor: "#1C1C1E",
+  },
+  imageContainerCenter: {
+    justifyContent: "center",
+    alignItems: "center",
   },
   borderOverlay: {
     position: "absolute",
@@ -160,6 +170,14 @@ const styles = StyleSheet.create({
   },
   poster: {
     width: "100%",
+    height: "100%",
+  },
+  // Landscape art in a portrait slot: full width, pinned to the top.
+  posterTop: {
+    width: "100%",
+  },
+  // Portrait art in a landscape slot: full height, centered by the container.
+  posterCenter: {
     height: "100%",
   },
   placeholderPoster: {
@@ -185,45 +203,40 @@ const styles = StyleSheet.create({
     borderRadius: DESIGN.BORDER_RADIUS_ROUND,
     padding: IS_TV ? 8 : 6,
   },
+  countBadge: {
+    position: "absolute",
+    top: IS_TV ? 16 : 10,
+    left: IS_TV ? 16 : 10,
+    width: IS_TV ? 40 : 26,
+    height: IS_TV ? 40 : 26,
+    borderRadius: IS_TV ? 20 : 13, // half of width/height → perfect circle
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  countBadgeText: {
+    color: "#FFFFFF",
+    fontSize: IS_TV ? 18 : 11,
+    fontWeight: "700",
+  },
+  // Thin frosted sliver at the very bottom showing just the title.
   infoOverlay: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    height: "35%",
-    paddingVertical: IS_TV ? 16 : 12,
-    paddingHorizontal: IS_TV ? 20 : 16,
+    paddingVertical: IS_TV ? 10 : 6,
+    paddingHorizontal: IS_TV ? 16 : 12,
     overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
-  },
-  infoOverlayNoBlur: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: "35%",
-    paddingVertical: IS_TV ? 16 : 12,
-    paddingHorizontal: IS_TV ? 20 : 16,
-    overflow: "hidden",
-    justifyContent: "center",
-    alignItems: "center",
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
   },
   folderName: {
     color: "#FFFFFF",
-    fontSize: IS_TV ? 30 : 13,
+    fontSize: IS_TV ? 22 : 13,
     fontWeight: "700",
     textAlign: "center",
-  },
-  childCount: {
-    color: "#98989D",
-    fontSize: IS_TV ? 22 : 11,
-    fontWeight: "500",
-    marginTop: 4,
   },
 });

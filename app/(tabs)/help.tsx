@@ -1,3 +1,4 @@
+import { AmbientBackground } from "@/components/ambient-background";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image, Platform, StyleSheet, Text, View } from "react-native";
@@ -15,19 +16,15 @@ const features: Feature[] = [
   { icon: "text", label: "Subtitle Support" },
   { icon: "search-circle", label: "Native Search" },
   { icon: "play-skip-forward", label: "Up Next Queue" },
+  { icon: "time", label: "Continue Watching" },
 ];
 
 const DOCS_URL = "tomotv.app";
 
 export default function HelpScreen() {
-  const appFile = require("@/app.json");
-  const { version = "0.0.0" } = appFile?.expo || {};
-
   return (
     <View style={styles.container}>
-      {/* Ambient glow effects */}
-      <View style={styles.glowTopRight} />
-      <View style={styles.glowBottomLeft} />
+      <AmbientBackground baseColor="#0D0D0F" glows={{ top: "rgba(255, 195, 18, 0.06)", bottom: "rgba(52, 199, 89, 0.04)" }} />
 
       <View style={styles.columns}>
         {/* Left Column */}
@@ -40,7 +37,6 @@ export default function HelpScreen() {
               </View>
               <View style={styles.titleBlock}>
                 <Text style={styles.title}>Tomo TV</Text>
-                <Text style={styles.versionText}>v {version}</Text>
                 <Text style={styles.subtitle}>Stream any video from your Jellyfin server. Just press play.</Text>
               </View>
             </View>
@@ -89,27 +85,6 @@ const TV = Platform.isTV;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0D0D0F",
-  },
-
-  // Ambient background glows
-  glowTopRight: {
-    position: "absolute",
-    top: -200,
-    right: -200,
-    width: 600,
-    height: 600,
-    borderRadius: 300,
-    backgroundColor: "rgba(255, 195, 18, 0.06)",
-  },
-  glowBottomLeft: {
-    position: "absolute",
-    bottom: -300,
-    left: -200,
-    width: 700,
-    height: 700,
-    borderRadius: 350,
-    backgroundColor: "rgba(52, 199, 89, 0.04)",
   },
 
   // Layout
@@ -206,14 +181,6 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: "#A6BFA3",
   },
-  versionText: {
-    fontSize: TV ? 16 : 12,
-    color: "#A6BFA3",
-    fontWeight: "500",
-    position: "absolute",
-    top: TV ? 20 : 12,
-    right: "40%",
-  },
 
   // Center column - QR Card
   centerColumn: {
@@ -250,13 +217,14 @@ const styles = StyleSheet.create({
   qrFrame: {
     backgroundColor: "#FFFFFF",
     padding: TV ? 24 : 14,
-    borderRadius: TV ? 28 : 16,
+    borderRadius: 90000,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 20 },
     shadowOpacity: 0.6,
     shadowRadius: 40,
     marginBottom: TV ? 32 : 18,
     marginTop: 20,
+    overflow: "hidden",
   },
   qrImage: {
     width: TV ? 280 : 150,

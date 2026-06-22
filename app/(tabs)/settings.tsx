@@ -1,3 +1,4 @@
+import { AmbientBackground } from "@/components/ambient-background";
 import { ConnectedSection } from "@/components/settings/ConnectedSection";
 import { NotConnectedSection } from "@/components/settings/NotConnectedSection";
 import { QuickConnectSection } from "@/components/settings/QuickConnectSection";
@@ -8,18 +9,20 @@ import { useLibrary } from "@/contexts/LibraryContext";
 import {
   authenticateByName,
   checkQuickConnectEnabled,
-  checkServerInfo,
   connectToDemoServer,
-  getStoredAuthMethod,
+  getSavedServers,
   getStoredServerName,
-  getStoredUserName,
+  removeSavedServer,
+  renameSavedServer,
+  resolveServerConnection,
   saveAuthResult,
   signOut,
 } from "@/services/jellyfinApi";
+import { SavedServer } from "@/types/jellyfin";
 import { useQuickConnect } from "@/hooks/useQuickConnect";
 import { logger } from "@/utils/logger";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import React, { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -43,7 +46,8 @@ type ScreenState = "LOADING" | "NOT_CONNECTED" | "QUICK_CONNECT" | "USERNAME_PAS
 
 export default function SettingsScreen() {
   const { refreshLibrary } = useLibrary();
-  const { refresh: refreshFolderNavigation } = useFolderNavigation();
+  const { loadRoot: loadFolderRoot } = useFolderNavigation();
+  const router = useRouter();
 
   const [screenState, setScreenState] = useState<ScreenState>("LOADING");
   const [serverUrl, setServerUrl] = useState("");
@@ -54,53 +58,37 @@ export default function SettingsScreen() {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [connectedServerName, setConnectedServerName] = useState("");
   const [connectedServerUrl, setConnectedServerUrl] = useState("");
-  const [connectedUserName, setConnectedUserName] = useState("");
-  const [connectedAuthMethod, setConnectedAuthMethod] = useState("");
   const [videoQuality, setVideoQuality] = useState(2);
   const [isConnectingDemo, setIsConnectingDemo] = useState(false);
+  const [savedServers, setSavedServers] = useState<SavedServer[]>([]);
+  const [connectingServerId, setConnectingServerId] = useState<string | null>(null);
 
   const quickConnect = useQuickConnect();
   const serverUrlRef = useRef<TextInput>(null);
   const usernameRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadCurrentState();
-      return () => {
-        Keyboard.dismiss();
-      };
-    }, []),
-  );
-
-  React.useEffect(() => {
-    if (quickConnect.status === "AUTHENTICATED" && quickConnect.authResult) {
-      refreshLibrary();
-      refreshFolderNavigation();
-      loadCurrentState();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quickConnect.status]);
-
   const loadCurrentState = async () => {
     try {
-      const [savedUrl, savedKey, savedUserId, savedQuality, savedUserName, savedAuthMethod, savedServerName] = await Promise.all([
+      const [savedUrl, savedKey, savedUserId, savedQuality, savedServerName, servers] = await Promise.all([
         SecureStore.getItemAsync(STORAGE_KEYS.SERVER_URL),
         SecureStore.getItemAsync(STORAGE_KEYS.API_KEY),
         SecureStore.getItemAsync(STORAGE_KEYS.USER_ID),
         SecureStore.getItemAsync(STORAGE_KEYS.VIDEO_QUALITY),
-        getStoredUserName(),
-        getStoredAuthMethod(),
         getStoredServerName(),
+        getSavedServers(),
       ]);
 
       if (savedQuality) setVideoQuality(parseInt(savedQuality, 10));
+      setSavedServers(servers);
 
+      // A stored session shows the connected card + Sign Out (and Video Quality).
+      // This only reads saved creds — it never pings the server, preserving the
+      // no-auto-connect behavior. The saved-server list stays available below for
+      // switching without a destructive sign-out.
       if (savedUrl && savedKey && savedUserId) {
         setConnectedServerName(savedServerName || savedUrl);
         setConnectedServerUrl(savedUrl || "");
-        setConnectedUserName(savedUserName || "Unknown User");
-        setConnectedAuthMethod(savedAuthMethod || "apikey");
         setScreenState("CONNECTED");
       } else {
         setScreenState("NOT_CONNECTED");
@@ -111,32 +99,52 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleConnectServer = async () => {
-    const trimmed = serverUrl.trim();
-    if (!trimmed) {
-      Alert.alert("Missing URL", "Please enter your Jellyfin server URL.");
-      return;
-    }
+  useFocusEffect(
+    useCallback(() => {
+      loadCurrentState();
+      return () => {
+        Keyboard.dismiss();
+      };
+    }, []),
+  );
 
-    try {
-      const parsed = new URL(trimmed);
-      if (!parsed.protocol.startsWith("http")) {
-        Alert.alert("Invalid URL", "Server URL must start with http:// or https://");
-        return;
-      }
-    } catch {
-      Alert.alert("Invalid URL", "Please enter a valid URL (e.g., http://192.168.1.100:8096)");
+  // After any successful login, drop the user on the root view of the Library tab.
+  const goToLibraryRoot = useCallback(async () => {
+    await loadFolderRoot();
+    router.navigate("/");
+  }, [loadFolderRoot, router]);
+
+  React.useEffect(() => {
+    if (quickConnect.status !== "AUTHENTICATED" || !quickConnect.authResult) return;
+    // Mirror the demo-connect flow: await each step in sequence. Login reveals the Search tab,
+    // which remounts the tab navigator; the awaits let that remount settle before goToLibraryRoot
+    // navigates, otherwise navigate("/") races the remount and the user is left on Settings.
+    (async () => {
+      await refreshLibrary();
+      await loadCurrentState();
+      await goToLibraryRoot();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quickConnect.status]);
+
+  const handleConnectServer = async (address?: string) => {
+    const trimmed = (address ?? serverUrl).trim();
+    if (!trimmed) {
+      Alert.alert("Missing Address", "Please enter your Jellyfin server IP, hostname, or URL.");
       return;
     }
+    if (address !== undefined) setServerUrl(address);
 
     setIsValidating(true);
     try {
-      const serverInfo = await checkServerInfo(trimmed);
-      setServerName(serverInfo.ServerName);
+      // Accepts a bare IP/hostname (auto-discovers protocol + port) or a full URL.
+      const { url: resolvedUrl, info } = await resolveServerConnection(trimmed);
+      setServerUrl(resolvedUrl);
+      setServerName(info.ServerName);
 
-      const quickConnectEnabled = await checkQuickConnectEnabled(trimmed);
+      const quickConnectEnabled = await checkQuickConnectEnabled(resolvedUrl);
       if (quickConnectEnabled) {
-        quickConnect.initiate(trimmed, serverInfo.ServerName);
+        quickConnect.initiate(resolvedUrl, info.ServerName);
         setScreenState("QUICK_CONNECT");
       } else {
         setScreenState("USERNAME_PASSWORD");
@@ -145,7 +153,64 @@ export default function SettingsScreen() {
       Alert.alert("Connection Failed", error instanceof Error ? error.message : "Unable to connect to server.");
     } finally {
       setIsValidating(false);
+      setConnectingServerId(null);
     }
+  };
+
+  const handleSelectServer = (server: SavedServer) => {
+    // Tapping a saved card prefills the address and runs the normal login flow.
+    setConnectingServerId(server.id);
+    handleConnectServer(server.url);
+  };
+
+  const reloadSavedServers = async () => {
+    try {
+      setSavedServers(await getSavedServers());
+    } catch (error) {
+      logger.error("Error reloading saved servers", error);
+    }
+  };
+
+  const promptRenameServer = (server: SavedServer) => {
+    Alert.prompt(
+      "Rename Server",
+      "Enter a name for this server.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Save",
+          onPress: async (text?: string) => {
+            await renameSavedServer(server.id, text ?? "");
+            await reloadSavedServers();
+          },
+        },
+      ],
+      "plain-text",
+      server.name,
+    );
+  };
+
+  const confirmRemoveServer = (server: SavedServer) => {
+    Alert.alert("Remove Server", "Remove this saved server?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: async () => {
+          await removeSavedServer(server.id);
+          await reloadSavedServers();
+        },
+      },
+    ]);
+  };
+
+  // Long-press a saved card → edit (rename) or remove it.
+  const handleServerOptions = (server: SavedServer) => {
+    Alert.alert(server.name, undefined, [
+      { text: "Edit Name", onPress: () => promptRenameServer(server) },
+      { text: "Remove", style: "destructive", onPress: () => confirmRemoveServer(server) },
+      { text: "Cancel", style: "cancel" },
+    ]);
   };
 
   const handleSignIn = async () => {
@@ -161,8 +226,8 @@ export default function SettingsScreen() {
       const auth = await authenticateByName(cleanUrl, trimmedUser, password);
       await saveAuthResult(cleanUrl, auth.AccessToken, auth.User.Id, auth.User.Name, serverName, "password");
       await refreshLibrary();
-      await refreshFolderNavigation();
       await loadCurrentState();
+      await goToLibraryRoot();
     } catch (error) {
       Alert.alert("Sign In Failed", error instanceof Error ? error.message : "Authentication failed.");
     } finally {
@@ -175,8 +240,8 @@ export default function SettingsScreen() {
     try {
       await connectToDemoServer();
       await refreshLibrary();
-      await refreshFolderNavigation();
       await loadCurrentState();
+      await goToLibraryRoot();
     } catch (error) {
       Alert.alert("Demo Connection Failed", error instanceof Error ? error.message : "Unable to connect to demo server.");
     } finally {
@@ -198,8 +263,8 @@ export default function SettingsScreen() {
             setPassword("");
             setServerName("");
             setScreenState("NOT_CONNECTED");
-            refreshLibrary();
-            refreshFolderNavigation();
+            // signOut() already clears both manager caches; don't re-fetch here, since with
+            // credentials gone that would just fire a request with an empty server URL.
           } catch (error) {
             logger.error("Error signing out", error);
             Alert.alert("Error", "Failed to sign out.");
@@ -242,6 +307,7 @@ export default function SettingsScreen() {
   if (screenState === "LOADING") {
     return (
       <View style={screenStyles.container}>
+        <AmbientBackground />
         <View style={screenStyles.loadingContainer}>
           <ActivityIndicator size="small" color="#FFC312" />
           <Text style={screenStyles.loadingText}>Loading settings...</Text>
@@ -252,6 +318,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={screenStyles.container}>
+      <AmbientBackground />
       <ScrollView
         style={screenStyles.scrollView}
         contentContainerStyle={screenStyles.scrollContent}
@@ -273,6 +340,10 @@ export default function SettingsScreen() {
               isConnectingDemo={isConnectingDemo}
               onConnect={handleConnectServer}
               onConnectDemo={handleConnectDemo}
+              savedServers={savedServers}
+              connectingServerId={connectingServerId}
+              onSelectServer={handleSelectServer}
+              onServerOptions={handleServerOptions}
             />
           )}
 
@@ -296,41 +367,43 @@ export default function SettingsScreen() {
             />
           )}
 
+          {screenState === "CONNECTED" && <ConnectedSection serverName={connectedServerName} serverUrl={connectedServerUrl} onSignOut={handleSignOut} />}
+
           {screenState === "CONNECTED" && (
-            <ConnectedSection serverName={connectedServerName} serverUrl={connectedServerUrl} userName={connectedUserName} authMethod={connectedAuthMethod} onSignOut={handleSignOut} />
+            <>
+              <View style={screenStyles.sectionHeader}>
+                <Text style={screenStyles.sectionHeaderText}>VIDEO QUALITY</Text>
+              </View>
+
+              <View style={styles.section}>
+                {QUALITY_PRESETS.map((preset, index) => (
+                  <Pressable
+                    key={preset.value}
+                    style={({ focused }) => [
+                      styles.listItem,
+                      index === 0 && styles.listItemFirst,
+                      index === QUALITY_PRESETS.length - 1 && styles.listItemLast,
+                      focused && { backgroundColor: "rgba(255, 255, 255, 0.1)" },
+                    ]}
+                    onPress={() => handleQualityChange(preset.value)}
+                    tvParallaxProperties={{ magnification: 1.01 }}
+                    isTVSelectable={true}
+                    accessibilityLabel={`${preset.label} quality`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: videoQuality === preset.value }}
+                    accessibilityHint={`Set video quality to ${preset.label}. ${preset.description}`}>
+                    <View style={styles.listItemContent}>
+                      <View style={styles.listItemLeft}>
+                        <Text style={styles.listItemTitle}>{preset.label}</Text>
+                        <Text style={styles.listItemSubtitle}>{preset.description}</Text>
+                      </View>
+                      {videoQuality === preset.value && <Ionicons name="checkmark" size={Platform.isTV ? 28 : 24} color="#FFC312" />}
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            </>
           )}
-
-          <View style={screenStyles.sectionHeader}>
-            <Text style={screenStyles.sectionHeaderText}>VIDEO QUALITY</Text>
-          </View>
-
-          <View style={styles.section}>
-            {QUALITY_PRESETS.map((preset, index) => (
-              <Pressable
-                key={preset.value}
-                style={({ focused }) => [
-                  styles.listItem,
-                  index === 0 && styles.listItemFirst,
-                  index === QUALITY_PRESETS.length - 1 && styles.listItemLast,
-                  focused && { backgroundColor: "rgba(255, 255, 255, 0.1)" },
-                ]}
-                onPress={() => handleQualityChange(preset.value)}
-                tvParallaxProperties={{ magnification: 1.01 }}
-                isTVSelectable={true}
-                accessibilityLabel={`${preset.label} quality`}
-                accessibilityRole="button"
-                accessibilityState={{ selected: videoQuality === preset.value }}
-                accessibilityHint={`Set video quality to ${preset.label}. ${preset.description}`}>
-                <View style={styles.listItemContent}>
-                  <View style={styles.listItemLeft}>
-                    <Text style={styles.listItemTitle}>{preset.label}</Text>
-                    <Text style={styles.listItemSubtitle}>{preset.description}</Text>
-                  </View>
-                  {videoQuality === preset.value && <Ionicons name="checkmark" size={Platform.isTV ? 28 : 24} color="#FFC312" />}
-                </View>
-              </Pressable>
-            ))}
-          </View>
         </View>
       </ScrollView>
     </View>
@@ -340,7 +413,6 @@ export default function SettingsScreen() {
 const screenStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1C1C1E",
   },
   scrollView: {
     flex: 1,

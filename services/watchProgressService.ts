@@ -1,8 +1,14 @@
-import * as SecureStore from "expo-secure-store";
+import * as FileSystem from "expo-file-system/legacy";
 import { logger } from "@/utils/logger";
 
-const STORAGE_KEY = "watch_progress_data";
-const MIN_POSITION_SECONDS = 10;
+// Watch progress is non-sensitive and the full map (up to 50 entries ≈ 4–5KB)
+// exceeds expo-secure-store's ~2KB Keychain value limit, which silently fails to
+// persist on tvOS. Store it as a plain JSON file instead: no size limit.
+// Use the cache directory, not documentDirectory — tvOS denies writes to Documents
+// (NSFileWriteNoPermissionError). Cache survives app reopen but may be purged by
+// the system under storage pressure. (Credentials stay in SecureStore — small and sensitive.)
+const STORAGE_FILE = FileSystem.cacheDirectory + "watch_progress.json";
+const MIN_POSITION_SECONDS = 4;
 const COMPLETION_THRESHOLD = 0.95;
 const STALE_DAYS = 30;
 const STALE_MS = STALE_DAYS * 24 * 60 * 60 * 1000;
@@ -34,7 +40,8 @@ async function ensureCacheLoaded(): Promise<void> {
 
   loadPromise = (async () => {
     try {
-      const raw = await SecureStore.getItemAsync(STORAGE_KEY);
+      const info = await FileSystem.getInfoAsync(STORAGE_FILE);
+      const raw = info.exists ? await FileSystem.readAsStringAsync(STORAGE_FILE) : null;
       if (raw) {
         cache = JSON.parse(raw) as ProgressMap;
         // Prune in-memory only — deferred disk write happens on next save
@@ -113,14 +120,14 @@ function evictIfNeeded(): void {
 }
 
 /**
- * Write the in-memory cache to SecureStore.
+ * Write the in-memory cache to disk.
  * Failures are logged but not thrown — the in-memory cache remains valid.
  */
 async function persistCache(): Promise<void> {
   if (!cache) return;
 
   try {
-    await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(cache));
+    await FileSystem.writeAsStringAsync(STORAGE_FILE, JSON.stringify(cache));
   } catch (error) {
     logger.warn("Failed to persist watch progress", error, {
       service: "WatchProgress",
@@ -155,7 +162,7 @@ export async function getProgress(videoId: string): Promise<WatchProgressEntry |
 
 /**
  * Save playback progress for a video.
- * - Skips if position < 10s (too early to be useful)
+ * - Skips if position < 4s (too early to be useful)
  * - Clears entry if position/duration >= 95% (video is finished)
  * - Evicts oldest entries if cache exceeds MAX_ENTRIES
  */
@@ -203,6 +210,21 @@ export async function saveProgress(videoId: string, position: number, duration: 
 }
 
 /**
+ * Get all in-progress entries, most recently watched first.
+ * Drops near-finished items (>= 95% watched) that may have lingered after a
+ * force-quit. Used to populate the Continue Watching screen.
+ */
+export async function getRecentProgress(limit = 30): Promise<Array<{ videoId: string } & WatchProgressEntry>> {
+  await ensureCacheLoaded();
+
+  return Object.entries(cache!)
+    .map(([videoId, entry]) => ({ videoId, ...entry }))
+    .filter((entry) => !(entry.duration > 0 && entry.position / entry.duration >= COMPLETION_THRESHOLD))
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, limit);
+}
+
+/**
  * Clear progress for a single video.
  */
 export async function clearProgress(videoId: string): Promise<void> {
@@ -228,7 +250,7 @@ export async function clearAllProgress(): Promise<void> {
   });
 
   try {
-    await SecureStore.deleteItemAsync(STORAGE_KEY);
+    await FileSystem.deleteAsync(STORAGE_FILE, { idempotent: true });
   } catch (error) {
     logger.warn("Failed to delete watch progress storage", error, {
       service: "WatchProgress",

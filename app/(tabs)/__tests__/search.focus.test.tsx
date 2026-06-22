@@ -43,7 +43,6 @@ jest.mock("react-native-safe-area-context", () => ({
 
 describe("Search Screen Focus Navigation", () => {
   const mockSearchVideos = jellyfinApi.searchVideos as jest.MockedFunction<typeof jellyfinApi.searchVideos>;
-  const mockSyncDevCredentials = jellyfinApi.syncDevCredentials as jest.MockedFunction<typeof jellyfinApi.syncDevCredentials>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -356,19 +355,6 @@ describe("Search Screen Focus Navigation", () => {
       handleSearchFieldBlurred();
       expect(mockDisable).toHaveBeenCalledTimes(2);
       expect(mockEnable).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  describe("syncDevCredentials ownership", () => {
-    /**
-     * Regression guard: syncDevCredentials was moved from the search screen
-     * to the root layout (app/_layout.tsx) so credentials are ready before
-     * any tab loads. The search screen must NOT call it.
-     */
-    it("should not be called by the search screen", () => {
-      // After all mocks are cleared, syncDevCredentials should never be called
-      // by any search screen code path. It's handled at app startup now.
-      expect(mockSyncDevCredentials).not.toHaveBeenCalled();
     });
   });
 });

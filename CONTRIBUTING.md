@@ -12,10 +12,11 @@ See [CLAUDE-development.md](./CLAUDE-development.md) for detailed setup instruct
 git clone https://github.com/keiver/tomotv.git
 cd tomotv
 npm install
-cp .env.example .env.local
-# Add your Jellyfin credentials to .env.local
 npm start
 ```
+
+Connect to your Jellyfin server from the in-app Settings screen (server IP + Quick
+Connect code, or username/password).
 
 ## Code Quality Requirements
 

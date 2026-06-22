@@ -548,4 +548,33 @@ describe("FolderNavigationManager", () => {
       );
     });
   });
+
+  describe("stale load race (connect after a slow disconnected load)", () => {
+    it("does not let a superseded load clobber newer state with its stale error", async () => {
+      // A slow load is still in flight (e.g. the disconnected startup load).
+      let rejectStale: (e: Error) => void = () => {};
+      const stalePromise = new Promise<{ items: JellyfinItem[]; total?: number }>((_resolve, reject) => {
+        rejectStale = reject;
+      });
+      mockFetchFolderContents.mockReturnValueOnce(stalePromise);
+
+      const staleLoad = folderNavigationManager.loadRoot(); // do not await — still in flight
+
+      // We connect: caches are cleared and a fresh load succeeds.
+      folderNavigationManager.clearCache();
+      mockFetchFolderContents.mockResolvedValueOnce({ items: mockFolderItems, total: 1 });
+      await folderNavigationManager.loadRoot();
+
+      expect(folderNavigationManager.getState().items).toEqual(mockFolderItems);
+      expect(folderNavigationManager.getState().error).toBeNull();
+
+      // The stale load finally fails — it must NOT overwrite the good state.
+      rejectStale(new Error("stale network timeout"));
+      await staleLoad.catch(() => {});
+      await Promise.resolve();
+
+      expect(folderNavigationManager.getState().items).toEqual(mockFolderItems);
+      expect(folderNavigationManager.getState().error).toBeNull();
+    });
+  });
 });

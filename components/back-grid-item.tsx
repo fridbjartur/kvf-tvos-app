@@ -1,20 +1,21 @@
-import { DESIGN } from "@/constants/app";
+import { DESIGN, slotColumns, slotRatio, type SlotOrientation } from "@/constants/app";
 import { Ionicons } from "@expo/vector-icons";
 import React, { forwardRef, useCallback, useState } from "react";
 import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 const IS_TV = Platform.isTV;
 const CARD_PADDING = IS_TV ? 16 : 8;
-const NUM_COLUMNS = IS_TV ? 5 : 3;
 
 interface BackGridItemProps {
   onPress: () => void;
   hasTVPreferredFocus?: boolean;
   isLoading?: boolean;
+  /** Slot shape of the grid this card lives in (matches sibling cards). */
+  slotOrientation?: SlotOrientation;
 }
 
 const BackGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpacity>, BackGridItemProps>(function BackGridItemComponent(
-  { onPress, hasTVPreferredFocus = false, isLoading = false },
+  { onPress, hasTVPreferredFocus = false, isLoading = false, slotOrientation = "portrait" },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
@@ -36,12 +37,12 @@ const BackGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpacit
       activeOpacity={0.95}
       isTVSelectable={true}
       hasTVPreferredFocus={hasTVPreferredFocus}
-      style={styles.container}
       accessibilityLabel="Go Back"
       accessibilityRole="button"
-      accessibilityHint="Return to previous folder">
+      accessibilityHint="Return to previous folder"
+      style={[styles.container, { width: `${100 / slotColumns(slotOrientation, IS_TV)}%` }]}>
       <View style={styles.card}>
-        <View style={styles.imageContainer}>
+        <View style={[styles.imageContainer, { aspectRatio: slotRatio(slotOrientation) }]}>
           <View style={styles.placeholderPoster}>
             {isLoading ? <ActivityIndicator size="small" color="rgba(250, 196, 0, 0.5)" /> : <Ionicons name="return-up-back" size={IS_TV ? 80 : 50} color="rgba(250, 196, 0, 0.5)" />}
             <Text style={styles.placeholderText}> </Text>
@@ -51,11 +52,9 @@ const BackGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpacit
             <Ionicons name="arrow-back" size={IS_TV ? 20 : 16} color="#FFC312" />
           </View>
 
-          {focused && (
-            <View style={styles.infoOverlay}>
-              <Text style={styles.hint}>Go Back</Text>
-            </View>
-          )}
+          <View style={styles.infoOverlay}>
+            <Text style={styles.hint}>Go Back</Text>
+          </View>
 
           <View style={[styles.borderOverlay, focused && styles.borderOverlayFocused]} pointerEvents="none" />
         </View>
@@ -68,7 +67,7 @@ export const BackGridItem = React.memo(BackGridItemComponent);
 
 const styles = StyleSheet.create({
   container: {
-    width: `${100 / NUM_COLUMNS}%`,
+    // width set inline (100/columns% from the slot orientation)
     padding: CARD_PADDING,
   },
   card: {
@@ -78,7 +77,8 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: "100%",
-    aspectRatio: 2 / 3,
+    // aspectRatio set inline from the slot orientation
+    justifyContent: "center",
     borderRadius: DESIGN.BORDER_RADIUS_CARD,
     overflow: "hidden",
     backgroundColor: "#1C1C1E",
@@ -129,9 +129,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: "35%",
-    paddingVertical: IS_TV ? 16 : 12,
-    paddingHorizontal: IS_TV ? 20 : 16,
+    paddingVertical: IS_TV ? 10 : 6,
+    paddingHorizontal: IS_TV ? 16 : 12,
     overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
@@ -147,8 +146,8 @@ const styles = StyleSheet.create({
   },
   hint: {
     color: "rgba(250, 196, 0, 0.5)",
-    fontSize: IS_TV ? 22 : 11,
-    fontWeight: "500",
-    marginTop: 4,
+    fontSize: IS_TV ? 22 : 13,
+    fontWeight: "700",
+    textAlign: "center",
   },
 });

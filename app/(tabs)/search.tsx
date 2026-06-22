@@ -1,5 +1,7 @@
+import { AmbientBackground } from "@/components/ambient-background";
 import { FocusableButton } from "@/components/FocusableButton";
 import { VideoGridItem } from "@/components/video-grid-item";
+import { slotColumns, slotRatio, type SlotOrientation } from "@/constants/app";
 import { useLibrary } from "@/contexts/LibraryContext";
 import { useLoading } from "@/contexts/LoadingContext";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -218,6 +220,8 @@ function ReactNativeSearchScreen() {
 
   useEffect(() => {
     if (isLoading && searchError) {
+      // Guarded one-shot reset when a fresh load starts; not a render cascade.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSearchError(null);
     }
   }, [isLoading, searchError]);
@@ -315,6 +319,8 @@ function ReactNativeSearchScreen() {
 
     const trimmed = searchQuery.trim();
     if (trimmed.length < 2) {
+      // Guarded reset when the query is cleared; not a render cascade.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSearchResults([]);
       setSearchError(null);
       setIsSearching(false);
@@ -329,14 +335,22 @@ function ReactNativeSearchScreen() {
 
   const hasSearchQuery = searchQuery.trim().length >= 2;
   const shouldShowResults = hasSearchQuery && searchResults.length > 0;
-  const numColumns = Platform.isTV ? 5 : 3;
+
+  const slotOrientation = useMemo<SlotOrientation>(() => {
+    const rated = searchResults.filter((i) => i.PrimaryImageAspectRatio != null);
+    if (rated.length === 0) return "portrait";
+    const landscape = rated.filter((i) => (i.PrimaryImageAspectRatio as number) >= 1).length;
+    return landscape > rated.length / 2 ? "landscape" : "portrait";
+  }, [searchResults]);
+
+  const numColumns = useMemo(() => slotColumns(slotOrientation, Platform.isTV), [slotOrientation]);
 
   const itemDimensions = useMemo(() => {
     const screenWidth = Platform.isTV ? 1080 : 400;
     const itemWidth = screenWidth / numColumns;
-    const itemHeight = itemWidth * 1.5 + 40;
+    const itemHeight = itemWidth / slotRatio(slotOrientation) + 40;
     return { itemHeight };
-  }, [numColumns]);
+  }, [numColumns, slotOrientation]);
 
   const getItemLayout = useCallback(
     (_: ArrayLike<JellyfinVideoItem> | null | undefined, index: number) => {
@@ -370,10 +384,11 @@ function ReactNativeSearchScreen() {
           index={index}
           hasTVPreferredFocus={index === 0 && shouldShowResults}
           nextFocusUp={isFirstRow ? searchInputHandle : undefined}
+          slotOrientation={slotOrientation}
         />
       );
     },
-    [handleVideoPress, shouldShowResults, numColumns, searchInputHandle, firstResultRef],
+    [handleVideoPress, shouldShowResults, numColumns, searchInputHandle, firstResultRef, slotOrientation],
   );
 
   const renderFooter = useCallback(() => {
@@ -477,6 +492,7 @@ function ReactNativeSearchScreen() {
 
   return (
     <View style={styles.container}>
+      <AmbientBackground />
       {headerComponent}
 
       {shouldShowResults ? (
@@ -515,11 +531,12 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1C1C1E",
   },
   nativeSearchView: {
     flex: 1,
-    backgroundColor: "#1C1C1E",
+    // Native tvOS search is an opaque native view; glows can't render behind it.
+    // Match the ambient canvas base color for consistency.
+    backgroundColor: "#141414",
   },
   emptyContainer: {
     flex: 1,

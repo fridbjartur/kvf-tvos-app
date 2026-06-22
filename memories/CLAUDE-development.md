@@ -3,9 +3,9 @@
 ## Quick Reference
 
 **Category:** Deployment
-**Keywords:** development, setup, environment, credentials, .env.local, configuration
+**Keywords:** development, setup, configuration, connect
 
-Local development configuration with auto-configured server URLs and smart fallback system for credentials.
+Run the app and connect to a Jellyfin server from the in-app Settings screen — same flow in development and production.
 
 ## Related Documentation
 
@@ -19,159 +19,44 @@ Local development configuration with auto-configured server URLs and smart fallb
 
 ### Quick Start
 
-1. **Copy the environment template:**
-
-   ```bash
-   cp .env.example .env.local
-   ```
-
-2. **Add your Jellyfin credentials to `.env.local`:**
-
-   ```bash
-   # Server URL is auto-configured! Just add:
-   EXPO_PUBLIC_DEV_JELLYFIN_API_KEY=your_api_key_here
-   EXPO_PUBLIC_DEV_JELLYFIN_USER_ID=your_user_id_here
-   ```
-
-3. **Start the development server:**
-   ```bash
-   npm start
-   ```
-
-That's it! The app will:
-
-- ✅ **Auto-detect** your Mac's network IP (falling back to `localhost` if needed)
-- ✅ Keep `.env.local` in sync before each start so simulators and TVs point at the same machine
-
----
-
-## How It Works
-
-### Development vs Production
-
-The app uses a **smart fallback system** for Jellyfin server configuration:
-
-#### **During Development (with `.env.local`):**
-
-1. App checks SecureStore for user-configured settings
-2. If empty, falls back to `.env.local` credentials
-3. You can develop without configuring settings every time ✅
-
-#### **In Production (App Store builds):**
-
-1. `.env.local` is **NOT included** (it's in `.gitignore`)
-2. App requires users to configure their own server
-3. No hardcoded credentials exposed ✅
-
-### Environment Variables
-
-Variables in `.env.local` must use the `EXPO_PUBLIC_` prefix to be accessible in the app:
-
 ```bash
-# ✅ Correct - accessible in app
-EXPO_PUBLIC_DEV_JELLYFIN_SERVER=http://10.81.1.112:8096
-
-# ❌ Wrong - not accessible
-DEV_JELLYFIN_SERVER=http://10.81.1.112:8096
+npm install
+npm start
 ```
 
----
+Then connect to your Jellyfin server from the in-app **Settings** screen — exactly the
+same flow production users follow:
 
-## Getting Jellyfin Credentials
+1. Open the app and go to the **Settings** tab
+2. Enter your server IP/hostname (e.g. `192.168.1.171`) or full URL — the app
+   auto-discovers protocol and port
+3. Authorize with a **Quick Connect** code (or username/password)
+4. On success the app drops you on the Library root; credentials persist in the device
+   Keychain (SecureStore) across restarts
 
-### 1. Server IP (Auto-Configured!)
-
-Server URL is **automatically set** to your active LAN IP (`http://<ip>:8096`) when available, otherwise `http://localhost:8096`:
-
-- ✅ Works for both simulators and on-network Apple/Android TVs without manual edits
-- ✅ Updates before every `npm start`, `npm run ios`, or `npm run android`
-
-**For Physical Devices (Apple TV, iPhone):**
-Use the Settings screen in the app (just like production users):
-
-1. Open app on physical device
-2. Go to Settings tab
-3. Enter your Mac's network IP (e.g., `192.168.1.171`)
-4. Add API key and User ID
-5. Test connection
-6. Save
-
-This is exactly how production users will configure the app!
-
-### 2. API Key
-
-1. Open Jellyfin web interface
-2. Go to **Dashboard → API Keys**
-3. Click **+ New API Key**
-4. Name it "TomoTV Development"
-5. Copy the generated key
-
-### 3. User ID
-
-1. Open Jellyfin web interface
-2. Go to your **user profile** (click avatar in top right)
-3. The URL will show your User ID: `http://server:8096/web/index.html#!/users/user?userId=YOUR_USER_ID`
-4. Or check **Dashboard → Users → [Your User]** and look in the URL
+There is no `.env.local` / build-time credential mechanism — connecting through Settings
+is the only path, on simulator and device alike.
 
 ---
 
-## Testing Production Behavior
+## Getting a Quick Connect Code
 
-To test how the app behaves for end users (without dev credentials):
-
-1. **Temporarily rename `.env.local`:**
-
-   ```bash
-   mv .env.local .env.local.backup
-   ```
-
-2. **Restart the dev server:**
-
-   ```bash
-   npm start
-   ```
-
-3. **Expected behavior:**
-   - App shows: "Jellyfin server not configured"
-   - Tap "Go to Settings" button
-   - Configure your server manually
-   - Settings persist in device Keychain
-
-4. **Restore dev credentials:**
-   ```bash
-   mv .env.local.backup .env.local
-   ```
-
----
-
-## Security Notes
-
-### ⚠️ **DO NOT commit `.env.local` to git!**
-
-Your `.env.local` file contains sensitive credentials and is automatically ignored by git.
-
-**What's safe to commit:**
-
-- ✅ `.env.example` - Template with no real credentials
-- ✅ `jellyfinApi.ts` - Uses env vars, no hardcoded values
-- ✅ `.gitignore` - Excludes `.env*.local`
-
-**Never commit:**
-
-- ❌ `.env.local` - Contains your real credentials
-- ❌ Hardcoded IPs, API keys, or User IDs in code
+1. Sign in to the Jellyfin web interface as the user you want to connect
+2. Open **user profile → Quick Connect** and note the 6-digit code shown in the app's
+   Quick Connect screen, then authorize it
+3. Alternatively use username/password directly in the Settings screen
 
 ---
 
 ## Troubleshooting
 
-### App shows "not configured" even with `.env.local`
+### App shows "not configured"
 
 **Check:**
 
-1. Variables use `EXPO_PUBLIC_` prefix
-2. No quotes around values: `EXPO_PUBLIC_DEV_JELLYFIN_SERVER=http://10.81.1.112:8096` ✅
-3. Restart Metro bundler: `npm start -- --clear`
+1. You completed the Settings connect flow (server IP + Quick Connect / password)
+2. The server is reachable from the device/simulator on the network
+3. Restart Metro bundler if needed: `npm start -- --clear`
 
 ### "Network request timed out" on iOS Simulator
 
@@ -200,9 +85,8 @@ See: `app.json` → `ios.infoPlist.NSAppTransportSecurity`
 Before submitting to App Store, verify:
 
 1. **No hardcoded credentials in source code** ✅
-2. **`.env.local` is in `.gitignore`** ✅
-3. **Production build doesn't include dev env vars** ✅
-4. **First-run experience works** (test without `.env.local`)
-5. **Settings screen allows user configuration** ✅
+2. **First-run experience works** (fresh install shows the connect screen) ✅
+3. **Settings screen allows user configuration** (server IP + Quick Connect / password) ✅
 
-The app is designed to be **safe for App Store distribution** while maintaining an excellent **developer experience**.
+The app is designed to be **safe for App Store distribution** with a single runtime
+connect flow shared by developers and end users.

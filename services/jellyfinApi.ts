@@ -13,16 +13,6 @@ import { retryWithBackoff } from "@/utils/retry";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
-// Development fallback credentials from .env.local
-// Gated on __DEV__ so EXPO_PUBLIC_DEV_* refs are never reached in release
-// builds. babel-preset-expo replaces __DEV__ with `false` in production and
-// Metro's minifier folds the dead ternary branch out of the bundle, so the
-// inlined env literals don't ship to users. .gitignore alone does NOT prevent
-// the bundle from carrying these values, since the build machine reads the file.
-const DEV_SERVER = __DEV__ ? process.env.EXPO_PUBLIC_DEV_JELLYFIN_SERVER || "" : "";
-const DEV_API_KEY = __DEV__ ? process.env.EXPO_PUBLIC_DEV_JELLYFIN_API_KEY || "" : "";
-const DEV_USER_ID = __DEV__ ? process.env.EXPO_PUBLIC_DEV_JELLYFIN_USER_ID || "" : "";
-
 const STORAGE_KEYS = {
   SERVER_URL: "jellyfin_server_url",
   API_KEY: "jellyfin_api_key",
@@ -162,7 +152,7 @@ export async function waitForConfig(): Promise<void> {
 
 /**
  * Get Jellyfin configuration from SecureStore
- * Falls back to .env.local development credentials if user hasn't configured settings
+ * Returns empty strings when the user hasn't configured a server yet
  * Also updates the cache for synchronous functions
  */
 export async function getConfig(): Promise<{
@@ -180,14 +170,12 @@ export async function getConfig(): Promise<{
       SecureStore.getItemAsync(STORAGE_KEYS.USER_ID),
     ]);
 
-    // Use migrated URL, stored URL, or dev fallback
-    const cleanServerUrl = (migratedUrl || serverUrl?.trim() || DEV_SERVER).replace(/\/+$/, "");
+    const cleanServerUrl = (migratedUrl || serverUrl?.trim() || "").replace(/\/+$/, "");
 
     const config = {
-      // Use user settings if available, otherwise fall back to dev env vars
       server: cleanServerUrl,
-      apiKey: apiKey?.trim() || DEV_API_KEY,
-      userId: userId?.trim() || DEV_USER_ID,
+      apiKey: apiKey?.trim() || "",
+      userId: userId?.trim() || "",
     };
 
     // Update cache for synchronous functions
@@ -197,29 +185,20 @@ export async function getConfig(): Promise<{
     logger.debug("Config loaded", {
       service: "JellyfinAPI",
       hasStoredUrl: !!serverUrl,
-      hasDevServer: !!DEV_SERVER,
       server: config.server,
       hasApiKey: !!config.apiKey,
       hasUserId: !!config.userId,
     });
-
-    // Log when using dev credentials (helpful for debugging)
-    if (!serverUrl && DEV_SERVER) {
-      logger.debug("Using development credentials from .env.local", {
-        service: "JellyfinAPI",
-      });
-    }
 
     return config;
   } catch (error) {
     logger.error("Error reading Jellyfin config from SecureStore", error, {
       service: "JellyfinAPI",
     });
-    // Fall back to dev credentials on error
     return {
-      server: DEV_SERVER,
-      apiKey: DEV_API_KEY,
-      userId: DEV_USER_ID,
+      server: "",
+      apiKey: "",
+      userId: "",
     };
   }
 }
@@ -229,86 +208,6 @@ export async function getConfig(): Promise<{
  */
 export async function refreshConfig(): Promise<void> {
   await getConfig();
-}
-
-/**
- * Sync dev environment variables to SecureStore if not already set
- * This ensures dev credentials are visible in SecureStore for debugging
- * CRITICAL: Does NOT overwrite demo server credentials
- */
-export async function syncDevCredentials(): Promise<void> {
-  try {
-    // CRITICAL: Never overwrite demo mode credentials with dev credentials
-    const demoModeFlag = await SecureStore.getItemAsync(STORAGE_KEYS.IS_DEMO_MODE);
-    if (demoModeFlag === "true") {
-      logger.debug("Skipping dev credential sync (demo mode active)", {
-        service: "JellyfinAPI",
-      });
-      return;
-    }
-
-    // Migrate old config format if needed
-    const migratedUrl = await migrateOldConfigFormat();
-    if (migratedUrl) {
-      return; // Migration done, no need to sync dev credentials
-    }
-
-    // Only sync dev credentials if we have them
-    if (!DEV_SERVER || !DEV_API_KEY || !DEV_USER_ID) {
-      return;
-    }
-
-    // Dev-only: DEV_* are gated on __DEV__ at module top, so they're "" in release builds
-    await Promise.all([
-      SecureStore.setItemAsync(STORAGE_KEYS.SERVER_URL, DEV_SERVER),
-      SecureStore.setItemAsync(STORAGE_KEYS.API_KEY, DEV_API_KEY),
-      SecureStore.setItemAsync(STORAGE_KEYS.USER_ID, DEV_USER_ID),
-      SecureStore.setItemAsync(STORAGE_KEYS.AUTH_METHOD, "apikey"),
-    ]);
-    logger.debug("Synced dev credentials to SecureStore", {
-      service: "JellyfinAPI",
-    });
-
-    // Fetch and store the user's display name (non-blocking)
-    try {
-      const response = await fetch(`${DEV_SERVER}/Users/${DEV_USER_ID}`, {
-        headers: { Authorization: `MediaBrowser Token="${DEV_API_KEY}"` },
-      });
-      if (response.ok) {
-        const userData = await response.json();
-        if (userData.Name) {
-          await SecureStore.setItemAsync(STORAGE_KEYS.USER_NAME, userData.Name);
-          logger.debug("Stored dev user name", { service: "JellyfinAPI", userName: userData.Name });
-        }
-      }
-    } catch {
-      logger.debug("Could not fetch dev user name, will show fallback", {
-        service: "JellyfinAPI",
-      });
-    }
-
-    // Fetch and store server name (non-blocking)
-    try {
-      const infoResponse = await fetch(`${DEV_SERVER}/System/Info/Public`, {
-        headers: { Accept: "application/json" },
-      });
-      if (infoResponse.ok) {
-        const serverInfo = await infoResponse.json();
-        if (serverInfo.ServerName) {
-          await SecureStore.setItemAsync(STORAGE_KEYS.SERVER_NAME, serverInfo.ServerName);
-          logger.debug("Stored dev server name", { service: "JellyfinAPI", serverName: serverInfo.ServerName });
-        }
-      }
-    } catch {
-      logger.debug("Could not fetch dev server name, URL fallback will be used", {
-        service: "JellyfinAPI",
-      });
-    }
-  } catch (error) {
-    logger.error("Error syncing dev credentials", error, {
-      service: "JellyfinAPI",
-    });
-  }
 }
 
 /**

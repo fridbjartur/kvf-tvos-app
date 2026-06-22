@@ -22,4 +22,4 @@ Follow the existing `type: concise summary` format (e.g., `fix: clear player que
 
 ## Security & Configuration Tips
 
-Never commit secrets; rely on secure store APIs and Expo config values. Configure your Jellyfin server URL in `.env.local` for development. For TV builds, set `EXPO_TV=1` locally and verify the Apple/Android TV asset sets (`TVOS_ICONS.md`, `Images.xcassets/`) stay in sync with feature work.
+Never commit secrets; rely on secure store APIs and Expo config values. Connect to a Jellyfin server at runtime from the in-app Settings screen (server IP + Quick Connect code, or username/password); credentials are persisted in SecureStore. For TV builds, set `EXPO_TV=1` locally and verify the Apple/Android TV asset sets (`TVOS_ICONS.md`, `Images.xcassets/`) stay in sync with feature work.

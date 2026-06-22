@@ -16,7 +16,7 @@ import {
   getSubtitleUrl,
   getSubtitleTracks,
   refreshConfig,
-  syncDevCredentials,
+  getConfig,
   buildServerUrlCandidates,
   evaluateSavedConnection,
 } from "../jellyfinApi";
@@ -1281,7 +1281,7 @@ describe("jellyfinApi", () => {
         return Promise.resolve(oldConfig[key] || null);
       });
 
-      await syncDevCredentials();
+      await getConfig();
 
       // Should have migrated to new URL format
       expect(mockSecureStore.setItemAsync).toHaveBeenCalledWith("jellyfin_server_url", "http://192.168.1.100:8096");
@@ -1298,7 +1298,7 @@ describe("jellyfinApi", () => {
         return Promise.resolve(null);
       });
 
-      await syncDevCredentials();
+      await getConfig();
 
       // Should not have called setItemAsync for migration
       expect(mockSecureStore.setItemAsync).not.toHaveBeenCalledWith("jellyfin_server_url", expect.any(String));
@@ -1307,7 +1307,7 @@ describe("jellyfinApi", () => {
     it("should skip migration if old format doesn't exist", async () => {
       mockSecureStore.getItemAsync.mockResolvedValue(null);
 
-      await syncDevCredentials();
+      await getConfig();
 
       // Should not have called setItemAsync for migration
       expect(mockSecureStore.setItemAsync).not.toHaveBeenCalledWith("jellyfin_server_url", expect.any(String));
@@ -1324,7 +1324,7 @@ describe("jellyfinApi", () => {
         return Promise.resolve(oldConfig[key] || null);
       });
 
-      await syncDevCredentials();
+      await getConfig();
 
       expect(mockSecureStore.setItemAsync).toHaveBeenCalledWith("jellyfin_server_url", "https://jellyfin.example.com:443");
     });
@@ -1339,7 +1339,7 @@ describe("jellyfinApi", () => {
         return Promise.resolve(oldConfig[key] || null);
       });
 
-      await syncDevCredentials();
+      await getConfig();
 
       // Should default to http://ip:8096
       expect(mockSecureStore.setItemAsync).toHaveBeenCalledWith("jellyfin_server_url", "http://192.168.1.50:8096");

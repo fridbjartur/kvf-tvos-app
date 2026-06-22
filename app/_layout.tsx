@@ -10,7 +10,6 @@ import { LibraryProvider } from "@/contexts/LibraryContext";
 import { FolderNavigationProvider } from "@/contexts/FolderNavigationContext";
 import { PlayQueueProvider } from "@/contexts/PlayQueueContext";
 import { registerMultiAudioPlugin } from "@/services/multiAudioLoader";
-import { syncDevCredentials } from "@/services/jellyfinApi";
 
 // Suppress yellow box warnings on TV platforms
 if (Platform.isTV) {
@@ -18,10 +17,9 @@ if (Platform.isTV) {
 }
 
 export default function RootLayout() {
-  // Register plugins and sync credentials on app startup
+  // Register native plugins on app startup
   useEffect(() => {
     registerMultiAudioPlugin();
-    syncDevCredentials();
   }, []);
 
   return (

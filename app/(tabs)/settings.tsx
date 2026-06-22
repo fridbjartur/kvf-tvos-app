@@ -9,7 +9,7 @@ import { authenticateByName, checkQuickConnectEnabled, connectToDemoServer, getS
 import { useQuickConnect } from "@/hooks/useQuickConnect";
 import { logger } from "@/utils/logger";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import React, { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -33,7 +33,8 @@ type ScreenState = "LOADING" | "NOT_CONNECTED" | "QUICK_CONNECT" | "USERNAME_PAS
 
 export default function SettingsScreen() {
   const { refreshLibrary } = useLibrary();
-  const { refresh: refreshFolderNavigation } = useFolderNavigation();
+  const { loadRoot: loadFolderRoot } = useFolderNavigation();
+  const router = useRouter();
 
   const [screenState, setScreenState] = useState<ScreenState>("LOADING");
   const [serverUrl, setServerUrl] = useState("");
@@ -94,13 +95,19 @@ export default function SettingsScreen() {
     }, []),
   );
 
+  // After any successful login, drop the user on the root view of the Library tab.
+  const goToLibraryRoot = useCallback(async () => {
+    await loadFolderRoot();
+    router.navigate("/");
+  }, [loadFolderRoot, router]);
+
   React.useEffect(() => {
     if (quickConnect.status === "AUTHENTICATED" && quickConnect.authResult) {
       refreshLibrary();
-      refreshFolderNavigation();
       // loadCurrentState sets state only after awaited I/O (not a synchronous cascade)
       // eslint-disable-next-line react-hooks/set-state-in-effect
       loadCurrentState({ showConnected: true });
+      goToLibraryRoot();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quickConnect.status]);
@@ -154,8 +161,8 @@ export default function SettingsScreen() {
       const auth = await authenticateByName(cleanUrl, trimmedUser, password);
       await saveAuthResult(cleanUrl, auth.AccessToken, auth.User.Id, auth.User.Name, serverName, "password");
       await refreshLibrary();
-      await refreshFolderNavigation();
       await loadCurrentState({ showConnected: true });
+      await goToLibraryRoot();
     } catch (error) {
       Alert.alert("Sign In Failed", error instanceof Error ? error.message : "Authentication failed.");
     } finally {
@@ -168,8 +175,8 @@ export default function SettingsScreen() {
     try {
       await connectToDemoServer();
       await refreshLibrary();
-      await refreshFolderNavigation();
       await loadCurrentState({ showConnected: true });
+      await goToLibraryRoot();
     } catch (error) {
       Alert.alert("Demo Connection Failed", error instanceof Error ? error.message : "Unable to connect to demo server.");
     } finally {
@@ -192,7 +199,7 @@ export default function SettingsScreen() {
             setServerName("");
             setScreenState("NOT_CONNECTED");
             refreshLibrary();
-            refreshFolderNavigation();
+            loadFolderRoot();
           } catch (error) {
             logger.error("Error signing out", error);
             Alert.alert("Error", "Failed to sign out.");

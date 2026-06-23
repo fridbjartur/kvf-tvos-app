@@ -1,61 +1,62 @@
-# Tomo TV - Jellyfin Client for Apple TV
+# Tomo TV
 
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-tvOS-lightgrey.svg)](https://apps.apple.com/us/app/tomo-tv/id6755077888)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](package.json)
 [![Download on the App Store](https://img.shields.io/badge/App_Store-Download-black?logo=apple&logoColor=white)](https://apps.apple.com/us/app/tomo-tv/id6755077888)
 
-A simple and usable Jellyfin client for Apple TV with seamless multi-audio track switching and advanced subtitle support.
+A Jellyfin client for Apple TV. Stream any video from your server, switch audio
+tracks mid-playback, and let codec handling sort itself out. Just press play.
 
 <p align="center">
-  <img src="assets/images/screenshots/open-movies.webp" width="100%" alt="TomoTV with open movies folder"/>
+  <img src="assets/images/screenshots/home.webp" width="100%" alt="TomoTV home screen with Continue Watching and library shelves"/>
 </p>
 
 <table>
   <tr>
     <td align="center">
-      <img src="assets/images/screenshots/folder-exploration.webp" width="280" alt="Folder exploration, browse by seasons"/><br/>
-      <sub>Folder exploration</sub>
+      <img src="assets/images/screenshots/collection.webp" width="280" alt="Collection of related titles"/><br/>
+      <sub>Collections</sub>
     </td>
     <td align="center">
-      <img src="assets/images/screenshots/multi-audio-track.webp" width="280" alt="Multi-audio track switching"/><br/>
-      <sub>Multi-audio track switching</sub>
-    </td>
-    <td align="center">
-      <img src="assets/images/screenshots/subtitle-support.webp" width="280" alt="Subtitle support"/><br/>
-      <sub>Subtitle support</sub>
+      <img src="assets/images/screenshots/shows.webp" width="280" alt="Shows library"/><br/>
+      <sub>Shows</sub>
     </td>
   </tr>
   <tr>
     <td align="center">
-      <img src="assets/images/screenshots/up-next-overlay.webp" width="280" alt="Up next overlay"/><br/>
-      <sub>Up next overlay</sub>
+      <img src="assets/images/screenshots/music.webp" width="280" alt="Music library"/><br/>
+      <sub>Music</sub>
     </td>
     <td align="center">
-      <img src="assets/images/screenshots/native-search.webp" width="280" alt="Native Search"/><br/>
-      <sub>Native Search</sub>
-    </td>
-     <td align="center">
-      <img src="assets/images/screenshots/help-page.webp" width="280" alt="Help page"/><br/>
-      <sub>Help page</sub>
+      <img src="assets/images/screenshots/search.webp" width="280" alt="Native tvOS search"/><br/>
+      <sub>Native search</sub>
     </td>
   </tr>
 </table>
 
-## Why TomoTV?
+## Why TomoTV
 
-Built from the ground up for Apple TV with a focus on seamless playback. Switch audio tracks mid-video without restarting playback, thanks to custom HLS manifest generation. Codec compatibility is handled automatically so you can focus on watching, not troubleshooting.
+Built from the ground up for Apple TV with a focus on seamless playback. Switch
+audio tracks mid-video without restarting, thanks to custom HLS manifest
+generation in a native Swift module. Codec compatibility is handled
+automatically, so you spend time watching instead of troubleshooting.
 
-### Features
+## Features
 
-- **Multi-Audio Switching** — Change audio tracks mid-playback without restarting. Uses a custom Swift module to generate multivariant HLS manifests.
-- **Subtitle Support** — External (.srt) and embedded tracks with native tvOS picker.
-- **Smart Codec Handling** — Direct plays H.264/HEVC; auto-transcodes everything else.
-- **Native tvOS Search** — SwiftUI-powered with proper focus navigation.
-- **Demo Mode** — Try instantly with Jellyfin's demo server.
-- **Playlist Support** — Browse and play from your Jellyfin playlists.
-- **Secure Storage** — device Keychain (secure local storage).
-- **Continue Watching** — Resume videos from last position.
+- **Smart streaming.** Direct plays H.264 and HEVC, auto-transcodes everything else.
+- **Multi-audio tracks.** Change the audio track mid-playback without restarting, using custom multivariant HLS manifests.
+- **Subtitle support.** External (.srt) and embedded tracks through the native tvOS picker.
+- **Native search.** SwiftUI-powered, with proper tvOS focus navigation. Find by title, season, or year.
+- **Up next queue.** Auto-advances through seasons and playlists.
+- **Continue watching.** Resume from your last position.
+- **Folder browsing.** Walk your library by folders, collections, seasons, and playlists.
+- **Demo mode.** Try it instantly against Jellyfin's public demo server.
+- **Secure by default.** Credentials stored in the device Keychain.
+
+<p align="center">
+  <img src="assets/images/screenshots/help.webp" width="100%" alt="Help and setup guide"/>
+</p>
 
 ## Installation
 
@@ -65,7 +66,6 @@ Built from the ground up for Apple TV with a focus on seamless playback. Switch 
 - **Node.js 18+** and npm
 - **Xcode 15+**
 - **Apple TV** or tvOS simulator
-- **react-native-tvos** configured project
 
 ### Setup
 
@@ -83,39 +83,29 @@ npm run prebuild:tv
 # Run on tvOS simulator
 npm run ios
 
-# Or build for Apple TV device
+# Or build for an Apple TV device
 npx expo run:ios
 ```
 
-Connect to your server from the in-app **Settings** screen: enter the server IP
-address (or full URL) and authorize with a Quick Connect code (or username/password).
+### Connect to your server
 
-### Jellyfin Server Configuration
+Open **Settings**, add your server by IP address (or full URL), and authorize
+with a Quick Connect code or username and password. Add as many servers as you
+like and switch between them, including Jellyfin's public demo.
 
-- Quick Connect support
-- Username/password authentication
+<p align="center">
+  <img src="assets/images/screenshots/settings-servers.webp" width="600" alt="Jellyfin server settings with multiple servers"/>
+</p>
 
-<table>
-  <tr>
-    <td align="center">
-      <img src="assets/images/screenshots/quick-connect.webp" width="400" alt="Quick Connect settings"/><br/>
-      <sub>Quick Connect</sub>
-    </td>
-    <td align="center">
-      <img src="assets/images/screenshots/username-password.webp" width="400" alt="Username and password authentication"/><br/>
-      <sub>Username/Password</sub>
-    </td>
-  </tr>
-</table>
+### Video quality
 
-### Video Quality Presets
+Tomo TV supports 480p, 540p, 720p, 1080p, and 4K transcoding presets.
+Configure under **Settings → Video Quality**.
 
-Tomo TV supports 480p, 540p, 720p, 1080p, and 4K transcoding quality presets. Configure via Settings → Video Quality.
+### Network requirements
 
-### Network Requirements
-
-- **All networks:** HTTP and HTTPS connections allowed via `NSAllowsArbitraryLoads`
-- **Remote servers:** HTTPS strongly recommended; HTTP exposes credentials in plaintext
+- **All networks:** HTTP and HTTPS are allowed via `NSAllowsArbitraryLoads`.
+- **Remote servers:** HTTPS is strongly recommended. HTTP exposes credentials in plaintext.
 
 ## Development
 
@@ -127,75 +117,47 @@ npm run lint         # Lint and auto-fix
 npm run prebuild:tv  # Rebuild native projects (deletes ios/ folder)
 ```
 
-**Native code:** Always edit files in the `native/` folder — the `ios/` folder is regenerated by prebuild and any direct edits will be lost.
-
-## Architecture
-
-Screens live in `app/` using Expo Router's file-based routing with native tvOS tabs. Global state is managed through singleton managers wrapped in React Contexts. Video playback follows a state machine (`IDLE → FETCHING → CREATING_STREAM → READY → PLAYING`) that handles codec detection, automatic transcoding fallback, and multi-audio track switching via a custom Swift HLS manifest generator in `native/ios/`.
-
-### Tech Stack
-
-- **React Native TVOS** — TV-optimized fork of React Native
-- **Expo Router 6.0** — File-based routing with native tabs
-- **react-native-video 6.19** — Native video playback (AVPlayer)
-- **React Native Reanimated 4.1** — GPU-accelerated animations
-- **TypeScript 5.9** — Strict type checking
-- **Jest 29.7** — Unit and integration tests
-- **[expo-tvos-search](https://github.com/keiver/expo-tvos-search)** — Native tvOS search UI using SwiftUI
+**Native code:** Always edit files in the `native/` folder. The `ios/` folder
+is regenerated by prebuild, and any direct edits there are lost.
 
 ## A Note on AI
 
-I use Claude as a development tool for drafting code and documentation. Architecture and decisions are mine, blame me for any shady code.
+I use Claude as a development tool for drafting code and documentation.
+Architecture and decisions are mine. Blame me for any shady code.
 
 ## Contributing
 
-Contributions are welcome! This is a real, production app used by real users.
+Contributions are welcome. Fork the repo, branch from `main`, follow the
+existing patterns, add tests for new functionality, and run `npm test` and
+`npm run lint` before opening a PR.
 
-### Development Workflow
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/cool-feature`)
-3. Make your changes following the existing code patterns
-4. Add tests for new functionality
-5. Run `npm test` to ensure all tests pass
-6. Run `npm run lint` to fix any linting issues
-7. Commit with clear, descriptive messages
-8. Push to your fork and submit a PR
-
-### Code Standards
-
-- **TypeScript:** Strict mode, no `any` types without justification
-- **Testing:** Add tests for new features, maintain >50% coverage
-- **Error handling:** Try-catch around async operations with structured logging
-- **React patterns:** Proper cleanup (useEffect, unsubscribe functions)
-- **Comments:** Only where logic isn't self-evident
-- **Performance:** No scale animations on grid items; use border-only focus feedback
+**Code standards:** strict TypeScript (no unjustified `any`), try-catch around
+async work, proper React cleanup, and border-only focus feedback (no scale
+animations on grid items).
 
 ## Known Limitations
 
-- **Codec support:** Only H.264 and HEVC direct play; all others require transcoding
-- **Platform:** tvOS only (Android not supported for now)
-- **Network:** HTTP allowed on all networks; HTTPS recommended for remote servers (HTTP exposes credentials)
-- **Server:** Jellyfin only (not compatible with Plex, Emby, etc.)
+- **Codec support:** Only H.264 and HEVC direct play. Everything else transcodes.
+- **Platform:** tvOS only. Android is not supported for now.
+- **Network:** HTTP is allowed on all networks. HTTPS is recommended for remote servers.
+- **Server:** Jellyfin only. Not compatible with Plex, Emby, or others.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT License. See [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
-- **Jellyfin Team** for the excellent open-source media server
+- **Jellyfin Team** for the open-source media server
 - **Expo Team** for React Native TVOS support
-- **Blender Foundation** for open movie test files (Sintel, Elephants Dream...)
+- **Blender Foundation** for open movie test files (Sintel, Elephants Dream, Caminandes)
 - **IETF** for Matroska test files used in development
 
 ## Links
 
-- **Documentation:** [https://tomotv.app/](https://tomotv.app/)
+- **Documentation:** [tomotv.app](https://tomotv.app/)
 - **Support:** <contact@keiver.dev>
-- **Demo Server:** Uses Jellyfin's official demo at demo.jellyfin.org
+- **Demo server:** Jellyfin's official demo at demo.jellyfin.org
 - **expo-tvos-search:** [github.com/keiver/expo-tvos-search](https://github.com/keiver/expo-tvos-search)
-
----
-
-Built with ❤️ for the Jellyfin community.
+  </content>
+  </invoke>

@@ -22,6 +22,10 @@ tracks mid-playback, and let codec handling sort itself out. Just press play.
       <img src="assets/images/screenshots/shows.webp" width="280" alt="Shows library"/><br/>
       <sub>Shows</sub>
     </td>
+   <td align="center">
+      <img src="assets/images/screenshots/connected.webp" width="280" alt="Connected state"/><br/>
+      <sub>Connected</sub>
+    </td>
   </tr>
   <tr>
     <td align="center">
@@ -31,6 +35,10 @@ tracks mid-playback, and let codec handling sort itself out. Just press play.
     <td align="center">
       <img src="assets/images/screenshots/search.webp" width="280" alt="Native tvOS search"/><br/>
       <sub>Native search</sub>
+    </td>
+    <td align="center">
+      <img src="assets/images/screenshots/movies.webp" width="280" alt="Movies library"/><br/>
+      <sub>Movies</sub>
     </td>
   </tr>
 </table>

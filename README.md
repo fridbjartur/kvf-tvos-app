@@ -1,4 +1,4 @@
-# Tomo TV
+# Tomo TV - Jellyfin Client for Apple TV
 
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-tvOS-lightgrey.svg)](https://apps.apple.com/us/app/tomo-tv/id6755077888)
@@ -94,7 +94,7 @@ with a Quick Connect code or username and password. Add as many servers as you
 like and switch between them, including Jellyfin's public demo.
 
 <p align="center">
-  <img src="assets/images/screenshots/settings-servers.webp" width="600" alt="Jellyfin server settings with multiple servers"/>
+  <img src="assets/images/screenshots/settings-servers.webp" width="100%" alt="Jellyfin server settings with multiple servers"/>
 </p>
 
 ### Video quality

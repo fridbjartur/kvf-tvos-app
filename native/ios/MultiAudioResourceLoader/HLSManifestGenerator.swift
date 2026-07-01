@@ -1,10 +1,5 @@
 //
 //  HLSManifestGenerator.swift
-//  TomoTV
-//
-//  Created on January 23, 2026.
-//  Generates multivariant HLS manifests with multiple audio tracks
-//
 
 import Foundation
 

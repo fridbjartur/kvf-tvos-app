@@ -1,41 +1,35 @@
+import { DESIGN } from "@/constants/app";
 import React from "react";
 import { ActivityIndicator, Platform, Pressable, PressableProps, StyleSheet, Text, TextStyle, View, ViewStyle } from "react-native";
 
 export type ButtonVariant = "primary" | "secondary" | "destructive" | "debug" | "retry";
 
 interface FocusableButtonProps extends Omit<PressableProps, "style"> {
-  /** Button text label */
   title: string;
-  /** Visual variant of the button */
   variant?: ButtonVariant;
-  /** Whether button is in loading state */
   isLoading?: boolean;
-  /** Optional icon to display before text */
   icon?: React.ReactNode;
-  /** Whether this button should have TV preferred focus */
+  focus?: boolean;
   hasTVPreferredFocus?: boolean;
-  /** Custom styles for the button container */
   style?: ViewStyle;
-  /** Custom styles for the button text */
   textStyle?: TextStyle;
 }
 
-/**
- * FocusableButton - A reusable button component with enhanced TV focus styling
- *
- * Features:
- * - Clear visual focus indication for TV navigation
- * - Multiple visual variants (primary, secondary, destructive, etc.)
- * - Loading state with spinner
- * - Icon support
- * - Platform-specific sizing (larger on TV)
- * - Proper accessibility with isTVSelectable
- */
-export function FocusableButton({ title, variant = "primary", isLoading = false, icon, hasTVPreferredFocus = false, disabled = false, style, textStyle, ...pressableProps }: FocusableButtonProps) {
+export function FocusableButton({
+  title,
+  variant = "primary",
+  isLoading = false,
+  icon,
+  focus = false,
+  hasTVPreferredFocus = false,
+  disabled = false,
+  style,
+  textStyle,
+  ...pressableProps
+}: FocusableButtonProps) {
   const getButtonStyle = (focused: boolean): ViewStyle => {
     const baseStyle = [
       styles.button,
-      // Variant-specific styles
       variant === "primary" && styles.primaryButton,
       variant === "primary" && focused && styles.primaryButtonFocused,
       variant === "secondary" && styles.secondaryButton,
@@ -46,53 +40,40 @@ export function FocusableButton({ title, variant = "primary", isLoading = false,
       variant === "debug" && focused && styles.debugButtonFocused,
       variant === "retry" && styles.retryButton,
       variant === "retry" && focused && styles.retryButtonFocused,
-      // Disabled state
       (disabled || isLoading) && styles.buttonDisabled,
-      // Custom styles
       style,
     ].filter(Boolean) as ViewStyle[];
-
     return StyleSheet.flatten(baseStyle);
   };
 
   const getTextStyle = (): TextStyle => {
     const baseStyle = [
       styles.buttonText,
-      // Variant-specific text styles
       variant === "primary" && styles.primaryButtonText,
       variant === "secondary" && styles.secondaryButtonText,
       variant === "destructive" && styles.destructiveButtonText,
       variant === "debug" && styles.debugButtonText,
       variant === "retry" && styles.retryButtonText,
-      // Disabled state
       (disabled || isLoading) && styles.buttonTextDisabled,
-      // Custom text styles
       textStyle,
     ].filter(Boolean) as TextStyle[];
-
     return StyleSheet.flatten(baseStyle);
   };
 
   return (
     <Pressable
       {...pressableProps}
-      style={({ pressed, focused }) => [getButtonStyle(focused || false), pressed && styles.buttonPressed]}
+      style={({ pressed, focused }) => [getButtonStyle(focus || focused || false), pressed && styles.buttonPressed]}
       disabled={disabled || isLoading}
       isTVSelectable={!disabled && !isLoading}
       hasTVPreferredFocus={hasTVPreferredFocus}
       accessibilityLabel={title}
       accessibilityRole="button"
-      accessibilityState={{
-        disabled: disabled || isLoading,
-        busy: isLoading,
-      }}
-      tvParallaxProperties={{
-        magnification: 1.05,
-        pressMagnification: 1.0,
-      }}>
+      accessibilityState={{ disabled: disabled || isLoading, busy: isLoading }}
+      tvParallaxProperties={{ magnification: 1.05, pressMagnification: 1.0 }}>
       <View style={styles.buttonContent}>
         {isLoading ? (
-          <ActivityIndicator color={variant === "primary" ? "#000000" : "#FFC312"} size={"small"} />
+          <ActivityIndicator color={variant === "primary" ? "#000000" : "#FFFFFF"} size="small" />
         ) : (
           <>
             {icon}
@@ -106,22 +87,15 @@ export function FocusableButton({ title, variant = "primary", isLoading = false,
 
 const styles = StyleSheet.create({
   button: {
-    paddingVertical: Platform.isTV ? 20 : 14,
-    paddingHorizontal: Platform.isTV ? 48 : 32,
-    borderRadius: 999,
+    paddingVertical: Platform.isTV ? 15 : 10,
+    paddingHorizontal: Platform.isTV ? 38 : 32,
+    borderRadius: DESIGN.BORDER_RADIUS_SMALL,
     alignItems: "center",
     justifyContent: "center",
     minHeight: Platform.isTV ? 60 : 50,
-    minWidth: Platform.isTV ? 300 : 200,
-    // Add transparent border to prevent layout shift on focus
-    borderWidth: Platform.isTV ? 4 : 3,
+    minWidth: Platform.isTV ? 260 : 200,
+    borderWidth: Platform.isTV ? 3 : 2,
     borderColor: "transparent",
-    // Use consistent shadowRadius to prevent layout shift when focus changes
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: Platform.isTV ? 20 : 12,
-    elevation: 2,
   },
   buttonContent: {
     flexDirection: "row",
@@ -133,96 +107,79 @@ const styles = StyleSheet.create({
     opacity: 0.8,
     transform: [{ scale: 0.98 }],
   },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
+  buttonDisabled: { opacity: 0.5 },
   buttonText: {
     fontSize: Platform.isTV ? 28 : 18,
     fontWeight: "600",
   },
-  buttonTextDisabled: {
-    opacity: 0.6,
-  },
+  buttonTextDisabled: { opacity: 0.6 },
 
-  // Primary variant (Yellow background, black text)
+  // Primary — white background, black text
   primaryButton: {
-    backgroundColor: "#FFC312",
+    backgroundColor: "#FFFFFF",
     borderColor: "transparent",
+    opacity: 0.8,
   },
   primaryButtonFocused: {
-    backgroundColor: "#FFD54F",
+    backgroundColor: "#FFFFFF",
     borderColor: "#FFFFFF",
-    shadowColor: "#FFC312",
-    shadowOpacity: 0.5,
-    elevation: 8,
+    opacity: 1,
   },
-  primaryButtonText: {
-    color: "#000000",
-  },
+  primaryButtonText: { color: "#000000" },
 
-  // Secondary variant (Transparent with yellow border)
+  // Secondary — transparent with white border
   secondaryButton: {
     backgroundColor: "transparent",
-    borderColor: "#FFC312",
+    borderColor: "rgba(255,255,255,0.5)",
   },
   secondaryButtonFocused: {
-    backgroundColor: "rgba(255, 195, 18, 0.15)",
-    borderColor: "#FFD54F",
-    shadowColor: "#FFC312",
-    shadowOpacity: 0.4,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderColor: "#FFFFFF",
+    shadowColor: "#FFFFFF",
+    shadowOpacity: 0.2,
     elevation: 6,
   },
-  secondaryButtonText: {
-    color: "#FFC312",
-  },
+  secondaryButtonText: { color: "#FFFFFF" },
 
-  // Destructive variant (Red text)
+  // Destructive
   destructiveButton: {
     backgroundColor: "transparent",
     borderColor: "transparent",
   },
   destructiveButtonFocused: {
-    backgroundColor: "rgba(255, 59, 48, 0.15)",
+    backgroundColor: "rgba(255,59,48,0.15)",
     borderColor: "#FF3B30",
     shadowColor: "#FF3B30",
     shadowOpacity: 0.4,
     elevation: 6,
   },
-  destructiveButtonText: {
-    color: "#FF3B30",
-    fontSize: Platform.isTV ? 24 : 17,
-  },
+  destructiveButtonText: { color: "#FF3B30", fontSize: Platform.isTV ? 24 : 17 },
 
-  // Debug variant (Gray border)
+  // Debug
   debugButton: {
     backgroundColor: "transparent",
     borderColor: "#8E8E93",
   },
   debugButtonFocused: {
-    backgroundColor: "rgba(142, 142, 147, 0.15)",
+    backgroundColor: "rgba(142,142,147,0.15)",
     borderColor: "#FFFFFF",
     shadowColor: "#8E8E93",
     shadowOpacity: 0.4,
     elevation: 6,
   },
-  debugButtonText: {
-    color: "#8E8E93",
-    fontSize: Platform.isTV ? 24 : 17,
-  },
+  debugButtonText: { color: "#8E8E93", fontSize: Platform.isTV ? 24 : 17 },
 
-  // Retry variant (Yellow background)
+  // Retry — white background
   retryButton: {
-    backgroundColor: "#FFC312",
+    backgroundColor: "#FFFFFF",
     borderColor: "transparent",
   },
   retryButtonFocused: {
-    backgroundColor: "#FFD54F",
+    backgroundColor: "#FFFFFF",
     borderColor: "#FFFFFF",
-    shadowColor: "#FFC312",
-    shadowOpacity: 0.5,
+    shadowColor: "#FFFFFF",
+    shadowOpacity: 0.4,
     elevation: 8,
   },
-  retryButtonText: {
-    color: "#000000",
-  },
+  retryButtonText: { color: "#000000" },
 });

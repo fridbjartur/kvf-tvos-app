@@ -34,7 +34,7 @@ Be aggressive with Task (Explore) for codebase questions. Don't ask permission, 
 - Native behavior != web behavior
 - AVPlayer is the native video player (not web player)
 - HLS manifest rules follow Apple's implementation (not generic HLS)
-- Swift modules require rebuild via `npm run prebuild:tv`
+- Swift modules require rebuild via `yarn prebuild:tv`
 
 ## Decision Thresholds
 
@@ -101,23 +101,23 @@ See `memories/CLAUDE-lessons-learned.md` for detailed case studies.
 ## Development Commands
 
 ```bash
-npm start                         # Refreshes dev IP and starts Metro/Expo
-npm run ios                       # Build and run on iOS simulator
-npm test                          # Run all tests once
-npm run test:watch                # Watch mode for tests
-npm run test:coverage             # Generate coverage report
-npm run lint                      # Lint and auto-fix with ESLint
-npm run prebuild                  # Clean native prebuild
-npm run prebuild:tv               # Prebuild with Apple TV support (EXPO_TV=1)
+yarn start                        # Refreshes dev IP and starts Metro/Expo
+yarn ios                          # Build and run on iOS simulator
+yarn test                         # Run all tests once
+yarn test:watch                   # Watch mode for tests
+yarn test:coverage                # Generate coverage report
+yarn lint                         # Lint and auto-fix with ESLint
+yarn prebuild                     # Clean native prebuild
+yarn prebuild:tv                  # Prebuild with Apple TV support (EXPO_TV=1)
 ```
 
 ## Native Code Development
 
 **CRITICAL: Always edit files in `native/` folder, NOT `ios/` or `android/` folders!**
 
-`npm run prebuild:tv` deletes and regenerates `ios/`/`android/`. Native source files are copied from `native/ios/` during prebuild. Edits to `ios/` directly will be lost.
+`yarn prebuild:tv` deletes and regenerates `ios/`/`android/`. Native source files are copied from `native/ios/` during prebuild. Edits to `ios/` directly will be lost.
 
-Workflow: Edit in `native/ios/MultiAudioResourceLoader/` -> `npm run prebuild:tv` -> `npm run ios`
+Workflow: Edit in `native/ios/MultiAudioResourceLoader/` -> `yarn prebuild:tv` -> `yarn ios`
 
 ## Code Quality Standards
 

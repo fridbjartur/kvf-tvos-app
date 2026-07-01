@@ -1,116 +1,104 @@
+import strings from "@/constants/strings.json";
+/**
+ * KVF Video Player.
+ *
+ * Accepts a direct HLS streamUrl param (already resolved by the program screen).
+ * Uses the play queue from PlayQueueContext to handle "Up Next" and auto-advance.
+ */
+
 import { FocusableButton } from "@/components/FocusableButton";
 import { UpNextOverlay } from "@/components/up-next-overlay";
-import { useLibrary } from "@/contexts/LibraryContext";
-import { useLoading } from "@/contexts/LoadingContext";
 import { usePlayQueue } from "@/contexts/PlayQueueContext";
+import { useLoading } from "@/contexts/LoadingContext";
 import { useVideoPlayback } from "@/hooks/useVideoPlayback";
-import { logger } from "@/utils/logger";
+import { resolveStreamUrl } from "@/services/kvfApi";
+import type { Section } from "@/types/kvf";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Video from "react-native-video";
 import type { OnLoadData, OnProgressData } from "react-native-video";
-import { ActivityIndicator, BackHandler, LogBox, Platform, StyleSheet, Text, TouchableOpacity, useTVEventHandler, View } from "react-native";
+import { ActivityIndicator, BackHandler, LogBox, Platform, StyleSheet, Text, TouchableOpacity, View, useTVEventHandler } from "react-native";
 
-// Suppress known warnings
-LogBox.ignoreLogs([
-  "JS object is no longer associated",
-  "Operation requires a client callback",
-  "Operation requires a client data source",
-  "Cannot Open", // Direct play failures that trigger automatic transcoding retry
-  "Failed to load the player item", // Player errors during automatic retry
-]);
+LogBox.ignoreLogs(["JS object is no longer associated", "Operation requires a client callback", "Cannot Open", "Failed to load the player item"]);
 
-export default function VideoPlayerScreen() {
+export default function PlayerScreen() {
   const params = useLocalSearchParams<{
-    videoId: string;
-    videoName: string;
-    playlistIndex?: string;
-    queueMode?: string;
+    streamUrl: string;
+    title: string;
+    section?: string;
+    programSlug?: string;
+    episodeSid?: string;
+    isLive?: string;
   }>();
   const router = useRouter();
-  const { hideGlobalLoader, showGlobalLoader } = useLoading();
-  const { videos } = useLibrary();
-  const { hasNext, nextVideo, progress, advanceToNext, clear } = usePlayQueue();
+  const { hideGlobalLoader } = useLoading();
+  const { hasNext, nextEpisode, advance, clear, progress } = usePlayQueue();
 
-  const isQueueMode = params.queueMode === "true";
+  const isLive = params.isLive === "true";
+  const safeSection = (params.section === "vit" ? "vit" : "sjon") as Section;
 
-  // Parse playlist index
-  const currentPlaylistIndex = params.playlistIndex ? parseInt(params.playlistIndex, 10) : -1;
-
-  // --- Queue mode: near-end overlay state ---
+  // ── Up-next state ────────────────────────────────────────────────────────────
   const [showUpNext, setShowUpNext] = useState(false);
   const showUpNextRef = useRef(false);
   const videoDurationRef = useRef(0);
   const [upNextProgress, setUpNextProgress] = useState(1);
   const upNextThresholdRef = useRef(30);
 
-  // Handle playback end - auto-play next video
+  // Pre-fetch next episode stream URL when up-next becomes visible.
+  useEffect(() => {
+    if (showUpNext && nextEpisode) {
+      resolveStreamUrl(nextEpisode.section, nextEpisode.slug, nextEpisode.sid);
+    }
+  }, [showUpNext, nextEpisode]);
+
+  // ── Playback end ─────────────────────────────────────────────────────────────
   const handlePlaybackEnd = useCallback(() => {
-    if (isQueueMode) {
-      // Queue mode: advance or clear
-      if (hasNext) {
-        const next = advanceToNext();
-        if (next) {
-          logger.info("Queue: advancing to next video", {
-            service: "VideoPlayer",
-            videoName: next.Name,
-          });
-          showGlobalLoader();
-          router.replace({
-            pathname: "/player" as const,
-            params: {
-              videoId: next.Id,
-              videoName: next.Name,
-              queueMode: "true",
-            },
-          });
-          return;
-        }
-      }
-      // End of queue
-      logger.info("Queue: end of queue, returning to library", { service: "VideoPlayer" });
-      clear();
+    if (isLive) {
       router.back();
       return;
     }
 
-    // Legacy playlist mode
-    if (currentPlaylistIndex >= 0 && currentPlaylistIndex < videos.length - 1) {
-      const nextVid = videos[currentPlaylistIndex + 1];
-      if (nextVid) {
-        logger.info("Auto-playing next video", { service: "VideoPlayer", videoName: nextVid.Name });
-        showGlobalLoader();
+    if (hasNext && nextEpisode) {
+      const next = advance();
+      if (!next) {
+        clear();
+        router.back();
+        return;
+      }
+
+      resolveStreamUrl(next.section, next.slug, next.sid).then((url) => {
+        if (!url) {
+          clear();
+          router.back();
+          return;
+        }
         router.replace({
-          pathname: "/player" as const,
+          pathname: "/player",
           params: {
-            videoId: nextVid.Id,
-            videoName: nextVid.Name,
-            playlistIndex: (currentPlaylistIndex + 1).toString(),
+            streamUrl: url,
+            title: next.title,
+            section: next.section,
+            programSlug: next.slug,
+            episodeSid: next.sid,
           },
         });
-      }
+      });
     } else {
-      logger.info("End of playlist, going back to library", { service: "VideoPlayer" });
+      clear();
       router.back();
     }
-  }, [isQueueMode, hasNext, advanceToNext, clear, currentPlaylistIndex, videos, router, showGlobalLoader]);
+  }, [isLive, hasNext, nextEpisode, advance, clear, router]);
 
-  // Use the video playback hook with state machine
-  const { videoRef, sourceUri, paused, videoCallbacks, state, showLoadingOverlay, pause, retry } = useVideoPlayback({
-    videoId: params.videoId,
-    onPlaybackEnd: handlePlaybackEnd,
-  });
+  const { videoRef, paused, state, showLoadingOverlay, videoCallbacks, pause, retry } = useVideoPlayback({ streamUrl: params.streamUrl ?? null, onPlaybackEnd: handlePlaybackEnd });
 
-  // Hide global loader when component mounts
   useEffect(() => {
     hideGlobalLoader();
   }, [hideGlobalLoader]);
 
-  // --- Queue: wrap video callbacks to detect near-end ---
+  // ── Wrap callbacks to detect near-end ───────────────────────────────────────
   const wrappedCallbacks = useMemo(() => {
-    if (!isQueueMode || !hasNext) return videoCallbacks;
-
+    if (!hasNext) return videoCallbacks;
     return {
       ...videoCallbacks,
       onLoad: (data: OnLoadData) => {
@@ -133,126 +121,84 @@ export default function VideoPlayerScreen() {
         }
       },
     };
-  }, [videoCallbacks, isQueueMode, hasNext]);
+  }, [videoCallbacks, hasNext]);
 
-  // Queue: skip to next video immediately
-  const handleQueueSkip = useCallback(() => {
+  const handleSkipToNext = useCallback(() => {
     setShowUpNext(false);
     showUpNextRef.current = false;
     handlePlaybackEnd();
   }, [handlePlaybackEnd]);
 
-  // Handle back navigation
   const handleBack = useCallback(() => {
     try {
       pause();
-    } catch (_error) {
-      // Ignore errors - player may already be cleaning up
+    } catch {
+      /* ignore */
     }
-    if (isQueueMode) {
-      clear();
-    }
+    clear();
     router.back();
-  }, [pause, router, isQueueMode, clear]);
+  }, [pause, clear, router]);
 
-  // Handle TV remote events
   useTVEventHandler(
     useCallback(
       (evt: { eventType: string }) => {
-        if (evt.eventType === "menu") {
-          handleBack();
-        }
+        if (evt.eventType === "menu") handleBack();
       },
       [handleBack],
     ),
   );
 
-  // Handle Android TV back button
   useEffect(() => {
     if (Platform.OS === "android") {
-      const backHandler = BackHandler.addEventListener("hardwareBackPress", () => {
+      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
         handleBack();
         return true;
       });
-
-      return () => backHandler.remove();
+      return () => sub.remove();
     }
   }, [handleBack]);
 
-  // Pause player when entering error state
-  useEffect(() => {
-    if (state.type === "ERROR") {
-      try {
-        pause();
-      } catch (_error) {
-        // Ignore errors - player may not be initialized
-      }
-    }
-  }, [state.type, pause]);
-
-  // Render error state (but not if auto-retry is in progress)
+  // ── Error state ──────────────────────────────────────────────────────────────
   if (state.type === "ERROR") {
-    // If we can retry with transcoding, show loading overlay instead of error
-    // This prevents flashing an error message during automatic retry
-    if (state.canRetryWithTranscode) {
-      return (
-        <View style={styles.container}>
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#FFFFFF" />
-          </View>
-        </View>
-      );
-    }
-
-    // Only show error UI if retry is not possible or has already failed
     return (
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle-outline" size={64} color="#FF3B30" />
-        <Text style={styles.errorTitle}>Unable to Play</Text>
+        <Text style={styles.errorTitle}>{strings.player.errorTitle}</Text>
         <Text style={styles.errorText}>{state.error}</Text>
-
         <View style={styles.buttonGroup}>
-          <FocusableButton title="Retry" onPress={retry} variant="retry" style={styles.button} hasTVPreferredFocus={true} />
-          <FocusableButton title="Go Back" onPress={handleBack} variant="secondary" style={styles.button} />
+          <FocusableButton title={strings.player.retryButton} onPress={retry} variant="retry" style={styles.button} hasTVPreferredFocus />
+          <FocusableButton title={strings.player.goBackButton} onPress={handleBack} variant="secondary" style={styles.button} />
         </View>
       </View>
     );
   }
 
-  // Render video player with native controls (also handles audio-only files)
   return (
     <View style={styles.container}>
-      {/* Video Player with Native Controls */}
-      {sourceUri && (
+      {params.streamUrl && (
         <Video
-          key={sourceUri} // Force remount when switching from direct play to transcoding
+          key={params.streamUrl}
           ref={videoRef}
-          source={{
-            uri: sourceUri,
-            // jellyfin-multi:// is treated as network by patched react-native-video
-          }}
+          source={{ uri: params.streamUrl }}
           style={styles.video}
           resizeMode="contain"
-          controls={true}
+          controls
           paused={paused}
-          allowsExternalPlayback={true}
+          allowsExternalPlayback
           {...wrappedCallbacks}
         />
       )}
 
-      {/* Loading Overlay */}
       {showLoadingOverlay && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#FFFFFF" />
         </View>
       )}
 
-      {/* Up Next Overlay (queue mode) */}
-      {isQueueMode && nextVideo && <UpNextOverlay nextVideoName={nextVideo.Name} progress={progress} onSkip={handleQueueSkip} visible={showUpNext} upNextProgress={upNextProgress} paused={paused} />}
+      {hasNext && nextEpisode && <UpNextOverlay nextVideoName={nextEpisode.title} progress={progress} onSkip={handleSkipToNext} visible={showUpNext} upNextProgress={upNextProgress} paused={paused} />}
 
-      {/* Back button for iOS */}
       {!Platform.isTV && (
-        <TouchableOpacity style={styles.iosBackButton} onPress={handleBack} accessibilityLabel="Close" accessibilityRole="button" accessibilityHint="Close player and return to library">
+        <TouchableOpacity style={styles.iosBackButton} onPress={handleBack}>
           <Ionicons name="close" size={30} color="#FFFFFF" />
         </TouchableOpacity>
       )}
@@ -261,15 +207,8 @@ export default function VideoPlayerScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#000000",
-  },
-  video: {
-    flex: 1,
-    width: "100%",
-    height: "100%",
-  },
+  container: { flex: 1, backgroundColor: "#000" },
+  video: { flex: 1, width: "100%", height: "100%" },
   loadingOverlay: {
     position: "absolute",
     top: 0,
@@ -278,24 +217,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#000000",
+    backgroundColor: "#000",
     zIndex: 100,
-  },
-  iosBackButton: {
-    position: "absolute",
-    top: 50,
-    left: 20,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 1000,
   },
   errorContainer: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: "#000",
     justifyContent: "center",
     alignItems: "center",
     padding: 40,
@@ -304,7 +231,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 28,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: "#FFF",
     textAlign: "center",
   },
   errorText: {
@@ -319,23 +246,17 @@ const styles = StyleSheet.create({
     marginTop: Platform.isTV ? 32 : 24,
     alignItems: "center",
   },
-  button: {
-    minWidth: Platform.isTV ? 300 : 250,
-  },
-  retryButton: {
-    marginTop: 24,
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    backgroundColor: "#FFC312",
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#FFFFFF",
-  },
-  backButton: {
-    backgroundColor: "#8E8E93",
-    marginTop: 12,
+  button: { minWidth: Platform.isTV ? 300 : 250 },
+  iosBackButton: {
+    position: "absolute",
+    top: 50,
+    left: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
   },
 });

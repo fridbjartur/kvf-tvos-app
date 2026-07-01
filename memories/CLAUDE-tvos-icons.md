@@ -21,7 +21,7 @@ The `@react-native-tvos/config-tv` plugin is now configured with `appleTVImages`
 
 ```bash
 export EXPO_TV=1
-npm run prebuild
+yarn prebuild
 ```
 
 The plugin will automatically:

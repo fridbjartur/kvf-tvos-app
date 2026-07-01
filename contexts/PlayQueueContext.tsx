@@ -1,106 +1,66 @@
-import React, { createContext, useContext, useState, ReactNode, useMemo, useCallback, useEffect, useRef } from "react";
-import { playQueueManager } from "@/services/playQueueManager";
-import { JellyfinVideoItem } from "@/types/jellyfin";
-import { logger } from "@/utils/logger";
+/**
+ * KVF episode play queue.
+ *
+ * Populated from a ProgramPage's episode list when the user taps an episode.
+ * The player reads from here to show "Up Next" and auto-advance.
+ */
+
+import React, { createContext, useContext, useMemo, useState, useCallback, ReactNode } from "react";
+import type { QueueEpisode } from "@/types/kvf";
 
 interface PlayQueueContextType {
-  queue: JellyfinVideoItem[];
+  episodes: QueueEpisode[];
   currentIndex: number;
-  isLoading: boolean;
   hasNext: boolean;
-  nextVideo: JellyfinVideoItem | null;
+  nextEpisode: QueueEpisode | null;
   progress: string;
-  buildQueue: (folderId: string, folderName: string, startVideoId: string, folderType?: "folder" | "playlist") => Promise<void>;
-  advanceToNext: () => JellyfinVideoItem | null;
+  setQueue: (episodes: QueueEpisode[], startIndex: number) => void;
+  advance: () => QueueEpisode | null;
   clear: () => void;
 }
 
 const PlayQueueContext = createContext<PlayQueueContextType | undefined>(undefined);
 
 export function PlayQueueProvider({ children }: { children: ReactNode }) {
-  const initialState = playQueueManager.getState();
+  const [episodes, setEpisodes] = useState<QueueEpisode[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(-1);
 
-  const [queue, setQueue] = useState<JellyfinVideoItem[]>(initialState.queue);
-  const [currentIndex, setCurrentIndex] = useState(initialState.currentIndex);
-  const [isLoading, setIsLoading] = useState(initialState.isLoading);
+  const hasNext = useMemo(() => currentIndex >= 0 && currentIndex < episodes.length - 1, [currentIndex, episodes.length]);
 
-  const isFirstCallRef = useRef(true);
-
-  useEffect(() => {
-    isFirstCallRef.current = true;
-
-    const unsubscribe = playQueueManager.subscribe((state) => {
-      if (isFirstCallRef.current) {
-        isFirstCallRef.current = false;
-        logger.debug("Skipping first notification (already initialized)", {
-          context: "PlayQueueContext",
-        });
-        return;
-      }
-
-      logger.debug("Received play queue state update", {
-        context: "PlayQueueContext",
-        queueLength: state.queue.length,
-        currentIndex: state.currentIndex,
-        isLoading: state.isLoading,
-      });
-
-      setQueue(state.queue);
-      setCurrentIndex(state.currentIndex);
-      setIsLoading(state.isLoading);
-    });
-
-    return unsubscribe;
-  }, []);
-
-  const hasNext = useMemo(() => {
-    return currentIndex >= 0 && currentIndex < queue.length - 1;
-  }, [currentIndex, queue.length]);
-
-  const nextVideo = useMemo(() => {
-    if (!hasNext) return null;
-    return queue[currentIndex + 1] || null;
-  }, [hasNext, queue, currentIndex]);
+  const nextEpisode = useMemo(() => (hasNext ? (episodes[currentIndex + 1] ?? null) : null), [hasNext, episodes, currentIndex]);
 
   const progress = useMemo(() => {
-    if (queue.length === 0 || currentIndex < 0) return "";
-    return `${currentIndex + 1} of ${queue.length}`;
-  }, [queue.length, currentIndex]);
+    if (episodes.length === 0 || currentIndex < 0) return "";
+    return `${currentIndex + 1} of ${episodes.length}`;
+  }, [episodes.length, currentIndex]);
 
-  const buildQueue = useCallback(async (folderId: string, folderName: string, startVideoId: string, folderType: "folder" | "playlist" = "folder") => {
-    await playQueueManager.buildQueue(folderId, folderName, startVideoId, folderType);
+  const setQueue = useCallback((eps: QueueEpisode[], startIdx: number) => {
+    setEpisodes(eps);
+    setCurrentIndex(startIdx);
   }, []);
 
-  const advanceToNext = useCallback(() => {
-    return playQueueManager.advanceToNext();
-  }, []);
+  const advance = useCallback((): QueueEpisode | null => {
+    if (currentIndex < 0 || currentIndex >= episodes.length - 1) return null;
+    const next = episodes[currentIndex + 1] ?? null;
+    setCurrentIndex((i) => i + 1);
+    return next;
+  }, [currentIndex, episodes]);
 
   const clear = useCallback(() => {
-    playQueueManager.clear();
+    setEpisodes([]);
+    setCurrentIndex(-1);
   }, []);
 
   const value = useMemo(
-    () => ({
-      queue,
-      currentIndex,
-      isLoading,
-      hasNext,
-      nextVideo,
-      progress,
-      buildQueue,
-      advanceToNext,
-      clear,
-    }),
-    [queue, currentIndex, isLoading, hasNext, nextVideo, progress, buildQueue, advanceToNext, clear],
+    () => ({ episodes, currentIndex, hasNext, nextEpisode, progress, setQueue, advance, clear }),
+    [episodes, currentIndex, hasNext, nextEpisode, progress, setQueue, advance, clear],
   );
 
   return <PlayQueueContext.Provider value={value}>{children}</PlayQueueContext.Provider>;
 }
 
 export function usePlayQueue() {
-  const context = useContext(PlayQueueContext);
-  if (context === undefined) {
-    throw new Error("usePlayQueue must be used within a PlayQueueProvider");
-  }
-  return context;
+  const ctx = useContext(PlayQueueContext);
+  if (!ctx) throw new Error("usePlayQueue must be used within PlayQueueProvider");
+  return ctx;
 }

@@ -1,10 +1,5 @@
 //
 //  HLSManifestParser.swift
-//  TomoTV
-//
-//  Created on January 23, 2026.
-//  HLS manifest parsing utilities for multi-audio track support
-//
 
 import Foundation
 

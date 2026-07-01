@@ -1,29 +1,22 @@
-import { getBackdropBlurUrl } from "@/services/jellyfinApi";
+/**
+ * Ambient poster backdrop context.
+ *
+ * Cards call `dispatch.focus({ uri, cacheKey })` on focus; the AmbientBackground
+ * component reads the committed source and crossfades to it.
+ */
+
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
-/** Minimal shape needed to build a backdrop source; both video and folder items satisfy it. */
-interface BackdropItem {
-  Id: string;
-  ImageTags?: { Primary?: string };
-}
-
-interface BackdropSource {
+export interface BackdropSource {
   uri: string;
   cacheKey: string;
 }
 
 interface BackdropDispatch {
-  /**
-   * Request the backdrop to wash with this item's poster (debounced). An item with no
-   * primary image washes back to glows-only. Focus-only by design: on tvOS an incoming
-   * card's onFocus can fire before the outgoing card's onBlur, so a blur→clear would
-   * race and cancel the new poster; we keep the last focused poster instead.
-   */
-  focus: (item: BackdropItem) => void;
+  /** Set the backdrop to this image (debounced to avoid decode thrash during fast scroll). */
+  focus: (source: BackdropSource | null) => void;
 }
 
-// How long focus must settle before the backdrop commits. Guards against decode
-// thrash while the user scrolls quickly through the grid.
 const COMMIT_DELAY_MS = 180;
 
 const DispatchContext = createContext<BackdropDispatch | undefined>(undefined);
@@ -38,25 +31,14 @@ export function PosterBackdropProvider({ children }: { children: ReactNode }) {
     timerRef.current = setTimeout(() => setSource(next), COMMIT_DELAY_MS);
   }, []);
 
-  const dispatch = useMemo<BackdropDispatch>(
-    () => ({
-      focus: (item) => {
-        const tag = item.ImageTags?.Primary;
-        if (!tag) {
-          commit(null);
-          return;
-        }
-        commit({ uri: getBackdropBlurUrl(item.Id), cacheKey: `${item.Id}-${tag}-backdrop` });
-      },
-    }),
-    [commit],
-  );
+  const dispatch = useMemo<BackdropDispatch>(() => ({ focus: (s) => commit(s) }), [commit]);
 
-  useEffect(() => {
-    return () => {
+  useEffect(
+    () => () => {
       if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, []);
+    },
+    [],
+  );
 
   return (
     <DispatchContext.Provider value={dispatch}>
@@ -65,16 +47,12 @@ export function PosterBackdropProvider({ children }: { children: ReactNode }) {
   );
 }
 
-/** Stable focus dispatch, safe to thread into memoized cards. */
 export function usePosterBackdropDispatch(): BackdropDispatch {
   const ctx = useContext(DispatchContext);
-  if (ctx === undefined) {
-    throw new Error("usePosterBackdropDispatch must be used within a PosterBackdropProvider");
-  }
+  if (!ctx) throw new Error("usePosterBackdropDispatch must be used within a PosterBackdropProvider");
   return ctx;
 }
 
-/** Current committed backdrop source (null = glows only). Consumed only by the backdrop. */
 export function usePosterBackdropValue(): BackdropSource | null {
   return useContext(ValueContext);
 }

@@ -6,7 +6,7 @@ Tomotv is an Expo Router TV app. Platform scaffolding lives in `android/`, `ios/
 
 ## Build, Test, and Development Commands
 
-Install dependencies with `npm install`. `npm run start` launches the Expo dev server. `npm run android` / `npm run ios` build and deploy to the respective simulators. Run `npm run lint` (ESLint + Prettier autofix) before pushing. Execute `npm run test`, `npm run test:watch`, or `npm run test:coverage` to validate logic, and use `npm run prebuild` or `npm run prebuild:tv` (sets `EXPO_TV=1`) when regenerating native projects.
+Install dependencies with `yarn install`. `yarn start` launches the Expo dev server. `yarn android` / `yarn ios` build and deploy to the respective simulators. Run `yarn lint` (ESLint + Prettier autofix) before pushing. Execute `yarn test`, `yarn test:watch`, or `yarn test:coverage` to validate logic, and use `yarn prebuild` or `yarn prebuild:tv` (sets `EXPO_TV=1`) when regenerating native projects.
 
 ## Coding Style & Naming Conventions
 
@@ -14,7 +14,7 @@ The codebase is TypeScript-first with strict ESLint and Prettier configs—use 2
 
 ## Testing Guidelines
 
-Jest (via `jest-expo`) drives the suite. Place specs in local `__tests__` folders and suffix files with `.test.ts(x)` or `.threading.test.ts(x)` for concurrency helpers. Mock network I/O within services, lean on `react-test-renderer` harnesses for hooks/contexts (RTL is not wired up here), and aim for ≥80% statement coverage when running `npm run test:coverage`. Every bugfix should ship with a regression test.
+Jest (via `jest-expo`) drives the suite. Place specs in local `__tests__` folders and suffix files with `.test.ts(x)` or `.threading.test.ts(x)` for concurrency helpers. Mock network I/O within services, lean on `react-test-renderer` harnesses for hooks/contexts (RTL is not wired up here), and aim for ≥80% statement coverage when running `yarn test:coverage`. Every bugfix should ship with a regression test.
 
 ## Commit & Pull Request Guidelines
 

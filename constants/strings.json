@@ -1,0 +1,59 @@
+{
+  "tabs": {
+    "sjon": "Sjón",
+    "vit": "VIT",
+    "search": "Leita",
+    "live": "Beinleiðis",
+    "settings": "Stillingar"
+  },
+
+  "search": {
+    "placeholder": "Leita í sendingum…",
+    "emptyNative": "Ongin sending funnin",
+    "loading": "Lesur sendingar…",
+    "errorTitle": "Villa",
+    "emptyAfterQuery": "Ongar sendingar",
+    "emptyInitial": "Leita eftir sendingum",
+    "resultSingular": "sending",
+    "resultPlural": "sendingar",
+    "failedToLoad": "Villa komin í leitingina"
+  },
+
+  "heroBanner": {
+    "watchButton": "▶ Hygg"
+  },
+
+  "program": {
+    "playButton": "▶  Avspæl",
+    "loadingButton": "Innlesur…",
+    "episodesHeading": "Sendingar",
+    "goBack": "Aftur",
+    "errorNoStream": "Ongin sending tøk.",
+    "errorLoadEpisode": "Innlesingar villa.",
+    "failedToLoad": "Innlesingar villa"
+  },
+
+  "player": {
+    "errorTitle": "Villa í avspælingini",
+    "retryButton": "Royn aftur",
+    "goBackButton": "Aftur"
+  },
+
+  "live": {
+    "heading": "Beinleiðis",
+    "comingSoon": "Kemur seinni",
+    "liveTag": "● BEINLEIÐIS"
+  },
+
+  "settings": {
+    "heading": "Stillingar",
+    "apiUrlLabel": "API Server URL",
+    "apiUrlHint": "Adressa á tínum kvf-scraper-api.\nStandardur: http://localhost:3000",
+    "apiUrlPlaceholder": "http://localhost:3000",
+    "saveButton": "Goym",
+    "savedButton": "Goymt ✓",
+    "resetButton": "Endurset",
+    "aboutTitle": "Um KVF",
+    "aboutText": "Spælir Sjón og VIT innihald frá KVF."
+  }
+}

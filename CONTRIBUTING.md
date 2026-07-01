@@ -11,8 +11,8 @@ See [CLAUDE-development.md](./CLAUDE-development.md) for detailed setup instruct
 ```bash
 git clone https://github.com/keiver/tomotv.git
 cd tomotv
-npm install
-npm start
+yarn install
+yarn start
 ```
 
 Connect to your Jellyfin server from the in-app Settings screen (server IP + Quick
@@ -24,18 +24,18 @@ Connect code, or username/password).
 
 - **Minimum coverage:** 60% overall
 - All new features must include tests
-- Run tests before submitting PR: `npm test`
-- Check coverage: `npm run test:coverage`
+- Run tests before submitting PR: `yarn test`
+- Check coverage: `yarn test:coverage`
 
 ### TypeScript
 
-- Code must pass TypeScript strict mode: `npx tsc --noEmit --strict`
+- Code must pass TypeScript strict mode: `yarn tsc --noEmit --strict`
 - No `@ts-ignore` or `@ts-expect-error` without justification
 - Use proper types, not `any`
 
 ### Linting
 
-- Code must pass ESLint: `npm run lint`
+- Code must pass ESLint: `yarn lint`
 - Use Prettier for formatting (auto-fix on save)
 
 ### Accessibility
@@ -57,10 +57,10 @@ Connect code, or username/password).
    - Keep first line under 72 characters
 
 3. **PR Checklist:**
-   - [ ] Tests pass (`npm test`)
+   - [ ] Tests pass (`yarn test`)
    - [ ] Coverage meets 60% threshold
    - [ ] TypeScript strict mode passes
-   - [ ] ESLint passes (`npm run lint`)
+   - [ ] ESLint passes (`yarn lint`)
    - [ ] Accessibility labels added to new components
    - [ ] Documentation updated if needed
 

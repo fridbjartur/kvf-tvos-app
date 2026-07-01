@@ -45,7 +45,7 @@ export const DESIGN = {
   /** Standard border radius for buttons */
   BORDER_RADIUS_BUTTON: 10,
   /** Standard border radius for inputs and small elements */
-  BORDER_RADIUS_SMALL: 8,
+  BORDER_RADIUS_SMALL: 6,
   /** Fully circular elements */
   BORDER_RADIUS_ROUND: 999,
 } as const;

@@ -20,8 +20,8 @@ Run the app and connect to a Jellyfin server from the in-app Settings screen —
 ### Quick Start
 
 ```bash
-npm install
-npm start
+yarn install
+yarn start
 ```
 
 Then connect to your Jellyfin server from the in-app **Settings** screen — exactly the
@@ -56,15 +56,15 @@ is the only path, on simulator and device alike.
 
 1. You completed the Settings connect flow (server IP + Quick Connect / password)
 2. The server is reachable from the device/simulator on the network
-3. Restart Metro bundler if needed: `npm start -- --clear`
+3. Restart Metro bundler if needed: `yarn start --clear`
 
 ### "Network request timed out" on iOS Simulator
 
 **Solution:** Ensure ATS (App Transport Security) is configured in `app.json`:
 
 ```bash
-npx expo prebuild --clean
-npm run ios
+yarn expo prebuild --clean
+yarn ios
 ```
 
 See: `app.json` → `ios.infoPlist.NSAppTransportSecurity`

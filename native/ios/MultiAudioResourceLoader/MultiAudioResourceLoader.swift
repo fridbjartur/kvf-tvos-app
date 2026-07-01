@@ -1,8 +1,5 @@
 //
 //  MultiAudioResourceLoader.swift
-//  TomoTV
-//
-//  Created on January 23, 2026.
 //  Custom HLS manifest generator for seamless multi-audio track switching
 //
 

@@ -1,8 +1,8 @@
-import React from "react";
-import { View, Text, StyleSheet, Platform } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { FocusableButton } from "./FocusableButton";
 import { logger } from "@/utils/logger";
+import { Ionicons } from "@expo/vector-icons";
+import React from "react";
+import { Platform, StyleSheet, Text, View } from "react-native";
+import { FocusableButton } from "./FocusableButton";
 
 interface ErrorBoundaryState {
   hasError: boolean;

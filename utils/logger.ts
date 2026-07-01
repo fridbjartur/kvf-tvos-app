@@ -1,5 +1,5 @@
 /**
- * Structured logging utility for TomoTV
+ * Structured logging utility for KVF
  * Provides consistent logging with levels, timestamps, and context
  *
  * Usage:

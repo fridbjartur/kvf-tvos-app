@@ -1,8 +1,5 @@
 //
 //  RNVideoPlugin.swift
-//  TomoTV
-//
-//  Created on January 23, 2026.
 //  react-native-video plugin for multi-audio resource loader integration
 //
 

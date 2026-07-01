@@ -200,7 +200,7 @@ describe("jellyfinAuth", () => {
       const fetchCall = mockFetch.mock.calls[0];
       expect(fetchCall[0]).toBe("http://server:8096/Users/AuthenticateByName");
       expect(fetchCall[1].headers.Authorization).toContain('DeviceId="my-device-id"');
-      expect(fetchCall[1].headers.Authorization).toContain('Client="TomoTV"');
+      expect(fetchCall[1].headers.Authorization).toContain('Client="KVF"');
     });
   });
 
@@ -367,7 +367,7 @@ describe("jellyfinAuth", () => {
       expect(fetchCall[0]).toBe("http://server:8096/QuickConnect/Initiate");
       expect(fetchCall[1].method).toBe("POST");
       expect(fetchCall[1].headers.Authorization).toContain('DeviceId="my-device-id"');
-      expect(fetchCall[1].headers.Authorization).toContain('Client="TomoTV"');
+      expect(fetchCall[1].headers.Authorization).toContain('Client="KVF"');
     });
   });
 

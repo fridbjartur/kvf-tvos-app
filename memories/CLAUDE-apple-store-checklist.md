@@ -105,7 +105,7 @@ Before submitting to App Store, you MUST deploy your keiver.dev website so the U
 ```bash
 cd ~/keiver.dev
 # Build the site (assuming Next.js)
-npm run build
+yarn build
 # Deploy to your hosting (Vercel, Netlify, etc.)
 ```
 

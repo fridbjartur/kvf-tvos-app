@@ -6,7 +6,7 @@ import { clearProgress, getRecentProgress } from "@/services/watchProgressServic
 import { JellyfinVideoItem } from "@/types/jellyfin";
 import { logger } from "@/utils/logger";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 import { Alert, Dimensions, FlatList, Platform, StyleSheet, Text, View } from "react-native";
 
 // Mirror the Library grid sizing so shelf cards match a landscape grid column.

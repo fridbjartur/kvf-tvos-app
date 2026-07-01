@@ -1,37 +1,34 @@
-import { useAuth } from "@/contexts/AuthContext";
+import strings from "@/constants/strings.json";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 
-// SDK 56: Icon/Label moved under NativeTabs.Trigger.
 const { Icon, Label } = NativeTabs.Trigger;
 
 export default function TabLayout() {
-  const { isConnected, isReady } = useAuth();
-
-  // Wait for the saved session to resolve before first paint so logged-in users don't get an
-  // initial hidden→visible Search tab flash (which would remount the whole tab navigator).
-  if (!isReady) return null;
-
   return (
     <NativeTabs blurEffect="systemChromeMaterial">
       <NativeTabs.Trigger name="index">
-        <Icon sf="film.fill" />
-        <Label>Library</Label>
+        <Icon sf="tv.fill" />
+        <Label>{strings.tabs.sjon}</Label>
       </NativeTabs.Trigger>
 
-      {/* Search is only useful once connected; hidden when logged out. */}
-      <NativeTabs.Trigger name="search" hidden={!isConnected}>
+      <NativeTabs.Trigger name="vit">
+        <Icon sf="play.rectangle.fill" />
+        <Label>{strings.tabs.vit}</Label>
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="search">
         <Icon sf="magnifyingglass" />
-        <Label>Search</Label>
+        <Label>{strings.tabs.search}</Label>
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="live">
+        <Icon sf="antenna.radiowaves.left.and.right" />
+        <Label>{strings.tabs.live}</Label>
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="settings">
         <Icon sf="gearshape.fill" />
-        <Label>Settings</Label>
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="help">
-        <Icon sf="questionmark.circle.fill" />
-        <Label>Help</Label>
+        <Label>{strings.tabs.settings}</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );

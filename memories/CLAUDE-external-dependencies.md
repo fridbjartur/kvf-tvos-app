@@ -54,8 +54,8 @@ When testing unreleased changes, use a git branch reference instead of a local f
 After updating package.json, run:
 
 ```bash
-npm install
-npm run prebuild:tv
+yarn install
+yarn prebuild:tv
 ```
 
 ### Features
@@ -112,15 +112,15 @@ To contribute to the search package:
 
    ```bash
    cd example
-   npm run prebuild:tv && npm run ios
+   yarn prebuild:tv && yarn ios
    ```
 
 4. Submit PR to repository
 
 5. After merge, update TomoTV:
    ```bash
-   npm install expo-tvos-search@latest
-   npm run prebuild:tv && npm run ios
+   yarn add expo-tvos-search@latest
+   yarn prebuild:tv && yarn ios
    ```
 
 ### Why Separate Repository?

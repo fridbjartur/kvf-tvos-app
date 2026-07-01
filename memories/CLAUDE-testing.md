@@ -769,11 +769,11 @@ const { getByTestId } = render(
 ### Commands
 
 ```bash
-npm test                          # Run all tests once
-npm run test:watch                # Watch mode (recommended during development)
-npm run test:coverage             # Generate coverage report
-npm test -- path/to/file.test.ts  # Run single file
-npm test -- --testNamePattern="should handle errors"  # Run specific test
+yarn test                         # Run all tests once
+yarn test:watch                   # Watch mode (recommended during development)
+yarn test:coverage                # Generate coverage report
+yarn test path/to/file.test.ts    # Run single file
+yarn test --testNamePattern="should handle errors"  # Run specific test
 ```
 
 ### Coverage Reports
@@ -781,7 +781,7 @@ npm test -- --testNamePattern="should handle errors"  # Run specific test
 **View HTML Report:**
 
 ```bash
-npm run test:coverage
+yarn test:coverage
 open coverage/lcov-report/index.html
 ```
 

@@ -71,7 +71,7 @@ automatically, so you spend time watching instead of troubleshooting.
 ### Prerequisites
 
 - **Jellyfin Server 10.8+** with transcoding enabled
-- **Node.js 18+** and npm
+- **Node.js 18+** and Yarn
 - **Xcode 15+**
 - **Apple TV** or tvOS simulator
 
@@ -83,16 +83,16 @@ git clone https://github.com/keiver/tomotv.git
 cd tomotv
 
 # Install dependencies
-npm install
+yarn install
 
 # Prebuild for tvOS
-npm run prebuild:tv
+yarn prebuild:tv
 
 # Run on tvOS simulator
-npm run ios
+yarn ios
 
 # Or build for an Apple TV device
-npx expo run:ios
+yarn expo run:ios
 ```
 
 ### Connect to your server
@@ -118,11 +118,11 @@ Configure under **Settings → Video Quality**.
 ## Development
 
 ```bash
-npm start            # Start dev server
-npm run ios          # Build and run
-npm test             # Run tests
-npm run lint         # Lint and auto-fix
-npm run prebuild:tv  # Rebuild native projects (deletes ios/ folder)
+yarn start        # Start dev server
+yarn ios          # Build and run
+yarn test         # Run tests
+yarn lint         # Lint and auto-fix
+yarn prebuild:tv  # Rebuild native projects (deletes ios/ folder)
 ```
 
 **Native code:** Always edit files in the `native/` folder. The `ios/` folder
@@ -136,8 +136,8 @@ Architecture and decisions are mine. Blame me for any shady code.
 ## Contributing
 
 Contributions are welcome. Fork the repo, branch from `main`, follow the
-existing patterns, add tests for new functionality, and run `npm test` and
-`npm run lint` before opening a PR.
+existing patterns, add tests for new functionality, and run `yarn test` and
+`yarn lint` before opening a PR.
 
 **Code standards:** strict TypeScript (no unjustified `any`), try-catch around
 async work, proper React cleanup, and border-only focus feedback (no scale

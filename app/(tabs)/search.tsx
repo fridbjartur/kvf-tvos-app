@@ -1,525 +1,235 @@
-import { AmbientBackground } from "@/components/ambient-background";
-import { FocusableButton } from "@/components/FocusableButton";
-import { VideoGridItem } from "@/components/video-grid-item";
-import { slotColumns, slotRatio, type SlotOrientation } from "@/constants/app";
-import { useLibrary } from "@/contexts/LibraryContext";
-import { useLoading } from "@/contexts/LoadingContext";
-import { useColorScheme } from "@/hooks/use-color-scheme";
-import { connectToDemoServer, getPosterUrl, searchVideos } from "@/services/jellyfinApi";
-import { JellyfinVideoItem } from "@/types/jellyfin";
-import { logger } from "@/utils/logger";
-import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useRouter } from "expo-router";
-import { isNativeSearchAvailable, SearchResult, TvosSearchView } from "expo-tvos-search";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, findNodeHandle, FlatList, Platform, StyleSheet, Text, TextInput, TVEventControl, View } from "react-native";
-
 /**
- * Gets the native node handle for TV focus management.
- * Note: findNodeHandle is deprecated in React Native for the Fabric architecture,
- * but there's no replacement for TV focus management (nextFocusUp/nextFocusDown)
- * in react-native-tvos yet. This wrapper makes migration easier when an alternative
- * is available.
+ * Sendingar — searchable list of all KVF programs.
+ *
+ * On tvOS:  native TvosSearchView (expo-tvos-search) — system keyboard + spotlight UI.
+ * On iOS:   React Native TextInput fallback with the same grid layout.
  */
-function getNativeHandle<T>(node: T | null): number | undefined {
-  if (!node || !Platform.isTV) return undefined;
 
-  const handle = findNodeHandle(node as unknown as React.Component);
-  return handle ?? undefined;
+import { KvfProgramCard } from "@/components/kvf-program-card";
+import { getAllPrograms } from "@/services/kvfApi";
+import type { ProgramCard } from "@/types/kvf";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { isNativeSearchAvailable, SearchResult, TvosSearchView } from "expo-tvos-search";
+import strings from "@/constants/strings.json";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, FlatList, Platform, StyleSheet, Text, TextInput, View } from "react-native";
+
+const IS_TV = Platform.isTV;
+const NUM_COLS = IS_TV ? 4 : 2;
+const CARD_W = IS_TV ? 360 : 170;
+
+// ── Shared data hook ──────────────────────────────────────────────────────────
+
+function useAllPrograms() {
+  const [programs, setPrograms] = useState<ProgramCard[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getAllPrograms()
+      .then(setPrograms)
+      .catch((e) => setError(e instanceof Error ? e.message : strings.search.failedToLoad))
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  return { programs, isLoading, error };
 }
 
-interface SearchHeaderProps {
-  onChangeText: (text: string) => void;
-  onSubmitEditing: () => void;
-  inputRef: React.RefCallback<TextInput> | React.RefObject<TextInput>;
-  nextFocusDown?: number;
-}
-
-const SearchHeader = React.memo(
-  function SearchHeader({ onChangeText, onSubmitEditing, inputRef, nextFocusDown }: SearchHeaderProps) {
-    const [isInputFocused, setIsInputFocused] = useState(false);
-
-    return (
-      <View style={styles.searchContainer}>
-        <View style={[styles.searchInputWrapper, isInputFocused && styles.searchInputWrapperFocused]}>
-          <TextInput
-            ref={inputRef}
-            placeholder="Search by title, path, or year (e.g. action 2023)"
-            placeholderTextColor="#8E8E93"
-            autoCorrect={false}
-            autoCapitalize="none"
-            onChangeText={onChangeText}
-            onFocus={() => setIsInputFocused(true)}
-            onBlur={() => setIsInputFocused(false)}
-            onSubmitEditing={onSubmitEditing}
-            style={styles.searchInput}
-            multiline={false}
-            numberOfLines={1}
-            returnKeyType="search"
-            nextFocusDown={nextFocusDown}
-          />
-        </View>
-      </View>
-    );
-  },
-  (prevProps, nextProps) => {
-    return prevProps.onChangeText === nextProps.onChangeText && prevProps.onSubmitEditing === nextProps.onSubmitEditing && prevProps.nextFocusDown === nextProps.nextFocusDown;
-  },
-);
+// ── Native tvOS search (TvosSearchView) ───────────────────────────────────────
 
 function NativeSearchScreen() {
   const router = useRouter();
-  const { showGlobalLoader } = useLoading();
-  const colorScheme = useColorScheme();
-  const searchTextColor = colorScheme === "light" ? "#FFFFFF" : undefined;
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const { programs, isLoading } = useAllPrograms();
+
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const searchDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleSearch = useCallback((event: { nativeEvent: { query: string } }) => {
-    const query = event.nativeEvent.query;
-
-    if (searchDelayRef.current) {
-      clearTimeout(searchDelayRef.current);
+  // Map all programs to SearchResult once loaded, so the initial state shows everything
+  useEffect(() => {
+    if (programs.length > 0) {
+      setResults(
+        programs.map((p) => ({
+          id: p.slug,
+          title: p.title,
+          imageUrl: p.thumbnailUrl ?? undefined,
+        })),
+      );
     }
+  }, [programs]);
 
-    if (query.trim().length < 2) {
-      setSearchResults([]);
+  const handleSearch = useCallback(
+    (event: { nativeEvent: { query: string } }) => {
+      const q = event.nativeEvent.query.trim().toLowerCase();
+      setIsSearching(true);
+
+      const filtered = q ? programs.filter((p) => p.title.toLowerCase().includes(q)) : programs;
+
+      setResults(
+        filtered.map((p) => ({
+          id: p.slug,
+          title: p.title,
+          imageUrl: p.thumbnailUrl ?? undefined,
+        })),
+      );
       setIsSearching(false);
-      return;
-    }
-
-    setIsSearching(true);
-    searchDelayRef.current = setTimeout(async () => {
-      try {
-        const { items } = await searchVideos(query.trim(), { limit: 60 });
-        setSearchResults(
-          items.map((item) => ({
-            id: item.Id,
-            title: item.Name,
-            subtitle: item.PremiereDate ? new Date(item.PremiereDate).getFullYear().toString() : undefined,
-            imageUrl: getPosterUrl(item.Id, 300),
-          })),
-        );
-      } catch (error) {
-        logger.error("Search failed", error, { service: "NativeSearchScreen", query: query.trim() });
-        setSearchResults([]);
-        // Show alert for connection errors so user knows something went wrong
-        const message = error instanceof Error ? error.message : "Unable to search. Please check your connection.";
-        if (message.includes("not configured") || message.includes("network") || message.includes("timeout")) {
-          Alert.alert("Search Error", message);
-        }
-      } finally {
-        setIsSearching(false);
-      }
-    }, 300);
-  }, []);
+    },
+    [programs],
+  );
 
   const handleSelectItem = useCallback(
     (event: { nativeEvent: { id: string } }) => {
-      const videoId = event.nativeEvent.id;
-      const video = searchResults.find((r) => r.id === videoId);
-      showGlobalLoader();
-      router.push({
-        pathname: "/player" as const,
-        params: { videoId, videoName: video?.title ?? "Video" },
-      });
+      const slug = event.nativeEvent.id;
+      const program = programs.find((p) => p.slug === slug);
+      const section = program?.path?.includes("/vit/") ? "vit" : "sjon";
+      router.push({ pathname: "/program", params: { section, slug } });
     },
-    [router, showGlobalLoader, searchResults],
+    [programs, router],
   );
 
-  // Fallback handlers for tvOS keyboard input
-  // The library attempts to disable RN gesture handlers automatically,
-  // but if that doesn't work, these callbacks provide a JS-based fallback
-  const handleSearchFieldFocused = useCallback(() => {
-    if (TVEventControl?.disableGestureHandlersCancelTouches) {
-      TVEventControl.disableGestureHandlersCancelTouches();
-      logger.debug("TVEventControl: disabled gesture handlers (search field focused)", { service: "NativeSearchScreen" });
-    }
-  }, []);
-
-  const handleSearchFieldBlurred = useCallback(() => {
-    if (TVEventControl?.enableGestureHandlersCancelTouches) {
-      TVEventControl.enableGestureHandlersCancelTouches();
-      logger.debug("TVEventControl: enabled gesture handlers (search field blurred)", { service: "NativeSearchScreen" });
-    }
-  }, []);
-
-  // Safety net: when search screen regains focus (e.g., after modal dismissal),
-  // ensure TVEventControl gesture handlers are in their default enabled state.
-  useFocusEffect(
-    useCallback(() => {
-      if (TVEventControl?.enableGestureHandlersCancelTouches) {
-        TVEventControl.enableGestureHandlersCancelTouches();
-      }
-    }, []),
-  );
+  if (isLoading) {
+    return (
+      <View style={S.center}>
+        <ActivityIndicator size="large" color="#FFFFFF" />
+      </View>
+    );
+  }
 
   return (
     <TvosSearchView
-      results={searchResults}
+      results={results}
       columns={5}
-      placeholder="Search library"
-      emptyStateText="Find by title, season, or year..."
+      placeholder={strings.search.placeholder}
+      emptyStateText={strings.search.emptyNative}
       isLoading={isSearching}
       topInset={140}
       colorScheme="dark"
       overlayTitleSize={30}
-      textColor={searchTextColor}
-      accentColor={searchTextColor}
       onSearch={handleSearch}
       onSelectItem={handleSelectItem}
-      onSearchFieldFocused={handleSearchFieldFocused}
-      onSearchFieldBlurred={handleSearchFieldBlurred}
-      style={styles.nativeSearchView}
+      style={S.nativeSearch}
     />
   );
 }
 
-function ReactNativeSearchScreen() {
-  const router = useRouter();
-  const { showGlobalLoader, hideGlobalLoader } = useLoading();
-  const { refreshLibrary, isLoading, error } = useLibrary();
-  const [searchResults, setSearchResults] = useState<JellyfinVideoItem[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeQuery, setActiveQuery] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const [hasMoreResults, setHasMoreResults] = useState(false);
-  const [firstResultHandle, setFirstResultHandle] = useState<number | undefined>(undefined);
-  const [isConnectingToDemo, setIsConnectingToDemo] = useState(false);
-  const searchInputRef = useRef<TextInput>(null);
-  const searchDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const nextStartIndexRef = useRef(0);
-  const firstResultNodeRef = useRef<View | null>(null);
-  const firstResultRef = useCallback((node: View | null) => {
-    firstResultNodeRef.current = node;
-    const handle = getNativeHandle(node);
-    setFirstResultHandle(handle);
-  }, []);
+// ── React Native fallback (iOS / simulator) ───────────────────────────────────
 
-  const handleVideoPress = useCallback(
-    (video: JellyfinVideoItem) => {
-      showGlobalLoader();
-      router.push({
-        pathname: "/player" as const,
-        params: { videoId: video.Id, videoName: video.Name },
-      });
-    },
-    [router, showGlobalLoader],
-  );
-
-  const focusFirstResult = useCallback(() => {
-    if (Platform.isTV && firstResultNodeRef.current) {
-      // Cast to access TV-specific focus method
-      const tvNode = firstResultNodeRef.current as unknown as { requestTVFocus?: () => void };
-      tvNode.requestTVFocus?.();
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isLoading && searchError) {
-      // Guarded one-shot reset when a fresh load starts; not a render cascade.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSearchError(null);
-    }
-  }, [isLoading, searchError]);
-
-  const executeSearch = useCallback(async (term: string, append: boolean = false) => {
-    const trimmed = term.trim();
-    if (!trimmed) return;
-
-    if (append) {
-      setIsLoadingMore(true);
-    } else {
-      setIsSearching(true);
-      setSearchError(null);
-      nextStartIndexRef.current = 0;
-      setHasMoreResults(false);
-    }
-
-    try {
-      const startIndex = append ? nextStartIndexRef.current : 0;
-      const pageSize = 60;
-      const { items, total } = await searchVideos(trimmed, { limit: pageSize, startIndex });
-
-      if (append) {
-        setSearchResults((prev) => {
-          const newResults = [...prev, ...items];
-          setHasMoreResults(total !== undefined && newResults.length < total);
-          return newResults;
-        });
-      } else {
-        setSearchResults(items);
-        setHasMoreResults(total !== undefined && items.length < total);
-      }
-      nextStartIndexRef.current = startIndex + items.length;
-      setActiveQuery(trimmed);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unable to search. Please try again.";
-      setSearchError(message);
-      if (!append) setSearchResults([]);
-    } finally {
-      if (append) {
-        setIsLoadingMore(false);
-      } else {
-        setIsSearching(false);
-      }
-    }
-  }, []);
-
-  const handleRetrySearch = useCallback(() => {
-    if (searchQuery.trim().length >= 2) {
-      executeSearch(searchQuery.trim());
-    }
-  }, [searchQuery, executeSearch]);
-
-  const handleLoadMore = useCallback(() => {
-    if (hasMoreResults && !isLoadingMore && !isSearching && activeQuery) {
-      executeSearch(activeQuery, true);
-    }
-  }, [hasMoreResults, isLoadingMore, isSearching, activeQuery, executeSearch]);
-
-  const handleTryDemo = useCallback(async () => {
-    if (isConnectingToDemo) return; // Prevent double-click
-
-    setIsConnectingToDemo(true);
-    let connected = false;
-
-    try {
-      showGlobalLoader();
-      await connectToDemoServer();
-      connected = true;
-
-      await refreshLibrary();
-
-      hideGlobalLoader();
-
-      Alert.alert("Demo Server Connected", "You're now browsing Jellyfin's demo library. You can switch to your own server in Settings.", [{ text: "OK" }]);
-    } catch (error) {
-      hideGlobalLoader();
-
-      if (connected) {
-        // Connection succeeded but refresh failed
-        Alert.alert("Connected to Demo", "Connected to demo server, but couldn't load the library. Please check your internet connection and try navigating again.", [{ text: "OK" }]);
-      } else {
-        // Connection failed
-        Alert.alert("Connection Failed", error instanceof Error ? error.message : "Unable to connect to demo server", [{ text: "OK" }]);
-      }
-    } finally {
-      setIsConnectingToDemo(false);
-    }
-  }, [isConnectingToDemo, showGlobalLoader, hideGlobalLoader, refreshLibrary]);
-
-  useEffect(() => {
-    if (searchDelayRef.current) {
-      clearTimeout(searchDelayRef.current);
-    }
-
-    const trimmed = searchQuery.trim();
-    if (trimmed.length < 2) {
-      // Guarded reset when the query is cleared; not a render cascade.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSearchResults([]);
-      setSearchError(null);
-      setIsSearching(false);
-      return;
-    }
-
-    searchDelayRef.current = setTimeout(() => executeSearch(trimmed), 300);
-    return () => {
-      if (searchDelayRef.current) clearTimeout(searchDelayRef.current);
-    };
-  }, [searchQuery, executeSearch]);
-
-  const hasSearchQuery = searchQuery.trim().length >= 2;
-  const shouldShowResults = hasSearchQuery && searchResults.length > 0;
-
-  const slotOrientation = useMemo<SlotOrientation>(() => {
-    const rated = searchResults.filter((i) => i.PrimaryImageAspectRatio != null);
-    if (rated.length === 0) return "portrait";
-    const landscape = rated.filter((i) => (i.PrimaryImageAspectRatio as number) >= 1).length;
-    return landscape > rated.length / 2 ? "landscape" : "portrait";
-  }, [searchResults]);
-
-  const numColumns = useMemo(() => slotColumns(slotOrientation, Platform.isTV), [slotOrientation]);
-
-  const itemDimensions = useMemo(() => {
-    const screenWidth = Platform.isTV ? 1080 : 400;
-    const itemWidth = screenWidth / numColumns;
-    const itemHeight = itemWidth / slotRatio(slotOrientation) + 40;
-    return { itemHeight };
-  }, [numColumns, slotOrientation]);
-
-  const getItemLayout = useCallback(
-    (_: ArrayLike<JellyfinVideoItem> | null | undefined, index: number) => {
-      const rowPadding = (Platform.isTV ? 24 : 12) * 2; // columnWrapper paddingVertical (top + bottom)
-      const rowHeight = itemDimensions.itemHeight + rowPadding;
-      return {
-        length: rowHeight,
-        offset: rowHeight * Math.floor(index / numColumns),
-        index,
-      };
-    },
-    [itemDimensions, numColumns],
-  );
-
-  const [searchInputHandle, setSearchInputHandle] = useState<number | undefined>(undefined);
-
-  const searchInputCallbackRef = useCallback((node: TextInput | null) => {
-    setSearchInputHandle(getNativeHandle(node));
-    // Assign to ref for imperative access
-    searchInputRef.current = node;
-  }, []);
-
-  const renderItem = useCallback(
-    ({ item, index }: { item: JellyfinVideoItem; index: number }) => {
-      const isFirstRow = index < numColumns;
-      return (
-        <VideoGridItem
-          ref={index === 0 ? firstResultRef : undefined}
-          video={item}
-          onPress={handleVideoPress}
-          index={index}
-          hasTVPreferredFocus={index === 0 && shouldShowResults}
-          nextFocusUp={isFirstRow ? searchInputHandle : undefined}
-          slotOrientation={slotOrientation}
-        />
-      );
-    },
-    [handleVideoPress, shouldShowResults, numColumns, searchInputHandle, firstResultRef, slotOrientation],
-  );
-
-  const renderFooter = useCallback(() => {
-    if (isLoadingMore) {
-      return (
-        <View style={styles.footerLoading}>
-          <ActivityIndicator size="small" color="#FFC312" />
-          <Text style={styles.footerLoadingText}>Loading more...</Text>
-        </View>
-      );
-    }
-    return (
-      <Text style={styles.resultsLabel}>
-        {searchResults.length} {searchResults.length === 1 ? "result" : "results"}
-      </Text>
-    );
-  }, [isLoadingMore, searchResults.length]);
-
-  const renderEmpty = useCallback(() => {
-    if (hasSearchQuery) {
-      if (isSearching) {
-        return (
-          <View style={styles.centerContainer}>
-            <ActivityIndicator size="small" color="#FFC312" />
-            <Text style={styles.loadingText}>Searching...</Text>
-          </View>
-        );
-      }
-      if (searchError) {
-        return (
-          <View style={styles.centerContainer}>
-            <Ionicons name="alert-circle-outline" size={64} color="#FF3B30" />
-            <Text style={styles.errorTitle}>Search Failed</Text>
-            <Text style={styles.errorText}>{searchError}</Text>
-            <FocusableButton title="Try Again" variant="retry" onPress={handleRetrySearch} hasTVPreferredFocus />
-          </View>
-        );
-      }
-      return (
-        <View style={styles.centerContainer}>
-          <Ionicons name="search-outline" size={64} color="#98989D" />
-          <Text style={styles.emptyText}>No results for &quot;{searchQuery}&quot;</Text>
-        </View>
-      );
-    }
-
-    if (isLoading) {
-      return (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="small" color="#FFC312" />
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
-      );
-    }
-
-    if (error) {
-      return (
-        <View style={styles.centerContainer}>
-          <Ionicons name="alert-circle-outline" size={64} color="#FF3B30" />
-          <Text style={styles.errorTitle}>Unable to Load</Text>
-          <Text style={styles.errorText}>{error}</Text>
-
-          <View style={styles.buttonGroup}>
-            <FocusableButton
-              title="Try Demo Server"
-              variant="secondary"
-              onPress={handleTryDemo}
-              disabled={isConnectingToDemo}
-              icon={<Ionicons name="play-circle-outline" size={Platform.isTV ? 24 : 20} color="#FFC312" />}
-              hasTVPreferredFocus={true}
-            />
-            <FocusableButton
-              title="Go to Settings"
-              variant="primary"
-              onPress={() => router.push("/(tabs)/settings")}
-              icon={<Ionicons name="settings-outline" size={Platform.isTV ? 24 : 20} color="#000000" />}
-            />
-          </View>
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.centerContainer}>
-        <Ionicons name="search-outline" size={64} color="#98989D" />
-        <Text style={styles.emptyText}>Search by title, path, or year</Text>
-      </View>
-    );
-  }, [hasSearchQuery, isSearching, searchError, searchQuery, isLoading, error, isConnectingToDemo, router, handleRetrySearch, handleTryDemo]);
-
-  const handleSubmitEditing = useCallback(() => {
-    if (shouldShowResults) {
-      focusFirstResult();
-    }
-  }, [shouldShowResults, focusFirstResult]);
-
-  const headerComponent = useMemo(
-    () => <SearchHeader onChangeText={setSearchQuery} onSubmitEditing={handleSubmitEditing} inputRef={searchInputCallbackRef} nextFocusDown={firstResultHandle} />,
-    [handleSubmitEditing, searchInputCallbackRef, firstResultHandle],
-  );
+const SearchHeader = React.memo(function SearchHeader({ onChangeText, inputRef }: { onChangeText: (t: string) => void; inputRef: React.RefObject<TextInput> }) {
+  const [focused, setFocused] = useState(false);
 
   return (
-    <View style={styles.container}>
-      <AmbientBackground />
-      {headerComponent}
+    <View style={S.searchContainer}>
+      <View style={[S.searchInputWrapper, focused && S.searchInputWrapperFocused]}>
+        <TextInput
+          ref={inputRef}
+          placeholder={strings.search.placeholder}
+          placeholderTextColor="#8E8E93"
+          autoCorrect={false}
+          autoCapitalize="none"
+          onChangeText={onChangeText}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          style={S.searchInput}
+          multiline={false}
+          numberOfLines={1}
+          returnKeyType="search"
+          clearButtonMode="while-editing"
+        />
+      </View>
+    </View>
+  );
+});
 
-      {shouldShowResults ? (
+function ReactNativeSearchScreen() {
+  const router = useRouter();
+  const inputRef = useRef<TextInput>(null);
+  const { programs, isLoading, error } = useAllPrograms();
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return q ? programs.filter((p) => p.title.toLowerCase().includes(q)) : programs;
+  }, [searchQuery, programs]);
+
+  const handlePress = useCallback(
+    (program: ProgramCard) => {
+      const section = program.path?.includes("/vit/") ? "vit" : "sjon";
+      router.push({ pathname: "/program", params: { section, slug: program.slug } });
+    },
+    [router],
+  );
+
+  const renderItem = useCallback(({ item }: { item: ProgramCard }) => <KvfProgramCard program={item} onPress={handlePress} cardWidth={CARD_W} />, [handlePress]);
+
+  const renderEmpty = useCallback(() => {
+    if (isLoading) {
+      return (
+        <View style={S.centerContainer}>
+          <ActivityIndicator size="small" color="#FFFFFF" />
+          <Text style={S.loadingText}>{strings.search.loading}</Text>
+        </View>
+      );
+    }
+    if (error) {
+      return (
+        <View style={S.centerContainer}>
+          <Ionicons name="alert-circle-outline" size={64} color="#FF3B30" />
+          <Text style={S.errorTitle}>{strings.search.errorTitle}</Text>
+          <Text style={S.errorText}>{error}</Text>
+        </View>
+      );
+    }
+    if (searchQuery.trim()) {
+      return (
+        <View style={S.centerContainer}>
+          <Ionicons name="search-outline" size={64} color="#98989D" />
+          <Text style={S.emptyText}>
+            {strings.search.emptyAfterQuery} &ldquo;{searchQuery}&rdquo;
+          </Text>
+        </View>
+      );
+    }
+    return (
+      <View style={S.centerContainer}>
+        <Ionicons name="tv-outline" size={64} color="#98989D" />
+        <Text style={S.emptyText}>{strings.search.emptyInitial}</Text>
+      </View>
+    );
+  }, [isLoading, error, searchQuery]);
+
+  return (
+    <View style={S.container}>
+      <SearchHeader onChangeText={setSearchQuery} inputRef={inputRef} />
+      {filtered.length > 0 ? (
         <FlatList
-          data={searchResults}
+          data={filtered}
           renderItem={renderItem}
-          keyExtractor={(item) => item.Id}
-          getItemLayout={getItemLayout}
-          numColumns={numColumns}
-          key={numColumns}
-          contentContainerStyle={styles.gridContent}
-          columnWrapperStyle={styles.columnWrapper}
-          showsVerticalScrollIndicator
-          initialNumToRender={10}
-          maxToRenderPerBatch={10}
-          windowSize={3}
-          removeClippedSubviews={!Platform.isTV}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={renderFooter}
+          keyExtractor={(p) => p.slug}
+          numColumns={NUM_COLS}
+          key={NUM_COLS}
+          contentContainerStyle={S.gridContent}
+          columnWrapperStyle={S.columnWrapper}
+          showsVerticalScrollIndicator={false}
+          removeClippedSubviews
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          keyboardDismissMode="on-drag"
+          ListFooterComponent={
+            filtered.length > 0 ? (
+              <Text style={S.resultsLabel}>
+                {filtered.length} {filtered.length === 1 ? strings.search.resultSingular : strings.search.resultPlural}
+              </Text>
+            ) : null
+          }
         />
       ) : (
-        <View style={styles.emptyContainer}>{renderEmpty()}</View>
+        <View style={S.emptyContainer}>{renderEmpty()}</View>
       )}
     </View>
   );
 }
+
+// ── Entry point ───────────────────────────────────────────────────────────────
 
 export default function SearchScreen() {
   if (isNativeSearchAvailable()) {
@@ -528,105 +238,55 @@ export default function SearchScreen() {
   return <ReactNativeSearchScreen />;
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  nativeSearchView: {
-    flex: 1,
-    // Native tvOS search is an opaque native view; glows can't render behind it.
-    // Match the ambient canvas base color for consistency.
-    backgroundColor: "#141414",
-  },
-  emptyContainer: {
-    flex: 1,
-  },
+// Named "S" not "styles" — prevents editor auto-import from shadowing the local definition.
+const S = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#0a0a0a" },
+  nativeSearch: { flex: 1, backgroundColor: "#141414" },
+  emptyContainer: { flex: 1 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0a0a0a" },
   searchContainer: {
-    paddingTop: Platform.isTV ? 150 : 60,
-    paddingHorizontal: Platform.isTV ? 80 : 16,
-    paddingBottom: Platform.isTV ? 24 : 16,
+    paddingTop: IS_TV ? 140 : 60,
+    paddingHorizontal: IS_TV ? 80 : 16,
+    paddingBottom: IS_TV ? 24 : 16,
     alignItems: "center",
   },
   searchInputWrapper: {
     width: "100%",
     maxWidth: 800,
-    borderRadius: Platform.isTV ? 28 : 25,
+    borderRadius: IS_TV ? 28 : 25,
     overflow: "hidden",
     borderWidth: 2,
     borderColor: "#3A3A3C",
   },
   searchInputWrapperFocused: {
-    borderColor: "#FFC312",
+    borderColor: "#FFFFFF",
   },
   searchInput: {
     width: "100%",
-    minHeight: Platform.isTV ? 56 : 50,
+    minHeight: IS_TV ? 56 : 50,
     backgroundColor: "#2C2C2E",
-    paddingHorizontal: Platform.isTV ? 28 : 20,
-    fontSize: Platform.isTV ? 28 : 20,
+    paddingHorizontal: IS_TV ? 28 : 20,
+    fontSize: IS_TV ? 28 : 20,
     color: "#FFFFFF",
   },
   gridContent: {
-    paddingBottom: Platform.isTV ? 120 : 100,
-    paddingHorizontal: Platform.isTV ? 40 : 16,
+    paddingBottom: IS_TV ? 120 : 80,
+    paddingHorizontal: IS_TV ? 40 : 8,
   },
   columnWrapper: {
     justifyContent: "flex-start",
-    paddingVertical: Platform.isTV ? 24 : 12,
+    paddingVertical: IS_TV ? 8 : 4,
   },
   centerContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 40,
+    gap: IS_TV ? 16 : 12,
   },
-  loadingText: {
-    marginTop: 24,
-    fontSize: Platform.isTV ? 20 : 16,
-    color: "#98989D",
-    fontWeight: "500",
-  },
-  errorTitle: {
-    marginTop: 16,
-    fontSize: Platform.isTV ? 24 : 20,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-  errorText: {
-    marginTop: 8,
-    fontSize: Platform.isTV ? 18 : 15,
-    color: "#98989D",
-    textAlign: "center",
-    lineHeight: 24,
-  },
-  emptyText: {
-    marginTop: 16,
-    fontSize: Platform.isTV ? 20 : 16,
-    color: "#98989D",
-    textAlign: "center",
-  },
-  resultsLabel: {
-    marginTop: -8,
-    marginLeft: 16,
-    fontSize: Platform.isTV ? 16 : 13,
-    color: "#98989D",
-  },
-  footerLoading: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 20,
-    gap: 12,
-  },
-  footerLoadingText: {
-    fontSize: Platform.isTV ? 18 : 15,
-    color: "#98989D",
-  },
-  buttonGroup: {
-    gap: Platform.isTV ? 16 : 12,
-    marginTop: Platform.isTV ? 32 : 24,
-    width: "100%",
-    maxWidth: 400,
-    alignItems: "center",
-  },
+  loadingText: { fontSize: IS_TV ? 20 : 16, color: "#98989D", fontWeight: "500" },
+  errorTitle: { fontSize: IS_TV ? 24 : 20, fontWeight: "700", color: "#FFFFFF" },
+  errorText: { fontSize: IS_TV ? 18 : 15, color: "#98989D", textAlign: "center", lineHeight: 24 },
+  emptyText: { fontSize: IS_TV ? 20 : 16, color: "#98989D", textAlign: "center" },
+  resultsLabel: { fontSize: IS_TV ? 16 : 13, color: "#98989D", textAlign: "center", paddingVertical: IS_TV ? 16 : 10 },
 });

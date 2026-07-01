@@ -1,9 +1,9 @@
 import { DESIGN, GRID, slotColumns, slotRatio, type SlotOrientation } from "@/constants/app";
 import { getFolderThumbnailUrl } from "@/services/jellyfinApi";
 import { JellyfinItem } from "@/types/jellyfin";
+import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
 import React, { forwardRef, useCallback, useMemo, useState } from "react";
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { MarqueeText } from "./MarqueeText";

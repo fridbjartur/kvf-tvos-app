@@ -27,7 +27,7 @@ export function UpNextOverlay({ nextVideoName, progress, onSkip, visible, upNext
     <View style={styles.container} pointerEvents={visible ? "auto" : "none"}>
       <View style={styles.card}>
         <View style={styles.header}>
-          <Ionicons name="play-skip-forward" size={Platform.isTV ? 28 : 20} color="#FFC312" />
+          <Ionicons name="play-skip-forward" size={Platform.isTV ? 28 : 20} color="#FFFFFF" />
           <Text style={styles.headerText}>Up Next</Text>
         </View>
 
@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
     minWidth: Platform.isTV ? 400 : 280,
     maxWidth: Platform.isTV ? 500 : 340,
     borderWidth: 1,
-    borderColor: "rgba(255, 195, 18, 0.3)",
+    borderColor: "rgba(255, 255, 255, 0.2)",
   },
   header: {
     flexDirection: "row",
@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: Platform.isTV ? 22 : 16,
     fontWeight: "700",
-    color: "#FFC312",
+    color: "#FFFFFF",
     flex: 1,
   },
   progressBarTrack: {
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: "100%",
-    backgroundColor: "#FFC312",
+    backgroundColor: "#FFFFFF",
     borderRadius: 2,
   },
   videoName: {

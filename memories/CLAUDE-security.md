@@ -39,13 +39,14 @@ This document describes the security architecture, known limitations, and mitiga
 - **Library:** `expo-secure-store` (official Expo module)
 
 **Stored Credentials:**
-| Key | Type | Purpose |
-|-----|------|---------|
-| `jellyfin_server_url` | String | Full Jellyfin server URL |
-| `jellyfin_api_key` | String (hex) | API authentication token |
-| `jellyfin_user_id` | String (hex/GUID) | User identifier |
-| `app_video_quality` | String (0-3) | Transcoding quality preset |
-| `jellyfin_is_demo_mode` | String ("true"/null) | Demo server flag |
+
+| Key                     | Type                 | Purpose                    |
+| ----------------------- | -------------------- | -------------------------- |
+| `jellyfin_server_url`   | String               | Full Jellyfin server URL   |
+| `jellyfin_api_key`      | String (hex)         | API authentication token   |
+| `jellyfin_user_id`      | String (hex/GUID)    | User identifier            |
+| `app_video_quality`     | String (0-3)         | Transcoding quality preset |
+| `jellyfin_is_demo_mode` | String ("true"/null) | Demo server flag           |
 
 **Security Features:**
 
@@ -656,7 +657,7 @@ export async function fetchLibraryVideos(startIndex = 0, limit = 60) {
 
 **Impact:** Prevents accidental DoS of user's own Jellyfin server.
 
-**Implementation Note:** Requires `npm install p-queue` dependency.
+**Implementation Note:** Requires `yarn add p-queue` dependency.
 
 ---
 

@@ -1,19 +1,19 @@
 {
   "expo": {
-    "name": "Tomo TV",
-    "slug": "tomotv",
-    "description": "Stream any video from your Jellyfin server. Automatic transcoding handles incompatible formats so you can just hit play and watch.",
-    "version": "1.5.0",
+    "name": "KVF",
+    "slug": "kvf",
+    "description": "Stream Sjón and VIT content from KVF on your Apple TV.",
+    "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
-    "scheme": "tomotv",
+    "scheme": "kvf",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#1C1C1E",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "dev.keiver.tomotv",
+      "bundleIdentifier": "dev.keiver.kvf",
       "buildNumber": "1",
-      "version": "1.5.0",
+      "version": "1.0.0",
       "config": {
         "usesNonExemptEncryption": false
       },
@@ -23,8 +23,8 @@
           "NSAllowsArbitraryLoadsForMedia": true,
           "NSAllowsLocalNetworking": true
         },
-        "NSLocalNetworkUsageDescription": "Tomo TV needs to access your local network to connect to your Jellyfin media server and stream videos to your Apple TV.",
-        "NSBonjourServices": ["_jellyfin._tcp"]
+        "NSLocalNetworkUsageDescription": "KVF needs local network access to reach your kvf-scraper-api server.",
+        "NSBonjourServices": []
       }
     },
     "plugins": [
@@ -58,7 +58,7 @@
       "reactCompiler": true
     },
     "android": {
-      "package": "dev.keiver.tomotv"
+      "package": "dev.keiver.kvf"
     }
   }
 }

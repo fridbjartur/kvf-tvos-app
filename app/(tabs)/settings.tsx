@@ -1,11 +1,11 @@
 import strings from "@/constants/strings.json";
 /**
  * Settings — configure the API base URL.
- * Defaults to http://localhost:3000.
+ * Defaults to EXPO_PUBLIC_KVF_API_BASE_URL or the home NAS API URL.
  */
 
 import { FocusableButton } from "@/components/FocusableButton";
-import { getApiUrl, saveApiUrl } from "@/services/kvfApi";
+import { DEFAULT_API_BASE_URL, getApiUrl, saveApiUrl } from "@/services/kvfApi";
 import React, { useCallback, useEffect, useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -24,14 +24,14 @@ export default function SettingsScreen() {
   }, []);
 
   const handleSave = useCallback(async () => {
-    await saveApiUrl(url.trim() || "http://localhost:3000");
+    await saveApiUrl(url.trim() || DEFAULT_API_BASE_URL);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }, [url]);
 
   const handleReset = useCallback(async () => {
-    await saveApiUrl("http://localhost:3000");
-    setUrl("http://localhost:3000");
+    await saveApiUrl(DEFAULT_API_BASE_URL);
+    setUrl(DEFAULT_API_BASE_URL);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }, []);

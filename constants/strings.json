@@ -48,8 +48,8 @@
   "settings": {
     "heading": "Stillingar",
     "apiUrlLabel": "API Server URL",
-    "apiUrlHint": "Adressa á tínum kvf-scraper-api.\nStandardur: http://localhost:3000",
-    "apiUrlPlaceholder": "http://localhost:3000",
+    "apiUrlHint": "Adressa á tínum kvf-scraper-api.\nStandardur: EXPO_PUBLIC_KVF_API_BASE_URL ella http://192.168.1.10:3939",
+    "apiUrlPlaceholder": "http://192.168.1.10:3939",
     "saveButton": "Goym",
     "savedButton": "Goymt ✓",
     "resetButton": "Endurset",

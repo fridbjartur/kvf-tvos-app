@@ -4,8 +4,8 @@
  * All fetches go through the SWR cache (kvfCache.ts) so callers always get
  * data instantly from cache, with a silent background refresh when stale.
  *
- * Base URL defaults to http://localhost:3000 and can be overridden in Settings
- * (stored in the module-level variable below).
+ * Base URL defaults to EXPO_PUBLIC_KVF_API_BASE_URL, falling back to
+ * the home NAS API URL, and can be overridden in Settings.
  */
 
 import * as SecureStore from "expo-secure-store";
@@ -13,24 +13,30 @@ import type { EpisodeDetail, FrontPage, ProgramCard, ProgramPage, Section } from
 import { cacheGet, cacheSet, fetchSWR, TTL } from "./kvfCache";
 import { logger } from "@/utils/logger";
 
-const DEFAULT_BASE_URL = "http://localhost:3000";
+const FALLBACK_BASE_URL = "http://192.168.1.10:3939";
 const STORE_KEY = "kvf_api_base_url";
 
-let _baseUrl: string = DEFAULT_BASE_URL;
+function normalizeBaseUrl(url: string): string {
+  return url.trim().replace(/\/+$/, "");
+}
+
+export const DEFAULT_API_BASE_URL = normalizeBaseUrl(process.env.EXPO_PUBLIC_KVF_API_BASE_URL || FALLBACK_BASE_URL);
+
+let _baseUrl: string = DEFAULT_API_BASE_URL;
 
 // ── Config ─────────────────────────────────────────────────────────────────────
 
 export async function loadApiUrl(): Promise<void> {
   try {
     const stored = await SecureStore.getItemAsync(STORE_KEY);
-    if (stored) _baseUrl = stored;
+    if (stored) _baseUrl = normalizeBaseUrl(stored);
   } catch {
     // Fall back to default
   }
 }
 
 export async function saveApiUrl(url: string): Promise<void> {
-  _baseUrl = url.replace(/\/$/, ""); // strip trailing slash
+  _baseUrl = normalizeBaseUrl(url || DEFAULT_API_BASE_URL);
   await SecureStore.setItemAsync(STORE_KEY, _baseUrl);
 }
 

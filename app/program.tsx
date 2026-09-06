@@ -85,7 +85,9 @@ export default function ProgramScreen() {
   const router = useRouter();
   const { setQueue } = usePlayQueue();
 
-  const [focusedEpisode, setFocusedEpisode] = useState<Episode | null>(null);
+  // Only the user's choice is state; the episode itself is derived, so a
+  // background refresh can swap the list without clobbering the selection.
+  const [selectedSid, setSelectedSid] = useState<string | null>(null);
   const [isResolvingStream, setIsResolvingStream] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
 
@@ -95,16 +97,17 @@ export default function ProgramScreen() {
   const { data: programPage, isLoading, error: loadError } = useKvfResource<ProgramPage>(resource, strings.program.failedToLoad);
   const error = playbackError ?? loadError;
 
-  // Follow the program's current episode, but never yank focus away from an
-  // episode the user has already selected on this screen.
-  useEffect(() => {
-    if (!programPage) return;
-    setFocusedEpisode((prev) => {
-      if (prev && programPage.episodes.some((e) => e.sid === prev.sid)) return prev;
-      const current = programPage.currentEpisodeSid ? (programPage.episodes.find((e) => e.sid === programPage.currentEpisodeSid) ?? programPage.episodes[0]) : programPage.episodes[0];
-      return current ?? null;
-    });
-  }, [programPage]);
+  // Prefer whatever the user last focused; fall back to the program's current
+  // episode. Derived, so a refreshed episode list never resets the selection.
+  const focusedEpisode = useMemo<Episode | null>(() => {
+    if (!programPage) return null;
+    const { episodes, currentEpisodeSid } = programPage;
+    const chosen = selectedSid ? episodes.find((e) => e.sid === selectedSid) : undefined;
+    if (chosen) return chosen;
+    return (currentEpisodeSid ? episodes.find((e) => e.sid === currentEpisodeSid) : undefined) ?? episodes[0] ?? null;
+  }, [programPage, selectedSid]);
+
+  const handleEpisodeFocus = useCallback((episode: Episode) => setSelectedSid(episode.sid), []);
 
   // Prefetch focused episode in background
   useEffect(() => {
@@ -187,11 +190,11 @@ export default function ProgramScreen() {
         episode={item}
         isActive={item.sid === activeEpSid}
         onPress={handleEpisodePress}
-        onFocus={setFocusedEpisode}
+        onFocus={handleEpisodeFocus}
         hasTVPreferredFocus={item.sid === activeEpSid || (index === 0 && !activeEpSid)}
       />
     ),
-    [activeEpSid, handleEpisodePress],
+    [activeEpSid, handleEpisodePress, handleEpisodeFocus],
   );
 
   if (isLoading && !programPage) {

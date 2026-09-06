@@ -20,14 +20,22 @@ export default function RootLayout() {
   useEffect(() => {
     registerMultiAudioPlugin();
 
+    let cancelled = false;
     let stop: (() => void) | undefined;
+
     // The saved base URL namespaces the cache, so it must be restored before
     // anything is read — otherwise the warm-up would miss every cached entry.
     loadApiUrl().then(() => {
+      // Unmounting before this resolves must not leave the interval and the
+      // AppState listener running with nothing to stop them.
+      if (cancelled) return;
       stop = startKvfSync();
     });
 
-    return () => stop?.();
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
   }, []);
 
   return (

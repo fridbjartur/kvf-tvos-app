@@ -393,3 +393,84 @@ Switched `STORAGE_FILE` to `FileSystem.cacheDirectory`. Updated the test mock to
 ### Files Affected
 
 - `eslint.config.js`, `services/kvfCache.ts`, `utils/keys.ts`, `services/kvfApi.ts`, `types/kvf.ts`, `components/focus-scale-card.tsx`
+
+---
+
+## Instant-Launch Caching: Revalidation Must Not Re-Render (September 2026)
+
+### Problem
+
+The app showed a spinner on launch and on every visit to Sendingar (search), even though the KVF
+catalogue only changes when new shows are published. Background refreshes also rebuilt every list,
+which on tvOS can throw D-pad focus back to the first card mid-browse.
+
+### Root Cause
+
+1. **`getAllPrograms` bypassed the cache entirely** — it called `apiFetch` directly for both
+   `/api/sjon` and `/api/vit`, so search paid two full round-trips on every mount.
+2. **SWR always re-emitted.** `fetchSWR` called `onData(fresh)` after every revalidation. Because
+   `withListKeys` maps to new objects, an unchanged payload still produced a brand-new tree →
+   every `FlatList` re-rendered → focus could jump.
+3. **No timeout on `fetch`.** An unreachable NAS hung until React Native's default timeout.
+4. **Filename sanitiser collided:** `key.replace(/[^a-zA-Z0-9_\-]/g, "_")` mapped
+   `kvf:sjon:program:x` and `kvf_sjon_program_x` onto the same file.
+5. No cache versioning, no base-URL namespacing, no eviction, no in-flight dedupe.
+
+### Solution
+
+- **Content-hash gate.** Every entry stores a ~64-bit fingerprint of the raw response body. A
+  refetch that hashes identically refreshes only freshness metadata — subscribers are never
+  notified, so object identity survives and nothing re-renders. This is the _common_ path.
+- **Hash checked before `JSON.parse`.** `jsonFetcher` compares hashes on the raw text, so an
+  unchanged front page costs one request and zero parsing/re-keying.
+- **Conditional requests.** `If-None-Match` / `If-Modified-Since` with 304 handling; the hash gate
+  makes this a pure bonus when the server sends no validators.
+- **Manifest-based metadata.** A single `index.json` holds freshness for all keys, hydrated once at
+  boot, so staleness checks never touch the filesystem and an "unchanged" result rewrites only that
+  small file — not the payload.
+- **Search index is derived, not fetched.** `allProgramsResource` merges the two _cached_ front
+  pages; its hash is the pair of source hashes. Zero extra network.
+- **Centralised sync.** `services/kvfPreload.ts` owns launch warm-up, foreground refresh and the
+  idle interval. The native tab bar keeps every tab mounted, so per-screen refresh logic would fan
+  one user action out into N identical requests.
+- Also added: `AbortController` timeouts, `retryWithBackoff` with HTTP-status classification,
+  FNV-1a filename hashing, `CACHE_VERSION`, base-URL namespacing, LRU eviction, in-flight dedupe,
+  and `expo-image` poster prefetching.
+
+### What Went Wrong
+
+- ❌ Assuming "we already have SWR" meant caching was solved — the cache existed but the _emission_
+  policy made every refresh as expensive as a cold load.
+- ❌ Sanitising a cache key into a filename instead of hashing it.
+- ❌ Leaving `getAllPrograms` outside the cache because it was "just an aggregation".
+
+### What Worked
+
+- ✅ Asking "what does the UI actually do when data is unchanged?" rather than only "is it cached?".
+  On tvOS an unnecessary re-render is a _correctness_ bug (focus), not just a perf one.
+- ✅ Separating metadata (manifest) from payload, so the cheap path stays cheap.
+- ✅ Making the fetcher return `{status: "unchanged"} | {status: "ok"}` — it forces every call site
+  to handle "nothing changed" explicitly instead of defaulting to re-emit.
+
+### Key Takeaways
+
+1. **A cache that always re-emits is only half a cache.** SWR's value is skipping the _render_, not
+   just skipping the network. Gate emission on content, not on fetch completion.
+2. **Hash the raw body before parsing.** It turns the common "nothing new" refresh into a
+   near-free operation.
+3. **Never derive a filename from a key by character substitution** — different keys collapse onto
+   one file. Hash it.
+4. **Own foreground/interval refresh centrally** when the tab bar keeps screens mounted; per-screen
+   `useAppStateRefresh` multiplies requests by the number of live tabs.
+5. **Version and namespace persistent caches.** Without `CACHE_VERSION` an app update deserialises
+   old JSON into the new shape; without a base-URL namespace, switching servers serves the wrong data.
+6. tvOS gives no OS-level background fetch without a native module — "background refresh" here
+   means non-blocking revalidation behind visible data, not `BGTaskScheduler`.
+
+### Files Affected
+
+- `services/kvfCache.ts` (rewritten), `services/kvfApi.ts` (rewritten), `services/kvfPreload.ts` (new),
+  `hooks/useKvfResource.ts` (new), `app/(tabs)/index.tsx`, `app/(tabs)/vit.tsx`,
+  `app/(tabs)/search.tsx`, `app/(tabs)/settings.tsx`, `app/program.tsx`, `app/_layout.tsx`,
+  `constants/strings.json`, `services/__tests__/kvfCache.test.ts`,
+  `services/__tests__/kvfApi.conditional.test.ts`

@@ -18,9 +18,12 @@ module.exports = defineConfig([
   {
     // Tests may use require() after jest.doMock/resetModules to load a module
     // with the current mock registry — import statements can't do that.
+    // jest.mock() is hoisted above imports, so a factory referencing a mock
+    // fixture must be declared before them: imports can't all come first.
     files: ["**/__tests__/**", "**/*.test.*"],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
+      "import/first": "off",
     },
   },
   {

@@ -226,6 +226,35 @@ describe("request coalescing", () => {
   });
 });
 
+describe("eviction", () => {
+  it("sweeps entries left behind by a previous API base URL", async () => {
+    setNamespace("http://old");
+    await cacheSet("stale-server", { n: 1 }, 1000, { hash: "h" });
+
+    setNamespace("http://new");
+    // Any write triggers a sweep; the foreign-namespace record goes with it.
+    await cacheSet("fresh-server", { n: 2 }, 1000, { hash: "h" });
+
+    setNamespace("http://old");
+    expect(await cacheGet("stale-server")).toBeNull();
+  });
+
+  it("keeps pinned entries and drops the least recently used ones", async () => {
+    const pinned: Resource<number> = { key: "pinned", ttlMs: 1000, pinned: true, fetcher: jest.fn() };
+    await cacheSet(pinned.key, 1, 1000, { hash: "h" }, true);
+
+    // Comfortably past MAX_ENTRIES (240) so the LRU pass has to act.
+    for (let i = 0; i < 260; i++) {
+      await cacheSet(`k${i}`, i, 1000, { hash: `h${i}` });
+    }
+
+    expect((await cacheGet<number>("pinned"))?.data).toBe(1);
+    // Oldest unpinned entries are gone; the newest survive.
+    expect(await cacheGet("k0")).toBeNull();
+    expect((await cacheGet<number>("k259"))?.data).toBe(259);
+  });
+});
+
 describe("isStale", () => {
   it("is false inside the ttl and true past it", () => {
     const now = Date.now();

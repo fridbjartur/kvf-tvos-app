@@ -243,25 +243,28 @@ function rememberInMemory(key: string, data: unknown): void {
 /** Drop foreign-namespace, over-budget and over-count entries from disk. */
 async function evict(): Promise<void> {
   const keys = Object.keys(index.records);
-  const doomed: string[] = [];
 
+  // Entries from another API base URL are dead weight — drop them first.
+  const doomed = new Set(keys.filter((k) => index.records[k].ns !== namespace));
+
+  let count = keys.length - doomed.size;
+  let bytes = 0;
   for (const k of keys) {
-    if (index.records[k].ns !== namespace) doomed.push(k);
+    if (!doomed.has(k)) bytes += index.records[k].bytes;
   }
 
-  const live = keys.filter((k) => !doomed.includes(k) && !index.records[k].pinned).sort((a, b) => index.records[a].lastAccess - index.records[b].lastAccess);
+  if (count > MAX_ENTRIES || bytes > MAX_BYTES) {
+    const evictable = keys.filter((k) => !doomed.has(k) && !index.records[k].pinned).sort((a, b) => index.records[a].lastAccess - index.records[b].lastAccess);
 
-  let count = keys.length - doomed.length;
-  let bytes = keys.reduce((sum, k) => (doomed.includes(k) ? sum : sum + index.records[k].bytes), 0);
-
-  for (const k of live) {
-    if (count <= MAX_ENTRIES && bytes <= MAX_BYTES) break;
-    doomed.push(k);
-    count -= 1;
-    bytes -= index.records[k].bytes;
+    for (const k of evictable) {
+      if (count <= MAX_ENTRIES && bytes <= MAX_BYTES) break;
+      doomed.add(k);
+      count -= 1;
+      bytes -= index.records[k].bytes;
+    }
   }
 
-  if (doomed.length === 0) return;
+  if (doomed.size === 0) return;
 
   for (const k of doomed) {
     delete index.records[k];
@@ -274,7 +277,7 @@ async function evict(): Promise<void> {
   }
 
   scheduleFlush();
-  logger.debug("kvfCache: evicted", { count: doomed.length });
+  logger.debug("kvfCache: evicted", { count: doomed.size });
 }
 
 // ── Reads ──────────────────────────────────────────────────────────────────────

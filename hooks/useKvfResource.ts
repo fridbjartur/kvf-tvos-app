@@ -28,17 +28,28 @@ export interface KvfResourceState<T> {
   refresh: () => void;
 }
 
+/** Data is stored with the key it belongs to, so a key change can't show stale content. */
+interface Held<T> {
+  key: string | null;
+  data: T | null;
+}
+
 export function useKvfResource<T>(resource: Resource<T> | null, fallbackError = "Failed to load"): KvfResourceState<T> {
-  const [data, setData] = useState<T | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [held, setHeld] = useState<Held<T>>({ key: null, data: null });
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // The caller rebuilds the resource object every render; only its key
-  // identifies it, so hold the latest object in a ref and key the effect on
-  // `key` alone. Depending on `resource` would refetch on every render.
+  // identifies it, so hold the latest object in a ref and key the load effect
+  // on `key` alone. Depending on `resource` would refetch on every render.
   const resourceRef = useRef(resource);
-  resourceRef.current = resource;
+
+  // Declared before the load effect, so on the commit where `key` changes the
+  // ref is already updated by the time the load below runs.
+  useEffect(() => {
+    resourceRef.current = resource;
+  });
 
   const key = resource?.key ?? null;
 
@@ -49,9 +60,12 @@ export function useKvfResource<T>(resource: Resource<T> | null, fallbackError = 
       void swr(
         current,
         {
-          onData: (next) => setData(() => next),
-          onLoading: setIsLoading,
-          onRefreshing: setIsRefreshing,
+          onData: (next) => {
+            setHeld({ key: current.key, data: next });
+            setError(null);
+          },
+          onLoading: setLoading,
+          onRefreshing: setRefreshing,
           onError: (err) => setError(err instanceof Error ? err.message : fallbackError),
         },
         force,
@@ -61,18 +75,13 @@ export function useKvfResource<T>(resource: Resource<T> | null, fallbackError = 
   );
 
   useEffect(() => {
-    if (!key) {
-      setData(null);
-      setIsLoading(false);
-      return;
-    }
+    if (!key) return;
 
     let active = true;
-    setError(null);
 
     // Another screen (or kvfPreload) refreshing this key updates us too.
     const unsubscribe = subscribe<T>(key, (entry) => {
-      if (active) setData(() => entry.data);
+      if (active) setHeld({ key, data: entry.data });
     });
 
     load(false);
@@ -81,16 +90,19 @@ export function useKvfResource<T>(resource: Resource<T> | null, fallbackError = 
       active = false;
       unsubscribe();
     };
-    // `load` is stable and `resourceRef` carries the rest — see note above.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
-
-  // A successful load clears a stale error banner.
-  useEffect(() => {
-    if (data !== null) setError(null);
-  }, [data]);
+  }, [key, load]);
 
   const refresh = useCallback(() => load(true), [load]);
 
-  return { data, isLoading, isRefreshing, error, refresh };
+  // Derived rather than synced: state left over from a previous key (or from
+  // before the resource went null) is never rendered.
+  const matches = held.key === key;
+
+  return {
+    data: matches ? held.data : null,
+    isLoading: key !== null && loading && !(matches && held.data !== null),
+    isRefreshing: key !== null && matches && refreshing,
+    error: matches && held.data !== null ? null : error,
+    refresh,
+  };
 }

@@ -2,15 +2,15 @@
  * Live TV — KVF and KVF2 channel tiles.
  */
 
+import { FocusScaleCard } from "@/components/focus-scale-card";
 import strings from "@/constants/strings.json";
 import { useLoading } from "@/contexts/LoadingContext";
 import { useRouter } from "expo-router";
-import { useCallback, useRef } from "react";
-import { Animated, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useCallback } from "react";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const IS_TV = Platform.isTV;
-const SPRING = { tension: 220, friction: 22, useNativeDriver: true } as const;
 
 const CHANNELS: { name: string; subtitle: string; url: string | null }[] = [
   {
@@ -34,53 +34,36 @@ interface ChannelTileProps {
 }
 
 function ChannelTile({ name, subtitle, url, onPress, hasTVPreferredFocus }: ChannelTileProps) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const borderOpacity = useRef(new Animated.Value(0)).current;
   const unavailable = !url;
-
-  const handleFocus = useCallback(() => {
-    Animated.spring(scale, { toValue: 1.07, ...SPRING }).start();
-    Animated.spring(borderOpacity, { toValue: 1, ...SPRING }).start();
-  }, [scale, borderOpacity]);
-
-  const handleBlur = useCallback(() => {
-    Animated.spring(scale, { toValue: 1, ...SPRING }).start();
-    Animated.spring(borderOpacity, { toValue: 0, ...SPRING }).start();
-  }, [scale, borderOpacity]);
 
   const handlePress = useCallback(() => {
     if (url) onPress(name, url);
   }, [name, url, onPress]);
 
   return (
-    <TouchableOpacity
+    // scale wraps the whole card — no overflow:hidden so the border is never clipped
+    <FocusScaleCard
       onPress={handlePress}
-      onFocus={handleFocus}
-      onBlur={handleBlur}
       activeOpacity={unavailable ? 1 : 0.9}
       isTVSelectable={!unavailable}
       hasTVPreferredFocus={hasTVPreferredFocus}
       disabled={unavailable}
-      style={unavailable && S.tileDisabled}
-      accessibilityLabel={`${name}${unavailable ? " (" + strings.live.comingSoon + ")" : ""}`}
-      accessibilityRole="button">
-      {/* scale wraps the whole card — no overflow:hidden so border is never clipped */}
-      <Animated.View style={[S.tile, { transform: [{ scale }] }]}>
-        <View style={S.tileInner}>
-          {!unavailable && (
-            <View style={S.liveBadge}>
-              <Text style={S.liveText}>{strings.live.liveTag}</Text>
-            </View>
-          )}
-          <Text style={[S.channelName, unavailable && S.channelNameDisabled]}>{name}</Text>
-          <Text style={[S.channelSubtitle, unavailable && S.channelNameDisabled]}>{subtitle}</Text>
-          {unavailable && <Text style={S.comingSoon}>{strings.live.comingSoon}</Text>}
-        </View>
-
-        {/* White focus border — absolutely positioned, not clipped */}
-        <Animated.View style={[S.tileBorder, { opacity: borderOpacity }]} pointerEvents="none" />
-      </Animated.View>
-    </TouchableOpacity>
+      scaleTo={1.07}
+      style={unavailable ? S.tileDisabled : undefined}
+      cardStyle={S.tile}
+      borderStyle={S.tileBorder}
+      accessibilityLabel={`${name}${unavailable ? " (" + strings.live.comingSoon + ")" : ""}`}>
+      <View style={S.tileInner}>
+        {!unavailable && (
+          <View style={S.liveBadge}>
+            <Text style={S.liveText}>{strings.live.liveTag}</Text>
+          </View>
+        )}
+        <Text style={[S.channelName, unavailable && S.channelNameDisabled]}>{name}</Text>
+        <Text style={[S.channelSubtitle, unavailable && S.channelNameDisabled]}>{subtitle}</Text>
+        {unavailable && <Text style={S.comingSoon}>{strings.live.comingSoon}</Text>}
+      </View>
+    </FocusScaleCard>
   );
 }
 

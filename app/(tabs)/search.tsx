@@ -42,47 +42,29 @@ function NativeSearchScreen() {
   const router = useRouter();
   const { programs, isLoading } = useAllPrograms();
 
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [query, setQuery] = useState("");
 
-  // Map all programs to SearchResult once loaded, so the initial state shows everything
-  useEffect(() => {
-    if (programs.length > 0) {
-      setResults(
-        programs.map((p) => ({
-          id: p.slug,
-          title: p.title,
-          imageUrl: p.thumbnailUrl ?? undefined,
-        })),
-      );
-    }
-  }, [programs]);
+  // Derived, not stored: empty query shows everything.
+  const results = useMemo<SearchResult[]>(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = q ? programs.filter((p) => p.title.toLowerCase().includes(q)) : programs;
+    return filtered.map((p) => ({
+      id: p.listKey,
+      title: p.title,
+      imageUrl: p.thumbnailUrl ?? undefined,
+    }));
+  }, [programs, query]);
 
-  const handleSearch = useCallback(
-    (event: { nativeEvent: { query: string } }) => {
-      const q = event.nativeEvent.query.trim().toLowerCase();
-      setIsSearching(true);
-
-      const filtered = q ? programs.filter((p) => p.title.toLowerCase().includes(q)) : programs;
-
-      setResults(
-        filtered.map((p) => ({
-          id: p.slug,
-          title: p.title,
-          imageUrl: p.thumbnailUrl ?? undefined,
-        })),
-      );
-      setIsSearching(false);
-    },
-    [programs],
-  );
+  const handleSearch = useCallback((event: { nativeEvent: { query: string } }) => {
+    setQuery(event.nativeEvent.query);
+  }, []);
 
   const handleSelectItem = useCallback(
     (event: { nativeEvent: { id: string } }) => {
-      const slug = event.nativeEvent.id;
-      const program = programs.find((p) => p.slug === slug);
-      const section = program?.path?.includes("/vit/") ? "vit" : "sjon";
-      router.push({ pathname: "/program", params: { section, slug } });
+      const program = programs.find((p) => p.listKey === event.nativeEvent.id);
+      if (!program) return;
+      const section = program.path?.includes("/vit/") ? "vit" : "sjon";
+      router.push({ pathname: "/program", params: { section, slug: program.slug } });
     },
     [programs, router],
   );
@@ -101,7 +83,7 @@ function NativeSearchScreen() {
       columns={5}
       placeholder={strings.search.placeholder}
       emptyStateText={strings.search.emptyNative}
-      isLoading={isSearching}
+      isLoading={false}
       topInset={140}
       colorScheme="dark"
       overlayTitleSize={30}
@@ -114,7 +96,7 @@ function NativeSearchScreen() {
 
 // ── React Native fallback (iOS / simulator) ───────────────────────────────────
 
-const SearchHeader = React.memo(function SearchHeader({ onChangeText, inputRef }: { onChangeText: (t: string) => void; inputRef: React.RefObject<TextInput> }) {
+const SearchHeader = React.memo(function SearchHeader({ onChangeText, inputRef }: { onChangeText: (t: string) => void; inputRef: React.RefObject<TextInput | null> }) {
   const [focused, setFocused] = useState(false);
 
   return (
@@ -204,7 +186,7 @@ function ReactNativeSearchScreen() {
         <FlatList
           data={filtered}
           renderItem={renderItem}
-          keyExtractor={(p) => p.slug}
+          keyExtractor={(p) => p.listKey}
           numColumns={NUM_COLS}
           key={NUM_COLS}
           contentContainerStyle={S.gridContent}

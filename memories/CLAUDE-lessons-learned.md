@@ -360,3 +360,36 @@ Switched `STORAGE_FILE` to `FileSystem.cacheDirectory`. Updated the test mock to
 
 - `services/watchProgressService.ts:8`
 - `services/__tests__/watchProgressService.test.ts:8`
+
+---
+
+## Project-Wide Lint/TS Cleanup — Hidden Config Bugs (July 2026)
+
+### Problem
+
+`expo lint` crashed outright ("could not find plugin @typescript-eslint"), so lint had silently stopped running project-wide. Separately, `tsc` had ~20 errors and builds spammed duplicate/missing React key warnings from API-sourced lists.
+
+### Root Cause
+
+1. **ESLint flat config scoping:** in `eslint.config.js`, a rules-override object without a `files` key applies to ALL files. `eslint-config-expo/flat` registers the `@typescript-eslint` plugin only for `**/*.ts(x)`, so referencing its rules in an unscoped block crashed ESLint on every `.js` file.
+2. **expo-file-system 56 API split:** `FileSystem.cacheDirectory` no longer exists on the main entry — legacy constants/functions moved to `expo-file-system/legacy`.
+3. **Stale fork tests:** three test suites tested exports (`videoPlayerReducer`, `PlaybackMode`, `buildQueue`) deleted when the Jellyfin hook/context was rewritten for KVF.
+4. **API keys:** KVF API can return duplicate/missing `slug`/`sid`, and lists used those raw as React keys.
+
+### Solution
+
+- Scoped the `@typescript-eslint` rule override with `files: ["**/*.ts", "**/*.tsx"]`; added jest globals for `jest.setup.js`; allowed `require()` in test files (jest.doMock pattern).
+- `import * as FileSystem from "expo-file-system/legacy"` in `services/kvfCache.ts`.
+- Deleted the three uncompilable stale suites; rewrote `PlayQueueContext.integration.test.tsx` against the current API.
+- Added `utils/keys.ts` `withListKeys()` — attaches a unique `listKey` (`id`, `id-2`, … or generated fallback) to every list item at the kvfApi layer; all `keyExtractor`s/`key`s use `listKey`.
+- Extracted `components/focus-scale-card.tsx` (`FocusScaleCard` + `useFocusSpring`) replacing the copy-pasted `useRef(new Animated.Value())` focus animation (a react-hooks/refs lint error) in kvf-program-card, EpisodeCard, ChannelTile. Animated.Values are created via `useState` lazy init.
+
+### Key Takeaways
+
+1. In ESLint flat config, every override block that uses plugin rules must be scoped with `files` matching where the plugin is registered.
+2. Reset-state-on-prop-change belongs in render ("adjust state during render" pattern) or derived `useMemo`, not `useEffect` — the `react-hooks/set-state-in-effect` rule enforces this.
+3. Never trust API ids as React keys — normalize once at the API layer, not per-screen.
+
+### Files Affected
+
+- `eslint.config.js`, `services/kvfCache.ts`, `utils/keys.ts`, `services/kvfApi.ts`, `types/kvf.ts`, `components/focus-scale-card.tsx`

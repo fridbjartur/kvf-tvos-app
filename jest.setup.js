@@ -23,9 +23,11 @@ jest.mock("expo-secure-store", () => ({
 // Mock react-native-video
 jest.mock("react-native-video", () => {
   const React = require("react");
-  return React.forwardRef((props, ref) => {
+  const MockVideo = React.forwardRef(function MockVideo() {
     return null; // Mock Video component
   });
+  MockVideo.displayName = "MockVideo";
+  return MockVideo;
 });
 
 // Mock expo-router to prevent loading app structure

@@ -9,6 +9,9 @@
  */
 
 // Mock logger before importing multiAudioLoader
+import type { JellyfinVideoItem } from "@/types/jellyfin";
+import type { AudioTrackInfo } from "../multiAudioLoader";
+
 jest.mock("@/utils/logger", () => ({
   logger: {
     debug: jest.fn(),
@@ -17,9 +20,6 @@ jest.mock("@/utils/logger", () => ({
     error: jest.fn(),
   },
 }));
-
-import type { JellyfinVideoItem } from "@/types/jellyfin";
-import type { AudioTrackInfo } from "../multiAudioLoader";
 
 /**
  * Helper to create a minimal valid JellyfinVideoItem

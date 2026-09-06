@@ -1,6 +1,27 @@
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 type ColorScheme = "light" | "dark" | null;
+
+function subscribe(onStoreChange: () => void): () => void {
+  if (typeof window === "undefined" || !window.matchMedia) {
+    return () => {};
+  }
+  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  mediaQuery.addEventListener("change", onStoreChange);
+  return () => mediaQuery.removeEventListener("change", onStoreChange);
+}
+
+function getSnapshot(): ColorScheme {
+  if (typeof window === "undefined" || !window.matchMedia) {
+    return null;
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+// SSR/SSG renders 'light' — matches the pre-hydration default.
+function getServerSnapshot(): ColorScheme {
+  return "light";
+}
 
 /**
  * Web-specific color scheme hook using matchMedia
@@ -8,39 +29,5 @@ type ColorScheme = "light" | "dark" | null;
  * Handles hydration properly for SSR/SSG
  */
 export function useColorScheme(): ColorScheme {
-  const [hasHydrated, setHasHydrated] = useState(false);
-  const [colorScheme, setColorScheme] = useState<ColorScheme>(null);
-
-  useEffect(() => {
-    setHasHydrated(true);
-
-    // Check if matchMedia is available (browser environment)
-    if (typeof window === "undefined" || !window.matchMedia) {
-      return;
-    }
-
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-
-    // Set initial value
-    setColorScheme(mediaQuery.matches ? "dark" : "light");
-
-    // Listen for changes
-    const handleChange = (event: MediaQueryListEvent) => {
-      setColorScheme(event.matches ? "dark" : "light");
-    };
-
-    // Modern browsers use addEventListener
-    mediaQuery.addEventListener("change", handleChange);
-
-    return () => {
-      mediaQuery.removeEventListener("change", handleChange);
-    };
-  }, []);
-
-  // Before hydration, return 'light' as default (matches SSR)
-  if (!hasHydrated) {
-    return "light";
-  }
-
-  return colorScheme;
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }

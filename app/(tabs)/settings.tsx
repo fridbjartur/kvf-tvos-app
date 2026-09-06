@@ -5,7 +5,7 @@ import strings from "@/constants/strings.json";
  */
 
 import { FocusableButton } from "@/components/FocusableButton";
-import { DEFAULT_API_BASE_URL, getApiUrl, saveApiUrl } from "@/services/kvfApi";
+import { DEFAULT_API_BASE_URL, getApiUrl, loadApiUrl, saveApiUrl } from "@/services/kvfApi";
 import React, { useCallback, useEffect, useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -18,9 +18,15 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const topPad = insets.top + (IS_TV ? 80 : 20);
 
-  // Keep UI in sync if url was loaded async.
+  // Keep UI in sync with the stored URL (may still be loading at mount).
   useEffect(() => {
-    setUrl(getApiUrl());
+    let cancelled = false;
+    loadApiUrl().then(() => {
+      if (!cancelled) setUrl(getApiUrl());
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleSave = useCallback(async () => {

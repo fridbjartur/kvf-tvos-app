@@ -11,7 +11,7 @@ import strings from "@/constants/strings.json";
  */
 
 import { FocusableButton } from "@/components/FocusableButton";
-import { MarqueeText } from "@/components/MarqueeText";
+import { FocusScaleCard } from "@/components/focus-scale-card";
 import { usePlayQueue } from "@/contexts/PlayQueueContext";
 import { getEpisode, getProgram, prefetchEpisode } from "@/services/kvfApi";
 import type { Episode, ProgramPage, QueueEpisode, Section } from "@/types/kvf";
@@ -19,15 +19,14 @@ import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, BackHandler, Dimensions, FlatList, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, useTVEventHandler } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, BackHandler, Dimensions, FlatList, Platform, ScrollView, StyleSheet, Text, View, useTVEventHandler } from "react-native";
 import { DESIGN } from "@/constants/app";
 
 const IS_TV = Platform.isTV;
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
+const { height: SCREEN_H } = Dimensions.get("window");
 const BANNER_H = IS_TV ? Math.round(SCREEN_H * 0.58) : Math.round(SCREEN_H * 0.42);
 const EPISODE_CARD_W = IS_TV ? 320 : 200;
-const SPRING = { tension: 220, friction: 22, useNativeDriver: true };
 
 // ── Animated episode card ──────────────────────────────────────────────────────
 
@@ -40,54 +39,41 @@ interface EpisodeCardProps {
 }
 
 function EpisodeCard({ episode, isActive, onPress, onFocus, hasTVPreferredFocus }: EpisodeCardProps) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const borderOpacity = useRef(new Animated.Value(isActive ? 0.5 : 0)).current;
-
-  const handleFocus = useCallback(() => {
-    Animated.spring(scale, { toValue: 1.08, ...SPRING }).start();
-    Animated.spring(borderOpacity, { toValue: 1, ...SPRING }).start();
-    onFocus(episode);
-  }, [scale, borderOpacity, onFocus, episode]);
-
-  const handleBlur = useCallback(() => {
-    Animated.spring(scale, { toValue: 1, ...SPRING }).start();
-    Animated.spring(borderOpacity, { toValue: isActive ? 0.5 : 0, ...SPRING }).start();
-  }, [scale, borderOpacity, isActive]);
-
+  const handleFocus = useCallback(() => onFocus(episode), [onFocus, episode]);
   const handlePress = useCallback(() => onPress(episode), [onPress, episode]);
 
   return (
-    <TouchableOpacity
+    <FocusScaleCard
       onPress={handlePress}
       onFocus={handleFocus}
-      onBlur={handleBlur}
-      activeOpacity={0.9}
-      isTVSelectable
       hasTVPreferredFocus={hasTVPreferredFocus}
+      activeOpacity={0.9}
+      scaleTo={1.08}
+      restBorderOpacity={isActive ? 0.5 : 0}
       style={styles.epOuter}
+      cardStyle={styles.epCard}
+      borderStyle={styles.epBorder}
       accessibilityLabel={episode.title}
-      accessibilityRole="button">
-      <Animated.View style={[styles.epCard, { transform: [{ scale }] }]}>
-        {episode.thumbnailUrl ? (
-          <Image source={{ uri: episode.thumbnailUrl, cacheKey: `ep-${episode.sid}` }} style={styles.epImage} contentFit="cover" transition={0} cachePolicy="memory-disk" />
-        ) : (
-          <View style={styles.epImagePlaceholder} />
-        )}
+      footer={
+        <>
+          <Text style={styles.epTitle} numberOfLines={2}>
+            {episode.title}
+          </Text>
+          {episode.publishDate ? <Text style={styles.epDate}>{episode.publishDate}</Text> : null}
+        </>
+      }>
+      {episode.thumbnailUrl ? (
+        <Image source={{ uri: episode.thumbnailUrl, cacheKey: `ep-${episode.sid}` }} style={styles.epImage} contentFit="cover" transition={0} cachePolicy="memory-disk" />
+      ) : (
+        <View style={styles.epImagePlaceholder} />
+      )}
 
-        {isActive && (
-          <View style={styles.nowPlayingBadge}>
-            <Text style={styles.nowPlayingText}>▶</Text>
-          </View>
-        )}
-
-        <Animated.View style={[styles.epBorder, { opacity: borderOpacity }]} pointerEvents="none" />
-      </Animated.View>
-
-      <Text style={styles.epTitle} numberOfLines={2}>
-        {episode.title}
-      </Text>
-      {episode.publishDate ? <Text style={styles.epDate}>{episode.publishDate}</Text> : null}
-    </TouchableOpacity>
+      {isActive && (
+        <View style={styles.nowPlayingBadge}>
+          <Text style={styles.nowPlayingText}>▶</Text>
+        </View>
+      )}
+    </FocusScaleCard>
   );
 }
 
@@ -268,7 +254,7 @@ export default function ProgramScreen() {
             <FlatList
               data={episodes}
               renderItem={renderEpisode}
-              keyExtractor={(e) => e.sid}
+              keyExtractor={(e) => e.listKey}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.episodesRow}

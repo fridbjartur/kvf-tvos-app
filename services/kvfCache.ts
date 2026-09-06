@@ -7,7 +7,7 @@
  *   3. Only show a loading state when there is no cached data at all.
  */
 
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { logger } from "@/utils/logger";
 
 const CACHE_DIR = `${FileSystem.cacheDirectory}kvf-cache/`;
@@ -19,8 +19,7 @@ interface CacheEntry<T> {
 }
 
 // ── In-memory layer ────────────────────────────────────────────────────────────
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const memStore = new Map<string, CacheEntry<any>>();
+const memStore = new Map<string, CacheEntry<unknown>>();
 
 function memGet<T>(key: string): CacheEntry<T> | null {
   return (memStore.get(key) as CacheEntry<T>) ?? null;

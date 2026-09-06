@@ -120,10 +120,13 @@ export function HeroBanner({ heroes, onPress, hasTVPreferredFocus }: HeroBannerP
     heroesLengthRef.current = heroes.length;
   }, [heroes.length]);
 
-  // Reset to slide 0 when heroes changes
-  useEffect(() => {
+  // Reset to slide 0 when heroes changes — state adjustment during render
+  // (no effect, no extra cascading render).
+  const [prevHeroes, setPrevHeroes] = useState(heroes);
+  if (heroes !== prevHeroes) {
+    setPrevHeroes(heroes);
     setActiveIndex(0);
-  }, [heroes]);
+  }
 
   const changeSlide = useCallback((direction: "left" | "right") => {
     const current = activeIndexRef.current;
@@ -163,7 +166,7 @@ export function HeroBanner({ heroes, onPress, hasTVPreferredFocus }: HeroBannerP
       onPress={() => onPress(activeHero)}
       style={S.frame}>
       {heroes.map((hero, i) => (
-        <HeroSlide key={hero.slug} hero={hero} isActive={i === activeIndex} activeIndex={activeIndex} heroesLength={heroes.length} focused={focused} />
+        <HeroSlide key={hero.listKey} hero={hero} isActive={i === activeIndex} activeIndex={activeIndex} heroesLength={heroes.length} focused={focused} />
       ))}
     </TouchableOpacity>
   );

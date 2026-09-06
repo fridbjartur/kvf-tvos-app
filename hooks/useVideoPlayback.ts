@@ -18,7 +18,7 @@ export interface UseVideoPlaybackOptions {
 }
 
 export interface UseVideoPlaybackResult {
-  videoRef: React.RefObject<VideoRef>;
+  videoRef: React.RefObject<VideoRef | null>;
   paused: boolean;
   state: PlaybackState;
   showLoadingOverlay: boolean;
@@ -38,20 +38,22 @@ export function useVideoPlayback({ streamUrl, onPlaybackEnd }: UseVideoPlaybackO
   const videoRef = useRef<VideoRef>(null);
   const [paused, setPaused] = useState(false);
   const [state, setState] = useState<PlaybackState>({ type: "LOADING" });
-  const [retryCount, setRetryCount] = useState(0);
   const onPlaybackEndRef = useRef(onPlaybackEnd);
 
   useEffect(() => {
     onPlaybackEndRef.current = onPlaybackEnd;
   }, [onPlaybackEnd]);
 
-  // Reset state when URL changes (new episode).
-  useEffect(() => {
+  // Reset state when URL changes (new episode) — "adjust state during render"
+  // pattern instead of an effect, so there is no extra cascading render.
+  const [prevStreamUrl, setPrevStreamUrl] = useState(streamUrl);
+  if (streamUrl !== prevStreamUrl) {
+    setPrevStreamUrl(streamUrl);
     if (streamUrl) {
       setState({ type: "LOADING" });
       setPaused(false);
     }
-  }, [streamUrl, retryCount]);
+  }
 
   const onReadyForDisplay = useCallback(() => {
     logger.debug("useVideoPlayback: ready for display");
@@ -73,9 +75,7 @@ export function useVideoPlayback({ streamUrl, onPlaybackEnd }: UseVideoPlaybackO
   }, []);
 
   const onError = useCallback((error: OnVideoErrorData) => {
-    const msg =
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (error as any)?.error?.localizedDescription ?? (error as unknown as { error?: { localizedDescription?: string } })?.error?.localizedDescription ?? "Playback error";
+    const msg = (error as unknown as { error?: { localizedDescription?: string } })?.error?.localizedDescription ?? "Playback error";
     logger.warn("useVideoPlayback: error", { msg });
     setState({ type: "ERROR", error: msg });
   }, []);
@@ -93,7 +93,6 @@ export function useVideoPlayback({ streamUrl, onPlaybackEnd }: UseVideoPlaybackO
   const retry = useCallback(() => {
     setState({ type: "LOADING" });
     setPaused(false);
-    setRetryCount((c) => c + 1);
   }, []);
 
   const showLoadingOverlay = state.type === "LOADING" && !!streamUrl;

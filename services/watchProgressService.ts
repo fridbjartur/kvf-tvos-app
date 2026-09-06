@@ -214,7 +214,7 @@ export async function saveProgress(videoId: string, position: number, duration: 
  * Drops near-finished items (>= 95% watched) that may have lingered after a
  * force-quit. Used to populate the Continue Watching screen.
  */
-export async function getRecentProgress(limit = 30): Promise<Array<{ videoId: string } & WatchProgressEntry>> {
+export async function getRecentProgress(limit = 30): Promise<({ videoId: string } & WatchProgressEntry)[]> {
   await ensureCacheLoaded();
 
   return Object.entries(cache!)

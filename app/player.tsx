@@ -12,7 +12,6 @@ import { usePlayQueue } from "@/contexts/PlayQueueContext";
 import { useLoading } from "@/contexts/LoadingContext";
 import { useVideoPlayback } from "@/hooks/useVideoPlayback";
 import { resolveStreamUrl } from "@/services/kvfApi";
-import type { Section } from "@/types/kvf";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -36,7 +35,6 @@ export default function PlayerScreen() {
   const { hasNext, nextEpisode, advance, clear, progress } = usePlayQueue();
 
   const isLive = params.isLive === "true";
-  const safeSection = (params.section === "vit" ? "vit" : "sjon") as Section;
 
   // ── Up-next state ────────────────────────────────────────────────────────────
   const [showUpNext, setShowUpNext] = useState(false);

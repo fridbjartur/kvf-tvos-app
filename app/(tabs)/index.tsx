@@ -29,7 +29,7 @@ function CategoryRow({ category, onPress }: { category: Category; onPress: (p: P
       <FlatList
         data={category.programs}
         renderItem={renderItem}
-        keyExtractor={(p) => p.slug}
+        keyExtractor={(p) => p.listKey}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={S.rowContent}
@@ -89,7 +89,7 @@ export default function HomeScreen() {
         {featured.length > 0 ? <HeroBanner heroes={featured} onPress={handleProgramPress} hasTVPreferredFocus /> : <View style={{ height: insets.top }} />}
         <View style={S.categories}>
           {categories.map((cat) => (
-            <CategoryRow key={cat.id ?? cat.title} category={cat} onPress={handleProgramPress} />
+            <CategoryRow key={cat.listKey} category={cat} onPress={handleProgramPress} />
           ))}
         </View>
         <View style={S.bottomPad} />

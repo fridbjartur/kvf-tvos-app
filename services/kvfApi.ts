@@ -11,6 +11,7 @@
 import * as SecureStore from "expo-secure-store";
 import type { EpisodeDetail, FrontPage, ProgramCard, ProgramPage, Section } from "@/types/kvf";
 import { cacheGet, cacheSet, fetchSWR, TTL } from "./kvfCache";
+import { withListKeys } from "@/utils/keys";
 import { logger } from "@/utils/logger";
 
 const FALLBACK_BASE_URL = "http://192.168.1.10:3939";
@@ -54,6 +55,25 @@ async function apiFetch<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+// ── List keys ──────────────────────────────────────────────────────────────────
+// The API can return duplicate/missing slugs and sids. Every response is
+// normalized here so all list items carry a unique `listKey` for React.
+
+function keyFrontPage(page: FrontPage): FrontPage {
+  return {
+    ...page,
+    featuredPrograms: withListKeys(page.featuredPrograms, (p) => p.slug),
+    categories: withListKeys(page.categories, (c) => (c.id != null ? String(c.id) : c.title)).map((cat) => ({
+      ...cat,
+      programs: withListKeys(cat.programs, (p) => p.slug),
+    })),
+  };
+}
+
+function keyProgramPage(page: ProgramPage): ProgramPage {
+  return { ...page, episodes: withListKeys(page.episodes, (e) => e.sid) };
+}
+
 // ── Front pages ────────────────────────────────────────────────────────────────
 
 export async function getSjonPage(opts: { onData: (d: FrontPage) => void; onLoading?: (v: boolean) => void; onError?: (e: unknown) => void }): Promise<void> {
@@ -62,6 +82,7 @@ export async function getSjonPage(opts: { onData: (d: FrontPage) => void; onLoad
     ttlMs: TTL.FRONT_PAGE,
     fetcher: () => apiFetch<FrontPage>("/api/sjon"),
     ...opts,
+    onData: (d) => opts.onData(keyFrontPage(d)),
   });
 }
 
@@ -71,6 +92,7 @@ export async function getVitPage(opts: { onData: (d: FrontPage) => void; onLoadi
     ttlMs: TTL.FRONT_PAGE,
     fetcher: () => apiFetch<FrontPage>("/api/vit"),
     ...opts,
+    onData: (d) => opts.onData(keyFrontPage(d)),
   });
 }
 
@@ -90,6 +112,7 @@ export async function getProgram(
     ttlMs: TTL.PROGRAM,
     fetcher: () => apiFetch<ProgramPage>(`/api/${section}/programs/${slug}`),
     ...opts,
+    onData: (d) => opts.onData(keyProgramPage(d)),
   });
 }
 
@@ -153,7 +176,10 @@ export async function getAllPrograms(): Promise<ProgramCard[]> {
     }
   }
 
-  return all.sort((a, b) => a.title.localeCompare(b.title));
+  return withListKeys(
+    all.sort((a, b) => a.title.localeCompare(b.title)),
+    (p) => p.slug,
+  );
 }
 
 /**

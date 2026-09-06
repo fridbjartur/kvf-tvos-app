@@ -7,6 +7,8 @@
  */
 
 // Mock the jellyfinApi auth functions
+import { initiateQuickConnect, pollQuickConnect, authenticateWithQuickConnect, saveAuthResult } from "@/services/jellyfinApi";
+
 const mockInitiateQuickConnect = jest.fn();
 const mockPollQuickConnect = jest.fn();
 const mockAuthenticateWithQuickConnect = jest.fn();
@@ -24,8 +26,6 @@ jest.mock("expo-secure-store", () => ({
   setItemAsync: jest.fn().mockResolvedValue(undefined),
   deleteItemAsync: jest.fn().mockResolvedValue(undefined),
 }));
-
-import { initiateQuickConnect, pollQuickConnect, authenticateWithQuickConnect, saveAuthResult } from "@/services/jellyfinApi";
 
 beforeEach(() => {
   jest.clearAllMocks();

@@ -1,4 +1,8 @@
 // KVF API types — mirrors kvf-scraper-api/src/lib/types.ts
+//
+// `listKey` is NOT part of the API payload: kvfApi attaches it client-side
+// (see utils/keys.ts) so React lists always have unique, stable keys even
+// when the API returns duplicate or missing slugs/sids.
 
 export type Section = "sjon" | "vit";
 
@@ -9,6 +13,8 @@ export interface ProgramCard {
   path: string;
   thumbnailUrl: string | null;
   apiProgramUrl: string | null;
+  /** Unique render key, attached client-side by kvfApi. */
+  listKey: string;
 }
 
 export interface FeaturedProgram extends ProgramCard {
@@ -20,6 +26,8 @@ export interface Category {
   title: string;
   programCount: number;
   programs: ProgramCard[];
+  /** Unique render key, attached client-side by kvfApi. */
+  listKey: string;
 }
 
 export interface FrontPage {
@@ -37,6 +45,8 @@ export interface Episode {
   thumbnailUrl: string | null;
   episodeUrl: string;
   slug: string;
+  /** Unique render key, attached client-side by kvfApi. */
+  listKey: string;
 }
 
 export interface ProgramPage {

@@ -1,5 +1,8 @@
 import { getProgress, saveProgress, clearProgress, clearAllProgress, getRecentProgress, _resetForTesting } from "../watchProgressService";
 
+// Import mocked module for assertions
+import * as FileSystem from "expo-file-system/legacy";
+
 // Mock expo-file-system/legacy with a single in-memory file (watch progress is
 // persisted as one JSON file, not in SecureStore — see watchProgressService).
 let mockFileContent: string | null = null;
@@ -18,9 +21,6 @@ jest.mock("expo-file-system/legacy", () => ({
     mockFileContent = null;
   }),
 }));
-
-// Import mocked module for assertions
-import * as FileSystem from "expo-file-system/legacy";
 
 beforeEach(() => {
   mockFileContent = null;

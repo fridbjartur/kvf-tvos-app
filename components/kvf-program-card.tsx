@@ -7,13 +7,13 @@
 import type { ProgramCard } from "@/types/kvf";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
-import { useCallback, useRef, useState } from "react";
-import { Animated, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useCallback } from "react";
+import { Platform, StyleSheet, Text, View } from "react-native";
+import { FocusScaleCard } from "./focus-scale-card";
 import { MarqueeText } from "./MarqueeText";
 import { DESIGN } from "@/constants/app";
 
 const IS_TV = Platform.isTV;
-const SPRING = { tension: 220, friction: 22, useNativeDriver: true } as const;
 const SCALE_FOCUSED = 1.05;
 const ASPECT_RATIO = 16 / 10;
 
@@ -27,60 +27,42 @@ interface KvfProgramCardProps {
 }
 
 function KvfProgramCardComponent({ program, onPress, onFocus, cardWidth, index = 0, hasTVPreferredFocus }: KvfProgramCardProps) {
-  const [focused, setFocused] = useState(false);
-  const scale = useRef(new Animated.Value(1)).current;
-  const borderOpacity = useRef(new Animated.Value(0)).current;
-
-  const handleFocus = useCallback(() => {
-    setFocused(true);
-    Animated.spring(scale, { toValue: SCALE_FOCUSED, ...SPRING }).start();
-    Animated.spring(borderOpacity, { toValue: 1, ...SPRING }).start();
-    onFocus?.(program);
-  }, [scale, borderOpacity, onFocus, program]);
-
-  const handleBlur = useCallback(() => {
-    setFocused(false);
-    Animated.spring(scale, { toValue: 1, ...SPRING }).start();
-    Animated.spring(borderOpacity, { toValue: 0, ...SPRING }).start();
-  }, [scale, borderOpacity]);
-
+  const handleFocus = useCallback(() => onFocus?.(program), [onFocus, program]);
   const handlePress = useCallback(() => onPress(program), [onPress, program]);
 
   const imageSource = program.thumbnailUrl ? { uri: program.thumbnailUrl, cacheKey: `prog-${program.slug}` } : null;
 
   return (
-    <TouchableOpacity
+    <FocusScaleCard
       onPress={handlePress}
       onFocus={handleFocus}
-      onBlur={handleBlur}
-      activeOpacity={0.95}
-      isTVSelectable
       hasTVPreferredFocus={hasTVPreferredFocus}
+      scaleTo={SCALE_FOCUSED}
       style={[S.outer, { width: cardWidth + (IS_TV ? 32 : 20) }]}
-      accessibilityLabel={program.title}
-      accessibilityRole="button">
-      <Animated.View style={[S.card, { width: cardWidth, transform: [{ scale }] }]}>
-        {imageSource ? (
-          <Image source={imageSource} style={S.image} contentFit="cover" transition={0} priority={index < 6 ? "high" : "normal"} cachePolicy="memory-disk" recyclingKey={program.slug} />
-        ) : (
-          <View style={S.placeholder}>
-            <Text style={S.placeholderText} numberOfLines={2}>
+      cardStyle={[S.card, { width: cardWidth }]}
+      borderStyle={S.border}
+      accessibilityLabel={program.title}>
+      {(focused) => (
+        <>
+          {imageSource ? (
+            <Image source={imageSource} style={S.image} contentFit="cover" transition={0} priority={index < 6 ? "high" : "normal"} cachePolicy="memory-disk" recyclingKey={program.slug} />
+          ) : (
+            <View style={S.placeholder}>
+              <Text style={S.placeholderText} numberOfLines={2}>
+                {program.title}
+              </Text>
+            </View>
+          )}
+
+          {/* Title bar */}
+          <BlurView intensity={60} style={S.titleBar}>
+            <MarqueeText active={focused} style={S.titleText}>
               {program.title}
-            </Text>
-          </View>
-        )}
-
-        {/* Title bar */}
-        <BlurView intensity={60} style={S.titleBar}>
-          <MarqueeText active={focused} style={S.titleText}>
-            {program.title}
-          </MarqueeText>
-        </BlurView>
-
-        {/* White border on focus */}
-        <Animated.View style={[S.border, { opacity: borderOpacity }]} pointerEvents="none" />
-      </Animated.View>
-    </TouchableOpacity>
+            </MarqueeText>
+          </BlurView>
+        </>
+      )}
+    </FocusScaleCard>
   );
 }
 

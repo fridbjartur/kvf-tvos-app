@@ -41,10 +41,10 @@ export function useWatchProgress({ videoId, videoRef, durationRef }: UseWatchPro
 
   // Stable ref for videoId — used in markEnded to avoid stale closures
   const videoIdRef = useRef(videoId);
-  videoIdRef.current = videoId;
 
   // Reset state when videoId changes
   useEffect(() => {
+    videoIdRef.current = videoId;
     lastSavedPositionRef.current = 0;
     lastSampledPositionRef.current = 0;
     endedRef.current = false;
@@ -53,9 +53,11 @@ export function useWatchProgress({ videoId, videoRef, durationRef }: UseWatchPro
   // Polling loop
   useEffect(() => {
     const currentVideoId = videoId; // Capture for cleanup closure
+    let latestDuration = durationRef.current; // Sampled each poll; used in cleanup
 
     const interval = setInterval(async () => {
       if (endedRef.current) return;
+      latestDuration = durationRef.current;
 
       try {
         const position = await videoRef.current?.getCurrentPosition();
@@ -68,7 +70,7 @@ export function useWatchProgress({ videoId, videoRef, durationRef }: UseWatchPro
         // Not enough change since last save — avoid noise
         if (Math.abs(position - lastSavedPositionRef.current) < MIN_SAVE_DELTA_SECONDS) return;
 
-        await saveProgress(currentVideoId, position, durationRef.current);
+        await saveProgress(currentVideoId, position, latestDuration);
         lastSavedPositionRef.current = position;
       } catch {
         // getCurrentPosition can throw if player is disposed — ignore silently
@@ -80,7 +82,7 @@ export function useWatchProgress({ videoId, videoRef, durationRef }: UseWatchPro
 
       // Save final position on cleanup (unless video ended naturally)
       if (!endedRef.current && lastSampledPositionRef.current > 0) {
-        saveProgress(currentVideoId, lastSampledPositionRef.current, durationRef.current);
+        saveProgress(currentVideoId, lastSampledPositionRef.current, latestDuration);
       }
     };
   }, [videoId, videoRef, durationRef]);

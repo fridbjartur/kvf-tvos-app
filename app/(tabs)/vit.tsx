@@ -1,13 +1,15 @@
+import strings from "@/constants/strings.json";
 /**
  * VIT — same layout as Sjón, sourced from /api/vit.
  */
 
 import { HeroBanner } from "@/components/HeroBanner";
 import { KvfProgramCard } from "@/components/kvf-program-card";
-import { getVitPage } from "@/services/kvfApi";
+import { frontPageResource } from "@/services/kvfApi";
+import { useKvfResource } from "@/hooks/useKvfResource";
 import type { Category, FrontPage, ProgramCard } from "@/types/kvf";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { ActivityIndicator, FlatList, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -45,17 +47,9 @@ export default function VitScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const [page, setPage] = useState<FrontPage | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    getVitPage({
-      onData: setPage,
-      onLoading: setIsLoading,
-      onError: (e) => setError(e instanceof Error ? e.message : "Failed to load"),
-    });
-  }, []);
+  // Rebuilt each render, but useKvfResource keys off `resource.key` only.
+  const resource = useMemo(() => frontPageResource("vit"), []);
+  const { data: page, isLoading, error } = useKvfResource<FrontPage>(resource, strings.common.failedToLoad);
 
   const featured = useMemo(() => page?.featuredPrograms ?? [], [page]);
   const categories = useMemo(() => page?.categories ?? [], [page]);

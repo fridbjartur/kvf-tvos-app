@@ -13,13 +13,14 @@ import strings from "@/constants/strings.json";
 import { FocusableButton } from "@/components/FocusableButton";
 import { FocusScaleCard } from "@/components/focus-scale-card";
 import { usePlayQueue } from "@/contexts/PlayQueueContext";
-import { getEpisode, getProgram, prefetchEpisode } from "@/services/kvfApi";
+import { loadEpisode, prefetchEpisode, programResource } from "@/services/kvfApi";
+import { useKvfResource } from "@/hooks/useKvfResource";
 import type { Episode, ProgramPage, QueueEpisode, Section } from "@/types/kvf";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, BackHandler, Dimensions, FlatList, Platform, ScrollView, StyleSheet, Text, View, useTVEventHandler } from "react-native";
 import { DESIGN } from "@/constants/app";
 
@@ -84,26 +85,26 @@ export default function ProgramScreen() {
   const router = useRouter();
   const { setQueue } = usePlayQueue();
 
-  const [programPage, setProgramPage] = useState<ProgramPage | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [focusedEpisode, setFocusedEpisode] = useState<Episode | null>(null);
   const [isResolvingStream, setIsResolvingStream] = useState(false);
+  const [playbackError, setPlaybackError] = useState<string | null>(null);
 
   const safeSection = (section === "vit" ? "vit" : "sjon") as Section;
 
+  const resource = useMemo(() => (slug ? programResource(safeSection, slug) : null), [safeSection, slug]);
+  const { data: programPage, isLoading, error: loadError } = useKvfResource<ProgramPage>(resource, strings.program.failedToLoad);
+  const error = playbackError ?? loadError;
+
+  // Follow the program's current episode, but never yank focus away from an
+  // episode the user has already selected on this screen.
   useEffect(() => {
-    if (!slug) return;
-    getProgram(safeSection, slug, {
-      onData: (p) => {
-        setProgramPage(p);
-        const current = p.currentEpisodeSid ? (p.episodes.find((e) => e.sid === p.currentEpisodeSid) ?? p.episodes[0]) : p.episodes[0];
-        setFocusedEpisode(current ?? null);
-      },
-      onLoading: setIsLoading,
-      onError: (e) => setError(e instanceof Error ? e.message : strings.program.failedToLoad),
+    if (!programPage) return;
+    setFocusedEpisode((prev) => {
+      if (prev && programPage.episodes.some((e) => e.sid === prev.sid)) return prev;
+      const current = programPage.currentEpisodeSid ? (programPage.episodes.find((e) => e.sid === programPage.currentEpisodeSid) ?? programPage.episodes[0]) : programPage.episodes[0];
+      return current ?? null;
     });
-  }, [safeSection, slug]);
+  }, [programPage]);
 
   // Prefetch focused episode in background
   useEffect(() => {
@@ -115,6 +116,7 @@ export default function ProgramScreen() {
     async (episode: Episode) => {
       if (!programPage || !slug) return;
       setIsResolvingStream(true);
+      setPlaybackError(null);
 
       const queue: QueueEpisode[] = programPage.episodes.map((e) => ({
         sid: e.sid,
@@ -126,29 +128,27 @@ export default function ProgramScreen() {
       const startIdx = programPage.episodes.findIndex((e) => e.sid === episode.sid);
       setQueue(queue, startIdx >= 0 ? startIdx : 0);
 
-      getEpisode(safeSection, slug, episode.sid, {
-        onData: (detail) => {
-          setIsResolvingStream(false);
-          if (!detail.streamUrl) {
-            setError(strings.program.errorNoStream);
-            return;
-          }
-          router.push({
-            pathname: "/player",
-            params: {
-              streamUrl: detail.streamUrl,
-              title: episode.title,
-              section: safeSection,
-              programSlug: slug,
-              episodeSid: episode.sid,
-            },
-          });
-        },
-        onError: () => {
-          setIsResolvingStream(false);
-          setError(strings.program.errorLoadEpisode);
-        },
-      });
+      try {
+        const detail = await loadEpisode(safeSection, slug, episode.sid);
+        if (!detail.streamUrl) {
+          setPlaybackError(strings.program.errorNoStream);
+          return;
+        }
+        router.push({
+          pathname: "/player",
+          params: {
+            streamUrl: detail.streamUrl,
+            title: episode.title,
+            section: safeSection,
+            programSlug: slug,
+            episodeSid: episode.sid,
+          },
+        });
+      } catch {
+        setPlaybackError(strings.program.errorLoadEpisode);
+      } finally {
+        setIsResolvingStream(false);
+      }
     },
     [programPage, safeSection, slug, setQueue, router],
   );

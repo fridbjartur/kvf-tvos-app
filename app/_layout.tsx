@@ -10,6 +10,7 @@ import { PlayQueueProvider } from "@/contexts/PlayQueueContext";
 import { PosterBackdropProvider } from "@/contexts/PosterBackdropContext";
 import { registerMultiAudioPlugin } from "@/services/multiAudioLoader";
 import { loadApiUrl } from "@/services/kvfApi";
+import { startKvfSync } from "@/services/kvfPreload";
 
 if (Platform.isTV) {
   LogBox.ignoreAllLogs(true);
@@ -18,7 +19,15 @@ if (Platform.isTV) {
 export default function RootLayout() {
   useEffect(() => {
     registerMultiAudioPlugin();
-    loadApiUrl(); // restore saved API URL from secure store
+
+    let stop: (() => void) | undefined;
+    // The saved base URL namespaces the cache, so it must be restored before
+    // anything is read — otherwise the warm-up would miss every cached entry.
+    loadApiUrl().then(() => {
+      stop = startKvfSync();
+    });
+
+    return () => stop?.();
   }, []);
 
   return (

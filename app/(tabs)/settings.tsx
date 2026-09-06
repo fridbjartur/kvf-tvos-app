@@ -6,6 +6,7 @@ import strings from "@/constants/strings.json";
 
 import { FocusableButton } from "@/components/FocusableButton";
 import { DEFAULT_API_BASE_URL, getApiUrl, loadApiUrl, saveApiUrl } from "@/services/kvfApi";
+import { refreshAll, warmOnLaunch } from "@/services/kvfPreload";
 import React, { useCallback, useEffect, useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -29,18 +30,22 @@ export default function SettingsScreen() {
     };
   }, []);
 
-  const handleSave = useCallback(async () => {
-    await saveApiUrl(url.trim() || DEFAULT_API_BASE_URL);
+  // Saving re-namespaces the cache, so the new server's data has to be warmed
+  // before the tabs are shown again — otherwise they would sit empty.
+  const applyUrl = useCallback(async (next: string) => {
+    await saveApiUrl(next);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-  }, [url]);
-
-  const handleReset = useCallback(async () => {
-    await saveApiUrl(DEFAULT_API_BASE_URL);
-    setUrl(DEFAULT_API_BASE_URL);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    await warmOnLaunch();
+    await refreshAll();
   }, []);
+
+  const handleSave = useCallback(() => applyUrl(url.trim() || DEFAULT_API_BASE_URL), [applyUrl, url]);
+
+  const handleReset = useCallback(() => {
+    setUrl(DEFAULT_API_BASE_URL);
+    return applyUrl(DEFAULT_API_BASE_URL);
+  }, [applyUrl]);
 
   return (
     <View style={styles.container}>

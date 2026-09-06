@@ -1,4 +1,7 @@
 {
+  "common": {
+    "failedToLoad": "Innlesingar villa"
+  },
   "tabs": {
     "sjon": "Sjón",
     "vit": "VIT",
@@ -6,7 +9,6 @@
     "live": "Beinleiðis",
     "settings": "Stillingar"
   },
-
   "search": {
     "placeholder": "Leita í sendingum…",
     "emptyNative": "Ongin sending funnin",
@@ -18,11 +20,9 @@
     "resultPlural": "sendingar",
     "failedToLoad": "Villa komin í leitingina"
   },
-
   "heroBanner": {
     "watchButton": "▶ Hygg"
   },
-
   "program": {
     "playButton": "▶  Avspæl",
     "loadingButton": "Innlesur…",
@@ -32,19 +32,16 @@
     "errorLoadEpisode": "Innlesingar villa.",
     "failedToLoad": "Innlesingar villa"
   },
-
   "player": {
     "errorTitle": "Villa í avspælingini",
     "retryButton": "Royn aftur",
     "goBackButton": "Aftur"
   },
-
   "live": {
     "heading": "Beinleiðis",
     "comingSoon": "Kemur seinni",
     "liveTag": "● BEINLEIÐIS"
   },
-
   "settings": {
     "heading": "Stillingar",
     "apiUrlLabel": "API Server URL",

@@ -6,13 +6,14 @@
  */
 
 import { KvfProgramCard } from "@/components/kvf-program-card";
-import { getAllPrograms } from "@/services/kvfApi";
+import { allProgramsResource } from "@/services/kvfApi";
+import { useKvfResource } from "@/hooks/useKvfResource";
 import type { ProgramCard } from "@/types/kvf";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { isNativeSearchAvailable, SearchResult, TvosSearchView } from "expo-tvos-search";
 import strings from "@/constants/strings.json";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Platform, StyleSheet, Text, TextInput, View } from "react-native";
 
 const IS_TV = Platform.isTV;
@@ -22,19 +23,16 @@ const CARD_W = IS_TV ? 360 : 170;
 // ── Shared data hook ──────────────────────────────────────────────────────────
 
 function useAllPrograms() {
-  const [programs, setPrograms] = useState<ProgramCard[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Derived from the two cached front pages — after the launch warm-up this
+  // resolves from cache and the grid paints without ever showing a spinner.
+  const resource = useMemo(() => allProgramsResource(), []);
+  const { data, isLoading, error } = useKvfResource<ProgramCard[]>(resource, strings.search.failedToLoad);
 
-  useEffect(() => {
-    getAllPrograms()
-      .then(setPrograms)
-      .catch((e) => setError(e instanceof Error ? e.message : strings.search.failedToLoad))
-      .finally(() => setIsLoading(false));
-  }, []);
-
-  return { programs, isLoading, error };
+  return { programs: data ?? EMPTY_PROGRAMS, isLoading, error };
 }
+
+// Stable identity — a fresh [] each render would re-run every downstream memo.
+const EMPTY_PROGRAMS: ProgramCard[] = [];
 
 // ── Native tvOS search (TvosSearchView) ───────────────────────────────────────
 

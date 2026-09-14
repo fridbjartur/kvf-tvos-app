@@ -119,6 +119,7 @@ function fileFor(key: string): string {
 
 const memData = new Map<string, unknown>();
 const subscribers = new Map<string, Set<(entry: CacheEntry<never>) => void>>();
+const statusSubscribers = new Map<string, Set<(revalidating: boolean) => void>>();
 const inflight = new Map<string, Promise<{ entry: CacheEntry<never>; changed: boolean }>>();
 
 let index: IndexFile = { v: CACHE_VERSION, records: {} };
@@ -292,6 +293,26 @@ function assemble<T>(key: string, record: IndexRecord, data: T): CacheEntry<T> {
   return { key, data, fetchedAt: record.fetchedAt, ttl: record.ttl, hash: record.hash, etag: record.etag, lastModified: record.lastModified };
 }
 
+/**
+ * Synchronous read of the memory tier.
+ *
+ * `cacheGet` is async, so a screen bound to an already-warm resource would still
+ * paint one spinner frame before its data arrived. Peeking lets that screen
+ * render populated on its very first frame. Returns `null` unless the payload is
+ * in RAM *and* belongs to the current namespace — disk reads stay async.
+ *
+ * Deliberately free of side effects, including the LRU touch `cacheGet` does:
+ * callers read this during render, and the `cacheGet` that follows on the very
+ * next tick records the access anyway.
+ */
+export function cachePeek<T>(key: string): T | null {
+  const record = index.records[key];
+  if (!record || record.ns !== namespace) return null;
+
+  const mem = memData.get(key);
+  return mem === undefined ? null : (mem as T);
+}
+
 /** Read a cached entry, memory first. Returns `null` when nothing is cached. */
 export async function cacheGet<T>(key: string): Promise<CacheEntry<T> | null> {
   await hydrate();
@@ -383,6 +404,43 @@ function notify<T>(key: string, entry: CacheEntry<T>): void {
   }
 }
 
+/**
+ * Observe whether a key is currently being revalidated.
+ *
+ * Every network round-trip funnels through `revalidate`, whoever started it — a
+ * screen's own `swr`, or the central refresh `kvfPreload` drives. Without this,
+ * a preload-driven refresh is invisible to the UI and new content simply appears
+ * unannounced. The callback fires `true` when a request starts and `false` when
+ * it settles, so screens can show a passive indicator over data already on view.
+ */
+export function subscribeStatus(key: string, cb: (revalidating: boolean) => void): () => void {
+  const set = statusSubscribers.get(key) ?? new Set();
+  set.add(cb);
+  statusSubscribers.set(key, set);
+
+  return () => {
+    set.delete(cb);
+    if (set.size === 0) statusSubscribers.delete(key);
+  };
+}
+
+/** Whether a request is in flight for `key` right now. */
+export function isRevalidating(key: string): boolean {
+  return inflight.has(key);
+}
+
+function notifyStatus(key: string, revalidating: boolean): void {
+  const set = statusSubscribers.get(key);
+  if (!set) return;
+  for (const cb of [...set]) {
+    try {
+      cb(revalidating);
+    } catch (err) {
+      logger.warn("kvfCache: status subscriber threw", { key, err });
+    }
+  }
+}
+
 // ── Revalidation ───────────────────────────────────────────────────────────────
 
 /**
@@ -416,7 +474,12 @@ function revalidate<T>(resource: Resource<T>, cached: CacheEntry<T> | null): Pro
   })();
 
   inflight.set(resource.key, run as unknown as Promise<{ entry: CacheEntry<never>; changed: boolean }>);
-  return run.finally(() => inflight.delete(resource.key));
+  notifyStatus(resource.key, true);
+
+  return run.finally(() => {
+    inflight.delete(resource.key);
+    notifyStatus(resource.key, false);
+  });
 }
 
 // ── Public entry points ────────────────────────────────────────────────────────
@@ -516,6 +579,7 @@ export async function clearAll(): Promise<void> {
 export function __resetForTests(): void {
   memData.clear();
   subscribers.clear();
+  statusSubscribers.clear();
   inflight.clear();
   index = { v: CACHE_VERSION, records: {} };
   namespace = "default";

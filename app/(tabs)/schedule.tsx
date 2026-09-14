@@ -59,7 +59,7 @@ export default function ScheduleScreen() {
   const [date, setDate] = useState<string | null>(null);
 
   const resource = useMemo(() => scheduleResource(channel, date), [channel, date]);
-  const { data: page, isLoading, error } = useKvfResource<SchedulePage>(resource, strings.schedule.failedToLoad);
+  const { data: page, isLoading, isRefreshing, error } = useKvfResource<SchedulePage>(resource, strings.schedule.failedToLoad);
 
   // Keep the last good day on screen while the next one loads: `page` is null
   // for one commit on every swap, which would flick both day buttons to
@@ -117,8 +117,13 @@ export default function ScheduleScreen() {
   const primary = channels.find((c) => c.url) ?? null;
   const nowPlaying = view?.nowPlaying ?? null;
 
+  // A date swap changes the cache key, so the incoming day is a *first* load
+  // (isLoading) even though the retained snapshot keeps the screen populated.
+  // Both that and a background revalidation deserve the same passive pip.
+  const showRefreshPip = isRefreshing || (isLoading && view !== null);
+
   return (
-    <TVScreenScrollView contentContainerStyle={S.scrollContent}>
+    <TVScreenScrollView contentContainerStyle={S.scrollContent} isRefreshing={showRefreshPip}>
       <TVFocusGuideView autoFocus style={S.header}>
         <SegmentedTabs items={CHANNEL_TABS} selected={channel} onSelect={handleChannel} />
       </TVFocusGuideView>

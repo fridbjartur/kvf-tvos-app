@@ -1,9 +1,10 @@
 {
   "common": {
-    "failedToLoad": "Innlesingar villa"
+    "failedToLoad": "Innlesingar villa",
+    "updating": "Dagførur…"
   },
   "tabs": {
-    "sjon": "Sjón",
+    "sjon": "Heim",
     "vit": "VIT",
     "miks": "MiKS",
     "ljod": "Ljóð",

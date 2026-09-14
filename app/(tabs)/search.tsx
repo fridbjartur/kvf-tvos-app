@@ -6,6 +6,7 @@
  */
 
 import { KvfProgramCard } from "@/components/kvf-program-card";
+import { RefreshIndicator } from "@/components/refresh-indicator";
 import { allProgramsResource } from "@/services/kvfApi";
 import { useKvfResource } from "@/hooks/useKvfResource";
 import type { IndexedProgram } from "@/types/kvf";
@@ -26,9 +27,9 @@ function useAllPrograms() {
   // Derived from the cached front pages — after the launch warm-up this
   // resolves from cache and the grid paints without ever showing a spinner.
   const resource = useMemo(() => allProgramsResource(), []);
-  const { data, isLoading, error } = useKvfResource<IndexedProgram[]>(resource, strings.search.failedToLoad);
+  const { data, isLoading, isRefreshing, error } = useKvfResource<IndexedProgram[]>(resource, strings.search.failedToLoad);
 
-  return { programs: data ?? EMPTY_PROGRAMS, isLoading, error };
+  return { programs: data ?? EMPTY_PROGRAMS, isLoading, isRefreshing, error };
 }
 
 // Stable identity — a fresh [] each render would re-run every downstream memo.
@@ -38,7 +39,7 @@ const EMPTY_PROGRAMS: IndexedProgram[] = [];
 
 function NativeSearchScreen() {
   const router = useRouter();
-  const { programs, isLoading } = useAllPrograms();
+  const { programs, isLoading, isRefreshing } = useAllPrograms();
 
   const [query, setQuery] = useState("");
 
@@ -61,12 +62,17 @@ function NativeSearchScreen() {
     (event: { nativeEvent: { id: string } }) => {
       const program = programs.find((p) => p.listKey === event.nativeEvent.id);
       if (!program) return;
-      router.push({ pathname: "/program", params: { section: program.sectionId, slug: program.slug } });
+      router.push({
+        pathname: "/program",
+        params: { section: program.sectionId, slug: program.slug, title: program.title, thumb: program.thumbnailUrl ?? undefined },
+      });
     },
     [programs, router],
   );
 
-  if (isLoading) {
+  // Guard on the data too: `isLoading` alone would blank a populated grid if the
+  // index ever reloaded, which is exactly the flash this screen must not have.
+  if (isLoading && programs.length === 0) {
     return (
       <View style={S.center}>
         <ActivityIndicator size="large" color="#FFFFFF" />
@@ -80,7 +86,7 @@ function NativeSearchScreen() {
       columns={5}
       placeholder={strings.search.placeholder}
       emptyStateText={strings.search.emptyNative}
-      isLoading={false}
+      isLoading={isRefreshing}
       topInset={140}
       colorScheme="dark"
       overlayTitleSize={30}
@@ -122,7 +128,7 @@ const SearchHeader = React.memo(function SearchHeader({ onChangeText, inputRef }
 function ReactNativeSearchScreen() {
   const router = useRouter();
   const inputRef = useRef<TextInput>(null);
-  const { programs, isLoading, error } = useAllPrograms();
+  const { programs, isLoading, isRefreshing, error } = useAllPrograms();
   const [searchQuery, setSearchQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -132,7 +138,10 @@ function ReactNativeSearchScreen() {
 
   const handlePress = useCallback(
     (program: IndexedProgram) => {
-      router.push({ pathname: "/program", params: { section: program.sectionId, slug: program.slug } });
+      router.push({
+        pathname: "/program",
+        params: { section: program.sectionId, slug: program.slug, title: program.title, thumb: program.thumbnailUrl ?? undefined },
+      });
     },
     [router],
   );
@@ -203,6 +212,7 @@ function ReactNativeSearchScreen() {
       ) : (
         <View style={S.emptyContainer}>{renderEmpty()}</View>
       )}
+      <RefreshIndicator active={isRefreshing} />
     </View>
   );
 }

@@ -27,7 +27,7 @@ jest.mock("expo-file-system/legacy", () => ({
   }),
 }));
 
-import { allProgramsResource, episodeResource, frontPageResource } from "../kvfApi";
+import { allProgramsResource, episodeResource, frontPageResource, programResource } from "../kvfApi";
 import { ensure, __resetForTests } from "../kvfCache";
 import { SECTION_IDS, SECTIONS } from "@/constants/sections";
 import type { ApiSectionPath, FrontPage } from "@/types/kvf";
@@ -169,6 +169,28 @@ describe("failure handling", () => {
     fetchMock.mockResolvedValue(jsonResponse(frontPage("sjon", ["A"])));
     await ensure(frontPageResource("sjon"));
     expect(fetchMock.mock.calls[0][1].signal).toBeDefined();
+  });
+
+  // The server scrapes an episode listing page by page, so a long-running
+  // series legitimately takes far longer than the fast-fail budget. At 10s the
+  // abort message matched the retry util's "request timeout" pattern, so every
+  // attempt was cancelled and the page could never load at all.
+  it("gives a program page a longer budget than a front page", async () => {
+    const abortErr = new Error("Aborted");
+    abortErr.name = "AbortError";
+    fetchMock.mockRejectedValue(abortErr);
+
+    await expect(ensure(frontPageResource("sjon"))).rejects.toThrow(/timeout after 10000ms/);
+    await expect(ensure(programResource("sjon", "long-series"))).rejects.toThrow(/timeout after 60000ms/);
+  });
+
+  it("does not retry a slow program page a third time", async () => {
+    const abortErr = new Error("Aborted");
+    abortErr.name = "AbortError";
+    fetchMock.mockRejectedValue(abortErr);
+
+    await expect(ensure(programResource("sjon", "long-series"))).rejects.toThrow();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
 

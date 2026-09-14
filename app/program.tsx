@@ -13,23 +13,29 @@ import strings from "@/constants/strings.json";
 import { useScreenBack } from "@/hooks/useScreenBack";
 import { FocusableButton } from "@/components/FocusableButton";
 import { FocusScaleCard } from "@/components/focus-scale-card";
-import { usePlayQueue } from "@/contexts/PlayQueueContext";
+import { RefreshIndicator } from "@/components/refresh-indicator";
+import { ShimmerBlock } from "@/components/shimmer-block";
+import { buildPlayQueue, usePlayQueue } from "@/contexts/PlayQueueContext";
 import { loadEpisode, prefetchEpisode, programResource } from "@/services/kvfApi";
+import { useDelayedFlag } from "@/hooks/useDelayedFlag";
 import { useKvfResource } from "@/hooks/useKvfResource";
 import { isSectionId } from "@/constants/sections";
-import type { Episode, ProgramPage, QueueEpisode } from "@/types/kvf";
+import type { Episode, ProgramPage } from "@/types/kvf";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Dimensions, FlatList, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Dimensions, FlatList, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { DESIGN } from "@/constants/app";
 
 const IS_TV = Platform.isTV;
 const { height: SCREEN_H } = Dimensions.get("window");
 const BANNER_H = IS_TV ? Math.round(SCREEN_H * 0.58) : Math.round(SCREEN_H * 0.42);
 const EPISODE_CARD_W = IS_TV ? 320 : 200;
+
+/** Enough placeholder cards to fill the row on a TV without overflowing phones. */
+const SKELETON_EPISODES = IS_TV ? [0, 1, 2, 3, 4] : [0, 1, 2];
 
 // ── Animated episode card ──────────────────────────────────────────────────────
 
@@ -39,6 +45,77 @@ interface EpisodeCardProps {
   onPress: (episode: Episode) => void;
   onFocus: (episode: Episode) => void;
   hasTVPreferredFocus?: boolean;
+}
+
+/**
+ * The program screen's shape, shown while a cold page is still being fetched.
+ *
+ * It reuses the real screen's styles rather than approximating them, so when the
+ * data lands the banner, title and episode row are already in their final
+ * positions and nothing jumps. The back button is real and focusable — a long
+ * fetch must never be a dead end the user cannot escape.
+ */
+function ProgramSkeleton({ title, thumbnailUrl, onBack }: { title?: string; thumbnailUrl?: string; onBack: () => void }) {
+  return (
+    <View style={styles.container}>
+      <View style={styles.bannerContainer} pointerEvents="none">
+        {thumbnailUrl ? <Image source={{ uri: thumbnailUrl }} style={styles.bannerImage} contentFit="cover" transition={300} cachePolicy="memory-disk" /> : <ShimmerBlock style={styles.bannerImage} />}
+        <LinearGradient colors={["transparent", "rgba(10,10,10,0.7)", "#0a0a0a"]} locations={[0.3, 0.7, 1]} style={styles.bannerGradient} />
+        <LinearGradient colors={["rgba(10,10,10,0.4)", "transparent"]} start={{ x: 0, y: 0.5 }} end={{ x: 0.5, y: 0.5 }} style={StyleSheet.absoluteFill} />
+      </View>
+
+      <View style={styles.scroll}>
+        <View style={{ height: BANNER_H - (IS_TV ? 180 : 100) }} />
+
+        <View style={styles.info}>
+          {title ? <Text style={styles.programTitle}>{title}</Text> : <ShimmerBlock style={styles.skelTitle} />}
+          <ShimmerBlock style={styles.skelLine} delayMs={80} />
+          <ShimmerBlock style={[styles.skelLine, styles.skelLineShort]} delayMs={160} />
+
+          <View style={styles.actions}>
+            <FocusableButton title={strings.program.goBack} onPress={onBack} variant="secondary" hasTVPreferredFocus />
+          </View>
+        </View>
+
+        <View style={styles.episodesSection}>
+          <View style={styles.episodesHeadingRow}>
+            <Text style={styles.episodesHeading}>{strings.program.episodesHeading}</Text>
+            <RefreshIndicator active variant="inline" />
+          </View>
+          <View style={[styles.epSkeletonRow, styles.episodesRow]}>
+            {SKELETON_EPISODES.map((i) => (
+              <View key={i} style={styles.epOuter}>
+                <ShimmerBlock style={styles.epCard} delayMs={i * 120} />
+                <ShimmerBlock style={styles.epSkeletonTitle} delayMs={i * 120} />
+                <ShimmerBlock style={styles.epSkeletonDate} delayMs={i * 120} />
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Placeholder cards shown at the head of the episode row while a refresh runs.
+ *
+ * Rendered as the list's *header* rather than as list data: that leaves every
+ * real episode's identity and focus untouched, so the row cannot steal or drop
+ * tvOS focus while the placeholders come and go.
+ */
+function EpisodeSkeletons() {
+  return (
+    <View style={styles.epSkeletonRow} pointerEvents="none">
+      {[0, 1].map((i) => (
+        <View key={i} style={styles.epOuter}>
+          <ShimmerBlock style={styles.epCard} delayMs={i * 180} />
+          <ShimmerBlock style={styles.epSkeletonTitle} delayMs={i * 180} />
+          <ShimmerBlock style={styles.epSkeletonDate} delayMs={i * 180} />
+        </View>
+      ))}
+    </View>
+  );
 }
 
 function EpisodeCard({ episode, isActive, onPress, onFocus, hasTVPreferredFocus }: EpisodeCardProps) {
@@ -83,7 +160,9 @@ function EpisodeCard({ episode, isActive, onPress, onFocus, hasTVPreferredFocus 
 // ── Screen ─────────────────────────────────────────────────────────────────────
 
 export default function ProgramScreen() {
-  const { section, slug } = useLocalSearchParams<{ section: string; slug: string }>();
+  // `title` and `thumb` are carried over from the card that was pressed, so the
+  // skeleton can show the real programme rather than a placeholder for it.
+  const { section, slug, title: navTitle, thumb: navThumb } = useLocalSearchParams<{ section: string; slug: string; title?: string; thumb?: string }>();
   const router = useRouter();
   const { setQueue } = usePlayQueue();
 
@@ -98,8 +177,12 @@ export default function ProgramScreen() {
   const safeSection = isSectionId(section) ? section : "sjon";
 
   const resource = useMemo(() => (slug ? programResource(safeSection, slug) : null), [safeSection, slug]);
-  const { data: programPage, isLoading, error: loadError } = useKvfResource<ProgramPage>(resource, strings.program.failedToLoad);
+  const { data: programPage, isLoading, isRefreshing, error: loadError } = useKvfResource<ProgramPage>(resource, strings.program.failedToLoad);
   const error = playbackError ?? loadError;
+
+  // New episodes land at the head of the list, so the placeholders go there —
+  // the row visibly reserves the space that a refresh may be about to fill.
+  const showEpisodeSkeletons = useDelayedFlag(isRefreshing);
 
   // Prefer whatever the user last focused; fall back to the program's current
   // episode. Derived, so a refreshed episode list never resets the selection.
@@ -125,15 +208,8 @@ export default function ProgramScreen() {
       setIsResolvingStream(true);
       setPlaybackError(null);
 
-      const queue: QueueEpisode[] = programPage.episodes.map((e) => ({
-        sid: e.sid,
-        slug: e.slug,
-        title: e.title,
-        section: safeSection,
-        thumbnailUrl: e.thumbnailUrl,
-      }));
-      const startIdx = programPage.episodes.findIndex((e) => e.sid === episode.sid);
-      setQueue(queue, startIdx >= 0 ? startIdx : 0);
+      const { queue, startIndex } = buildPlayQueue(programPage.episodes, safeSection, episode.sid);
+      setQueue(queue, startIndex);
 
       try {
         const detail = await loadEpisode(safeSection, slug, episode.sid);
@@ -185,12 +261,12 @@ export default function ProgramScreen() {
     [activeEpSid, handleEpisodePress, handleEpisodeFocus],
   );
 
+  // A cold program page can take the better part of a minute — the server
+  // scrapes the episode listing page by page. Show the real shape of the screen,
+  // with whatever the card we navigated from already told us, rather than a
+  // black rectangle: the title and banner below are the true ones.
   if (isLoading && !programPage) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#FFFFFF" />
-      </View>
-    );
+    return <ProgramSkeleton title={navTitle} thumbnailUrl={navThumb} onBack={handleBack} />;
   }
 
   if (error && !programPage) {
@@ -234,6 +310,9 @@ export default function ProgramScreen() {
             </Text>
           ) : null}
           <View style={styles.actions}>
+            {/* Deliberately only swaps the label: FocusableButton's `isLoading`
+                disables the button, and a disabled button drops the tvOS focus
+                it was holding — mid-press, which is the worst possible moment. */}
             <FocusableButton title={isResolvingStream ? strings.program.loadingButton : strings.program.playButton} onPress={handlePlayCurrentPress} variant="primary" hasTVPreferredFocus={false} />
           </View>
         </View>
@@ -241,7 +320,10 @@ export default function ProgramScreen() {
         {/* Episodes */}
         {episodes.length > 0 && (
           <View style={styles.episodesSection}>
-            <Text style={styles.episodesHeading}>{strings.program.episodesHeading}</Text>
+            <View style={styles.episodesHeadingRow}>
+              <Text style={styles.episodesHeading}>{strings.program.episodesHeading}</Text>
+              <RefreshIndicator active={isRefreshing} variant="inline" />
+            </View>
             <FlatList
               data={episodes}
               renderItem={renderEpisode}
@@ -251,6 +333,15 @@ export default function ProgramScreen() {
               contentContainerStyle={styles.episodesRow}
               removeClippedSubviews={false}
               initialNumToRender={8}
+              // A long-running series can return ~1000 episodes. Without a
+              // budget FlatList keeps mounting batches to fill the default
+              // 21-viewport window, and nothing ever unmounts because
+              // removeClippedSubviews stays off for tvOS focus. Render far
+              // enough ahead that focus never outruns the list, no further.
+              windowSize={7}
+              maxToRenderPerBatch={6}
+              updateCellsBatchingPeriod={50}
+              ListHeaderComponent={showEpisodeSkeletons ? EpisodeSkeletons : null}
             />
           </View>
         )}
@@ -323,6 +414,11 @@ const styles = StyleSheet.create({
 
   // Episodes
   episodesSection: { marginBottom: IS_TV ? 24 : 14 },
+  episodesHeadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: IS_TV ? 16 : 10,
+  },
   episodesHeading: {
     color: "#FFFFFF",
     fontSize: IS_TV ? 24 : 16,
@@ -332,6 +428,34 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   episodesRow: { paddingHorizontal: IS_TV ? 64 : 12 },
+
+  // Episode placeholders — mirror epOuter/epCard metrics so the real cards do
+  // not shift horizontally when the placeholders are swapped out for content.
+  epSkeletonRow: { flexDirection: "row" },
+  skelTitle: {
+    width: IS_TV ? 520 : 240,
+    height: IS_TV ? 40 : 24,
+    borderRadius: 6,
+    marginBottom: IS_TV ? 16 : 10,
+  },
+  skelLine: {
+    width: "60%",
+    height: IS_TV ? 18 : 12,
+    borderRadius: 4,
+    marginBottom: IS_TV ? 10 : 7,
+  },
+  skelLineShort: { width: "42%" },
+  epSkeletonTitle: {
+    width: "70%",
+    height: IS_TV ? 16 : 11,
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  epSkeletonDate: {
+    width: "40%",
+    height: IS_TV ? 14 : 10,
+    borderRadius: 4,
+  },
 
   // Episode card
   epOuter: {

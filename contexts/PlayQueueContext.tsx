@@ -6,7 +6,32 @@
  */
 
 import React, { createContext, useContext, useMemo, useState, useCallback, ReactNode } from "react";
-import type { QueueEpisode } from "@/types/kvf";
+import type { SectionId } from "@/constants/sections";
+import type { Episode, QueueEpisode } from "@/types/kvf";
+
+/**
+ * Build a play queue from a program's episode row.
+ *
+ * The row is ordered newest-first, but playback follows broadcast order: the
+ * episode *after* the one you picked is the newer one. So the queue is the row
+ * reversed — `advance` then walks towards newer episodes, and starting on the
+ * newest episode (first in the row, last in the queue) correctly leaves nothing
+ * up next.
+ */
+export function buildPlayQueue(episodes: Episode[], section: SectionId, startSid: string): { queue: QueueEpisode[]; startIndex: number } {
+  const inPlayOrder = [...episodes].reverse();
+
+  const queue = inPlayOrder.map((e) => ({
+    sid: e.sid,
+    slug: e.slug,
+    title: e.title,
+    section,
+    thumbnailUrl: e.thumbnailUrl,
+  }));
+
+  const startIndex = inPlayOrder.findIndex((e) => e.sid === startSid);
+  return { queue, startIndex: startIndex >= 0 ? startIndex : 0 };
+}
 
 interface PlayQueueContextType {
   episodes: QueueEpisode[];

@@ -1,7 +1,7 @@
 import React, { forwardRef, useImperativeHandle } from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import { PlayQueueProvider, usePlayQueue } from "../PlayQueueContext";
-import type { QueueEpisode } from "@/types/kvf";
+import { buildPlayQueue, PlayQueueProvider, usePlayQueue } from "../PlayQueueContext";
+import type { Episode, QueueEpisode } from "@/types/kvf";
 
 const mockEpisodes: QueueEpisode[] = [
   { sid: "ep1", slug: "show", title: "Episode 1", section: "sjon", thumbnailUrl: null },
@@ -141,5 +141,56 @@ describe("PlayQueueContext", () => {
         TestRenderer.create(<Bare />);
       });
     }).toThrow("usePlayQueue must be used within PlayQueueProvider");
+  });
+});
+
+describe("buildPlayQueue", () => {
+  // As the API returns them and as the row renders them: newest first.
+  const row: Episode[] = [
+    { sid: "new", slug: "show", title: "Newest", publishDate: "2026-03-01", thumbnailUrl: null, episodeUrl: "/3", listKey: "new" },
+    { sid: "mid", slug: "show", title: "Middle", publishDate: "2026-02-01", thumbnailUrl: null, episodeUrl: "/2", listKey: "mid" },
+    { sid: "old", slug: "show", title: "Oldest", publishDate: "2026-01-01", thumbnailUrl: null, episodeUrl: "/1", listKey: "old" },
+  ];
+
+  it("queues in broadcast order, so advancing reaches newer episodes", () => {
+    const { queue } = buildPlayQueue(row, "sjon", "old");
+    expect(queue.map((e) => e.sid)).toEqual(["old", "mid", "new"]);
+  });
+
+  it("leaves nothing up next when starting on the newest episode", () => {
+    const { queue, startIndex } = buildPlayQueue(row, "sjon", "new");
+    expect(startIndex).toBe(queue.length - 1);
+
+    const { harnessRef, unmount } = renderQueue();
+    act(() => harnessRef.current!.setQueue(queue, startIndex));
+    expect(harnessRef.current!.hasNext).toBe(false);
+    expect(harnessRef.current!.nextEpisode).toBeNull();
+    unmount();
+  });
+
+  it("advances from the oldest episode to the next newer one", () => {
+    const { queue, startIndex } = buildPlayQueue(row, "sjon", "old");
+
+    const { harnessRef, unmount } = renderQueue();
+    act(() => harnessRef.current!.setQueue(queue, startIndex));
+    expect(harnessRef.current!.nextEpisode?.sid).toBe("mid");
+
+    let advanced: QueueEpisode | null = null;
+    act(() => {
+      advanced = harnessRef.current!.advance();
+    });
+    expect(advanced!.sid).toBe("mid");
+    expect(harnessRef.current!.nextEpisode?.sid).toBe("new");
+    unmount();
+  });
+
+  it("does not mutate the caller's episode row", () => {
+    const original = [...row];
+    buildPlayQueue(row, "sjon", "mid");
+    expect(row).toEqual(original);
+  });
+
+  it("starts at the beginning when the episode is not in the row", () => {
+    expect(buildPlayQueue(row, "sjon", "missing").startIndex).toBe(0);
   });
 });

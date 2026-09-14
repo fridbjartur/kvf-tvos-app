@@ -26,7 +26,24 @@ const FALLBACK_BASE_URL = "http://192.168.1.10:3939";
 /** A stalled request is worse than stale data — fail fast and keep what we have. */
 const REQUEST_TIMEOUT_MS = 10000;
 
+/**
+ * Program pages are the one endpoint that legitimately runs long: the server
+ * scrapes an episode listing page by page (see `ProgramPage.pager`), and a
+ * long-running series can take the better part of a minute on a cold hit.
+ *
+ * Ten seconds was not a fast-fail here, it was an unconditional failure — the
+ * abort message matches the retry util's "request timeout" pattern, so a slow
+ * program burned all three attempts without ever letting one finish.
+ */
+const PROGRAM_TIMEOUT_MS = 60000;
+
 const RETRY = { maxAttempts: 3, initialDelayMs: 400, maxDelayMs: 2000 };
+
+/**
+ * Retrying a request that already ran for a minute just multiplies load on a
+ * server that is plainly working. One retry covers a genuine transient failure.
+ */
+const SLOW_RETRY = { maxAttempts: 2, initialDelayMs: 1000, maxDelayMs: 2000 };
 
 /** Statuses worth a second attempt; everything else fails immediately. */
 const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
@@ -50,10 +67,10 @@ type HttpResult = { status: 304 } | { status: 200; raw: string; etag?: string; l
  * Error messages are phrased to match the retryable patterns in utils/retry.ts,
  * so transient failures back off and permanent ones (404, 400) fail at once.
  */
-async function httpGet(path: string, cached: CacheMeta | null): Promise<HttpResult> {
+async function httpGet(path: string, cached: CacheMeta | null, timeoutMs = REQUEST_TIMEOUT_MS): Promise<HttpResult> {
   const url = `${BASE_URL}${path}`;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   const headers: Record<string, string> = { Accept: "application/json" };
   if (cached?.etag) headers["If-None-Match"] = cached.etag;
@@ -77,7 +94,7 @@ async function httpGet(path: string, cached: CacheMeta | null): Promise<HttpResu
     };
   } catch (err) {
     if (err instanceof Error && (err.name === "AbortError" || /abort/i.test(err.message))) {
-      throw new Error(`Request timeout after ${REQUEST_TIMEOUT_MS}ms for ${url}`);
+      throw new Error(`Request timeout after ${timeoutMs}ms for ${url}`);
     }
     throw err;
   } finally {
@@ -92,9 +109,17 @@ async function httpGet(path: string, cached: CacheMeta | null): Promise<HttpResu
  * cached — so `listKey`s are computed once and stay referentially stable for as
  * long as the content does.
  */
-function jsonFetcher<T>(path: string, transform: (raw: never) => T): ConditionalFetch<T> {
+interface FetchTuning {
+  /** Hard abort for one attempt. Defaults to the fast-fail REQUEST_TIMEOUT_MS. */
+  timeoutMs?: number;
+  retry?: typeof RETRY;
+}
+
+function jsonFetcher<T>(path: string, transform: (raw: never) => T, tuning: FetchTuning = {}): ConditionalFetch<T> {
+  const { timeoutMs = REQUEST_TIMEOUT_MS, retry = RETRY } = tuning;
+
   return async (cached) => {
-    const res = await retryWithBackoff(() => httpGet(path, cached), RETRY);
+    const res = await retryWithBackoff(() => httpGet(path, cached, timeoutMs), retry);
 
     if (res.status === 304) return { status: "unchanged" };
 
@@ -158,7 +183,10 @@ export function programResource(section: SectionId, slug: string): Resource<Prog
   return {
     key: `kvf:${section}:program:${slug}`,
     ttlMs: TTL.PROGRAM,
-    fetcher: jsonFetcher<ProgramPage>(`/api/${SECTIONS[section].apiPath}/programs/${slug}`, keyProgramPage),
+    fetcher: jsonFetcher<ProgramPage>(`/api/${SECTIONS[section].apiPath}/programs/${slug}`, keyProgramPage, {
+      timeoutMs: PROGRAM_TIMEOUT_MS,
+      retry: SLOW_RETRY,
+    }),
   };
 }
 

@@ -1,9 +1,16 @@
 import React, { useEffect } from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { useKvfResource, type KvfResourceState } from "../useKvfResource";
-import { subscribe, swr, type Resource, type SwrCallbacks } from "@/services/kvfCache";
+import { cachePeek, isRevalidating, subscribe, subscribeStatus, swr, type Resource, type SwrCallbacks } from "@/services/kvfCache";
 
-jest.mock("@/services/kvfCache", () => ({ swr: jest.fn(), subscribe: jest.fn(() => jest.fn()) }));
+jest.mock("@/services/kvfCache", () => ({
+  swr: jest.fn(),
+  subscribe: jest.fn(() => jest.fn()),
+  subscribeStatus: jest.fn(() => jest.fn()),
+  // Nothing warm by default, so the existing cases still exercise a cold start.
+  cachePeek: jest.fn(() => null),
+  isRevalidating: jest.fn(() => false),
+}));
 
 const resource = (key: string): Resource<string> => ({ key, ttlMs: 1000, fetcher: jest.fn() });
 const a = resource("ljod");
@@ -104,4 +111,46 @@ it("does not restart requests when the caller rebuilds the same resource", () =>
   render(a);
   render(resource(a.key));
   expect(swr).toHaveBeenCalledTimes(1);
+});
+
+it("paints from the memory tier without a loading frame", () => {
+  (cachePeek as jest.Mock).mockReturnValue("warm");
+  render(a);
+  // No callback has been resolved yet — this is the very first render.
+  expect(state).toMatchObject({ data: "warm", isLoading: false });
+});
+
+it("reports a revalidation it did not start, so preload refreshes are visible", () => {
+  (cachePeek as jest.Mock).mockReturnValue("cached");
+  render(a);
+  expect(state.isRefreshing).toBe(false);
+
+  const notify = (subscribeStatus as jest.Mock).mock.calls[0][1] as (v: boolean) => void;
+  act(() => notify(true));
+  expect(state).toMatchObject({ data: "cached", isRefreshing: true, isLoading: false });
+
+  act(() => notify(false));
+  expect(state.isRefreshing).toBe(false);
+});
+
+it("never reports refreshing while there is nothing on screen to refresh", () => {
+  render(a);
+  const notify = (subscribeStatus as jest.Mock).mock.calls[0][1] as (v: boolean) => void;
+  act(() => notify(true));
+  expect(state).toMatchObject({ data: null, isLoading: true, isRefreshing: false });
+});
+
+it("unsubscribes from status updates when the resource is disabled", () => {
+  render(a);
+  const unsubscribe = (subscribeStatus as jest.Mock).mock.results[0].value;
+  render(null);
+  expect(unsubscribe).toHaveBeenCalledTimes(1);
+});
+
+it("carries the in-flight status across a key change before the effect runs", () => {
+  (cachePeek as jest.Mock).mockReturnValue("warm-b");
+  (isRevalidating as jest.Mock).mockReturnValue(true);
+  render(a);
+  render(b);
+  expect(state).toMatchObject({ data: "warm-b", isLoading: false, isRefreshing: true });
 });

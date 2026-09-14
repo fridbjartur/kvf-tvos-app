@@ -27,7 +27,7 @@ jest.mock("expo-file-system/legacy", () => ({
   }),
 }));
 
-import { cacheGet, cacheSet, ensure, flushIndex, isStale, setNamespace, subscribe, swr, __resetForTests, type Resource } from "../kvfCache";
+import { cacheGet, cachePeek, cacheSet, ensure, flushIndex, isRevalidating, isStale, setNamespace, subscribe, subscribeStatus, swr, __resetForTests, type Resource } from "../kvfCache";
 
 function makeResource<T>(key: string, fetcher: Resource<T>["fetcher"], ttlMs = 1000): Resource<T> {
   return { key, ttlMs, fetcher };
@@ -260,5 +260,77 @@ describe("isStale", () => {
     const now = Date.now();
     expect(isStale({ key: "k", data: 1, fetchedAt: now, ttl: 1000, hash: "h" })).toBe(false);
     expect(isStale({ key: "k", data: 1, fetchedAt: now - 2000, ttl: 1000, hash: "h" })).toBe(true);
+  });
+});
+
+describe("synchronous peek", () => {
+  it("returns an in-memory payload without awaiting", async () => {
+    await cacheSet("k", { n: 1 }, 1000, { hash: "h" });
+    expect(cachePeek<{ n: number }>("k")).toEqual({ n: 1 });
+  });
+
+  it("returns null for a key that was never cached", () => {
+    expect(cachePeek("missing")).toBeNull();
+  });
+
+  it("does not leak across namespaces", async () => {
+    setNamespace("http://a");
+    await cacheSet("k", { n: 1 }, 1000, { hash: "h" });
+    setNamespace("http://b");
+    expect(cachePeek("k")).toBeNull();
+  });
+});
+
+describe("revalidation status", () => {
+  it("brackets a request with true then false, whoever started it", async () => {
+    await cacheSet("k", { n: 1 }, 1000, { hash: "old" });
+
+    const seen: boolean[] = [];
+    subscribeStatus("k", (v) => seen.push(v));
+
+    // `ensure` is the path kvfPreload uses, and it takes no callbacks of its
+    // own — the status broadcast is the only way a screen learns about it.
+    await ensure(
+      makeResource("k", async () => ({ status: "ok" as const, data: { n: 2 }, meta: { hash: "new" } })),
+      true,
+    );
+
+    expect(seen).toEqual([true, false]);
+    expect(isRevalidating("k")).toBe(false);
+  });
+
+  it("reports false again after a failed revalidation", async () => {
+    await cacheSet("k", { n: 1 }, 1000, { hash: "old" });
+
+    const seen: boolean[] = [];
+    subscribeStatus("k", (v) => seen.push(v));
+
+    await ensure(
+      makeResource("k", async () => {
+        throw new Error("offline");
+      }),
+      true,
+    );
+
+    expect(seen).toEqual([true, false]);
+  });
+
+  it("announces one request when concurrent callers collapse onto it", async () => {
+    const seen: boolean[] = [];
+    subscribeStatus("k", (v) => seen.push(v));
+
+    const resource = makeResource("k", async () => ({ status: "ok" as const, data: { n: 1 }, meta: { hash: "h" } }));
+    await Promise.all([ensure(resource), ensure(resource)]);
+
+    expect(seen).toEqual([true, false]);
+  });
+
+  it("stops delivering after unsubscribe", async () => {
+    const seen: boolean[] = [];
+    const off = subscribeStatus("k", (v) => seen.push(v));
+    off();
+
+    await ensure(makeResource("k", async () => ({ status: "ok" as const, data: { n: 1 }, meta: { hash: "h" } })));
+    expect(seen).toEqual([]);
   });
 });

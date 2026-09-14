@@ -576,3 +576,80 @@ are radio audiences picked once per session.
   `app/(tabs)/search.tsx`, `app/program.tsx`, `components/kvf-program-card.tsx`,
   `constants/strings.json`, `services/__tests__/kvfApi.conditional.test.ts`
 - Deleted: `app/(tabs)/live.tsx`
+
+---
+
+## Centrally-Driven Refreshes Were Invisible to the UI (September 2026)
+
+### Problem
+
+Inside a program, the cached episode list painted instantly (correct), but a newly
+published episode appeared only after the background fetch finished — with no
+warning that anything was still in flight. The same on every main tab. Users read
+the silent swap as a glitch rather than as an update.
+
+### Root Cause
+
+Two separate gaps, both in the seam between `kvfCache` and the UI:
+
+1. `useKvfResource` already exposed `isRefreshing`, but **no screen destructured
+   it** — all four call sites took only `{ data, isLoading, error }`.
+2. More fundamentally, `isRefreshing` could not have worked for the case that
+   matters. It was fed by `swr`'s `onRefreshing` callback, which only fires for a
+   revalidation _that hook started_. The refreshes users actually notice — the
+   15-minute interval and the foreground sweep in `kvfPreload` — go through
+   `ensure()`, which takes no callbacks at all. Those fetches reached the screen
+   only via the `subscribe()` data callback, i.e. as a finished fact.
+
+Separately, `isLoading` was true on the first paint of _every_ screen, even with
+the payload already in `memData`, because the state seed was unconditionally
+`data: null` and `cacheGet` is async.
+
+### Solution
+
+- `kvfCache` broadcasts its own in-flight state: `subscribeStatus(key, cb)` /
+  `isRevalidating(key)`, notified from inside `revalidate()`. Every network
+  round-trip funnels through there, so the signal is correct no matter who
+  started the fetch.
+- `useKvfResource` takes `isRefreshing` from that broadcast instead of from
+  `swr`'s callback, and seeds state from a new synchronous `cachePeek()` so a
+  warm screen never renders a spinner frame.
+- `useDelayedFlag` smooths the flag (show after 400ms, hold 700ms) so a 304 —
+  the common case — never flashes an indicator.
+- Episode placeholders render as the FlatList's **header**, not as list data, so
+  real episodes keep their identity and tvOS focus while placeholders come and go.
+
+### What Went Wrong
+
+- ❌ Assumed a field existing in a hook's public interface meant it was wired to
+  anything. `isRefreshing` had been dead on both ends since it was written.
+- ❌ Nearly passed `isLoading` to `FocusableButton` for the play button. That prop
+  disables the button, and a disabled button drops the tvOS focus it holds —
+  mid-press. The existing label-swap was deliberate; the comment now says so.
+
+### What Worked
+
+- ✅ Tracing the _call path_ of the refresh the user complained about, rather than
+  the component rendering it. The bug was two layers below the screen.
+- ✅ Treating "who initiates the fetch" as the design question. Broadcasting from
+  the single choke point (`revalidate`) fixed every screen at once.
+
+### Key Takeaways
+
+1. An observable that only reports work _this_ caller started is not an
+   observable. Broadcast from the choke point every path funnels through.
+2. Stale-while-revalidate needs a third UI state. `loading` vs `idle` cannot
+   express "showing you the old list, checking for a newer one".
+3. On tvOS, never express a loading state by disabling a focusable control.
+   Placeholders belong in list headers, not in list data.
+4. A spinner frame on warm data is a bug, not a formality: if the payload is in
+   memory, read it synchronously during render.
+
+### Files Touched
+
+- New: `components/refresh-indicator.tsx`, `components/shimmer-block.tsx`,
+  `hooks/useDelayedFlag.ts`
+- Changed: `services/kvfCache.ts`, `hooks/useKvfResource.ts`,
+  `components/tv-screen-scroll-view.tsx`, `components/section-screen.tsx`,
+  `app/program.tsx`, `app/(tabs)/schedule.tsx`, `app/(tabs)/search.tsx`,
+  `constants/strings.json`

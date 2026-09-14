@@ -50,20 +50,25 @@ export function SectionScreen({ section }: { section: SectionId }) {
 
   // Rebuilt each render, but useKvfResource keys off `resource.key` only.
   const resource = useMemo(() => frontPageResource(section), [section]);
-  const { data: page, isLoading, error } = useKvfResource<FrontPage>(resource, strings.common.failedToLoad);
+  const { data: page, isLoading, isRefreshing, error } = useKvfResource<FrontPage>(resource, strings.common.failedToLoad);
 
   const featured = useMemo(() => page?.featuredPrograms ?? [], [page]);
   const categories = useMemo(() => page?.categories ?? [], [page]);
 
   const handleProgramPress = useCallback(
     (program: ProgramCard) => {
-      router.push({ pathname: "/program", params: { section, slug: program.slug } });
+      // Carried so the program screen can paint the real title and banner while
+      // its own (sometimes very slow) fetch is still running.
+      router.push({
+        pathname: "/program",
+        params: { section, slug: program.slug, title: program.title, thumb: program.thumbnailUrl ?? undefined },
+      });
     },
     [router, section],
   );
 
   return (
-    <TVScreenScrollView>
+    <TVScreenScrollView isRefreshing={isRefreshing}>
       {isLoading && !page ? (
         <View style={S.center}>
           <ActivityIndicator size="large" color="#FFFFFF" />

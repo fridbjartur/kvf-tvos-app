@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/loading-spinner";
 /**
  * Sendingar — searchable list of all KVF programs.
  *
@@ -15,7 +16,7 @@ import { useRouter } from "expo-router";
 import { isNativeSearchAvailable, SearchResult, TvosSearchView } from "expo-tvos-search";
 import strings from "@/constants/strings.json";
 import React, { useCallback, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Platform, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Platform, StyleSheet, Text, TextInput, View } from "react-native";
 
 const IS_TV = Platform.isTV;
 const NUM_COLS = IS_TV ? 4 : 2;
@@ -75,7 +76,7 @@ function NativeSearchScreen() {
   if (isLoading && programs.length === 0) {
     return (
       <View style={S.center}>
-        <ActivityIndicator size="large" color="#FFFFFF" />
+        <LoadingSpinner size="large" />
       </View>
     );
   }
@@ -152,7 +153,7 @@ function ReactNativeSearchScreen() {
     if (isLoading) {
       return (
         <View style={S.centerContainer}>
-          <ActivityIndicator size="small" color="#FFFFFF" />
+          <LoadingSpinner />
           <Text style={S.loadingText}>{strings.search.loading}</Text>
         </View>
       );

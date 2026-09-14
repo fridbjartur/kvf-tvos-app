@@ -43,6 +43,8 @@ const resolve = (index: number, value: string) => {
 beforeEach(() => {
   requests = [];
   jest.clearAllMocks();
+  jest.mocked(cachePeek).mockReturnValue(null);
+  jest.mocked(isRevalidating).mockReturnValue(false);
   jest.mocked(swr).mockImplementation(async (_resource, callbacks) => {
     requests.push(callbacks as SwrCallbacks<string>);
   });

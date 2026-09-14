@@ -17,10 +17,10 @@
  */
 
 import { FocusScaleCard } from "@/components/focus-scale-card";
+import { ButtonVisual } from "@/components/button-visual";
 import { sectionIdFromApiProgramUrl, type SectionId } from "@/constants/sections";
 import strings from "@/constants/strings.json";
 import type { ScheduleEntry } from "@/types/kvf";
-import { Ionicons } from "@expo/vector-icons";
 import { useCallback } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
 
@@ -36,7 +36,7 @@ interface ScheduleEntryRowProps {
   onPress: (sectionId: SectionId, slug: string) => void;
 }
 
-function EntryBody({ entry, isNow, isLinked }: { entry: ScheduleEntry; isNow: boolean; isLinked: boolean }) {
+function EntryBody({ entry, isNow, isLinked, focused }: { entry: ScheduleEntry; isNow: boolean; isLinked: boolean; focused: boolean }) {
   const tracks = entry.music.slice(0, MAX_TRACKS);
 
   return (
@@ -49,34 +49,42 @@ function EntryBody({ entry, isNow, isLinked }: { entry: ScheduleEntry; isNow: bo
 
       <View style={[S.marker, isNow && S.markerNow]}>{isNow ? <View style={S.markerDot} /> : null}</View>
 
-      <View style={S.textColumn}>
-        <View style={S.titleRow}>
-          <Text numberOfLines={1} style={[S.title, isNow && S.titleNow]}>
-            {entry.title}
-          </Text>
-          {isNow ? <Text style={S.liveTag}>{strings.schedule.liveTag}</Text> : null}
-          {isLinked ? <Ionicons name="chevron-forward" size={IS_TV ? 20 : 13} color="rgba(255,255,255,0.35)" /> : null}
+      <View style={S.details}>
+        <View style={S.textColumn}>
+          <View style={S.titleRow}>
+            <Text numberOfLines={1} style={[S.title, isNow && S.titleNow]}>
+              {entry.title}
+            </Text>
+            {isNow ? <Text style={S.liveTag}>{strings.schedule.liveTag}</Text> : null}
+          </View>
+
+          {entry.subtitle ? (
+            <Text numberOfLines={1} style={S.subtitle}>
+              {entry.subtitle}
+            </Text>
+          ) : null}
+
+          {entry.description ? (
+            <Text numberOfLines={2} style={S.description}>
+              {entry.description}
+            </Text>
+          ) : null}
+
+          {tracks.length > 0 ? (
+            <Text numberOfLines={1} style={S.music}>
+              {strings.schedule.music}: {tracks.map((t) => (t.artist ? `${t.title} – ${t.artist}` : t.title)).join(" · ")}
+            </Text>
+          ) : null}
+
+          {entry.faroeIslandsOnly ? <Text style={S.geoTag}>{strings.schedule.faroeIslandsOnly}</Text> : null}
         </View>
-
-        {entry.subtitle ? (
-          <Text numberOfLines={1} style={S.subtitle}>
-            {entry.subtitle}
-          </Text>
-        ) : null}
-
-        {entry.description ? (
-          <Text numberOfLines={2} style={S.description}>
-            {entry.description}
-          </Text>
-        ) : null}
-
-        {tracks.length > 0 ? (
-          <Text numberOfLines={1} style={S.music}>
-            {strings.schedule.music}: {tracks.map((t) => (t.artist ? `${t.title} – ${t.artist}` : t.title)).join(" · ")}
-          </Text>
-        ) : null}
-
-        {entry.faroeIslandsOnly ? <Text style={S.geoTag}>{strings.schedule.faroeIslandsOnly}</Text> : null}
+        <View style={S.affordance} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          {isLinked ? (
+            <ButtonVisual title={strings.schedule.openProgram} iconName="arrow-forward" variant="secondary" focused={focused} style={S.linkAction} textStyle={S.actionText} />
+          ) : (
+            <Text style={S.readOnly}>{strings.schedule.scheduleOnly}</Text>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -94,21 +102,32 @@ export function ScheduleEntryRow({ entry, isNow, onPress }: ScheduleEntryRowProp
   return (
     // scaleTo 1: a text row that grows on focus shoves the rows below it around.
     // The border overlay carries the focus state on its own.
-    <FocusScaleCard onPress={handlePress} scaleTo={1} cardStyle={[S.row, isNow && S.rowNow]} borderStyle={S.rowBorder} accessibilityLabel={entry.title}>
-      <EntryBody entry={entry} isNow={isNow} isLinked={isLinked} />
+    <FocusScaleCard
+      onPress={isLinked ? handlePress : undefined}
+      disabled={!IS_TV && !isLinked}
+      activeOpacity={isLinked ? 0.9 : 1}
+      scaleTo={1}
+      cardStyle={[S.row, isNow && S.rowNow]}
+      borderStyle={[S.rowBorder, !isLinked && S.readOnlyBorder]}
+      accessibilityRole={isLinked ? "link" : "text"}
+      accessibilityLabel={`${entry.startTime}. ${entry.title}. ${isLinked ? strings.schedule.openProgram : strings.schedule.scheduleOnly}`}>
+      {(focused) => <EntryBody entry={entry} isNow={isNow} isLinked={isLinked} focused={focused} />}
     </FocusScaleCard>
   );
 }
 
 const S = StyleSheet.create({
   row: {
-    paddingVertical: IS_TV ? 16 : 10,
-    paddingHorizontal: IS_TV ? 24 : 12,
+    paddingVertical: IS_TV ? 22 : 16,
+    paddingHorizontal: IS_TV ? 24 : 16,
     borderRadius: IS_TV ? 12 : 8,
-    backgroundColor: "transparent",
+    backgroundColor: "#141416",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.04)",
   },
   rowNow: {
-    backgroundColor: "rgba(232,0,28,0.10)",
+    backgroundColor: "#25151A",
+    borderColor: "rgba(232,0,28,0.25)",
   },
   rowBorder: {
     position: "absolute",
@@ -124,6 +143,12 @@ const S = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
   },
+  details: { flex: 1, flexDirection: IS_TV ? "row" : "column", gap: IS_TV ? 24 : 12 },
+  affordance: { width: IS_TV ? 196 : undefined, alignSelf: IS_TV ? "center" : "flex-start", alignItems: "flex-end" },
+  linkAction: { minWidth: 0, minHeight: IS_TV ? 48 : 40, paddingHorizontal: IS_TV ? 16 : 12, paddingVertical: 6 },
+  actionText: { fontSize: IS_TV ? 17 : 13, lineHeight: IS_TV ? 24 : 18 },
+  readOnly: { color: "#98989D", fontSize: IS_TV ? 16 : 12, lineHeight: IS_TV ? 24 : 18, paddingHorizontal: IS_TV ? 18 : 0 },
+  readOnlyBorder: { borderColor: "#686870", borderWidth: IS_TV ? 2 : 1 },
   rail: {
     width: IS_TV ? 96 : 52,
   },
@@ -134,9 +159,9 @@ const S = StyleSheet.create({
     letterSpacing: -0.3,
     fontVariant: ["tabular-nums"],
   },
-  startTimeNow: { color: "#E8001C" },
+  startTimeNow: { color: "#FF5365" },
   endTime: {
-    color: "#636366",
+    color: "#98989D",
     fontSize: IS_TV ? 15 : 10,
     fontWeight: "500",
     marginTop: 2,
@@ -162,7 +187,7 @@ const S = StyleSheet.create({
   },
   textColumn: {
     flex: 1,
-    gap: IS_TV ? 4 : 2,
+    gap: IS_TV ? 6 : 4,
   },
   titleRow: {
     flexDirection: "row",
@@ -181,7 +206,7 @@ const S = StyleSheet.create({
     fontWeight: "700",
   },
   liveTag: {
-    color: "#E8001C",
+    color: "#FF5365",
     fontSize: IS_TV ? 12 : 9,
     fontWeight: "800",
     letterSpacing: 1.5,

@@ -33,15 +33,15 @@ const CHOICES: Choice[] = [
     section: "ljod",
     title: strings.ljodPicker.ljodTitle,
     subtitle: strings.ljodPicker.ljodSubtitle,
-    icon: "radio",
-    colors: ["#3B3B98", "#14142B"],
+    icon: "headset-outline",
+    colors: ["#34336B", "#141422"],
   },
   {
     section: "ljod-vit",
     title: strings.ljodPicker.vitTitle,
     subtitle: strings.ljodPicker.vitSubtitle,
-    icon: "happy",
-    colors: ["#C2185B", "#2E0A18"],
+    icon: "sparkles-outline",
+    colors: ["#75334F", "#25151F"],
   },
 ];
 
@@ -49,14 +49,32 @@ function ChoiceCard({ choice, onPress }: { choice: Choice; onPress: (section: Se
   const handlePress = useCallback(() => onPress(choice.section), [onPress, choice.section]);
 
   return (
-    <FocusScaleCard onPress={handlePress} scaleTo={1} cardStyle={S.card} borderStyle={S.cardBorder} accessibilityLabel={`${choice.title}. ${choice.subtitle}`}>
-      <LinearGradient colors={choice.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={S.cardFill}>
-        <Ionicons name={choice.icon} size={IS_TV ? 92 : 44} color="rgba(255,255,255,0.92)" />
-        <View style={S.cardText}>
-          <Text style={S.cardTitle}>{choice.title}</Text>
-          <Text style={S.cardSubtitle}>{choice.subtitle}</Text>
-        </View>
-      </LinearGradient>
+    <FocusScaleCard onPress={handlePress} scaleTo={1.025} style={S.cardSlot} cardStyle={S.card} borderStyle={S.cardBorder} accessibilityLabel={`${choice.title}. ${choice.subtitle}`}>
+      {(focused) => (
+        <LinearGradient colors={choice.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={S.cardFill}>
+          <View style={S.artwork} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            <View style={S.orbitOuter} />
+            <View style={S.orbitInner} />
+            <View style={S.waveform}>
+              {[22, 38, 58, 34, 72, 100, 64, 42, 82, 54, 30, 48, 24].map((height, index) => (
+                <View key={index} style={[S.waveBar, { height: `${height}%`, opacity: 0.12 + (index % 4) * 0.06 }]} />
+              ))}
+            </View>
+          </View>
+          <View style={S.iconBadge}>
+            <Ionicons name={choice.icon} size={IS_TV ? 36 : 26} color="#FFFFFF" />
+          </View>
+          <View style={S.cardBottom}>
+            <View style={S.cardText}>
+              <Text style={S.cardTitle}>{choice.title}</Text>
+              <Text style={S.cardSubtitle}>{choice.subtitle}</Text>
+            </View>
+            <View style={[S.arrow, focused && S.arrowFocused]}>
+              <Ionicons name="arrow-forward" size={IS_TV ? 26 : 20} color={focused ? "#141414" : "#FFFFFF"} />
+            </View>
+          </View>
+        </LinearGradient>
+      )}
     </FocusScaleCard>
   );
 }
@@ -105,59 +123,110 @@ export default function LjodPickerScreen() {
 
 // Named "S" not "styles" — prevents editor auto-import from shadowing the local definition.
 const S = StyleSheet.create({
-  container: { paddingTop: IS_TV ? 70 : 30, paddingBottom: IS_TV ? 80 : 30 },
-  centered: { alignItems: "center", gap: IS_TV ? 64 : 32 },
-  header: { alignItems: "center", gap: IS_TV ? 10 : 6 },
+  container: { paddingTop: IS_TV ? 56 : 32, paddingBottom: IS_TV ? 96 : 40, paddingHorizontal: IS_TV ? 80 : 24 },
+  centered: { width: "100%", maxWidth: 1600, alignSelf: "center", gap: IS_TV ? 36 : 28 },
+  header: { gap: IS_TV ? 12 : 8 },
   heading: {
     color: "#FFFFFF",
     fontSize: IS_TV ? 56 : 30,
+    lineHeight: IS_TV ? 64 : 38,
     fontWeight: "800",
     letterSpacing: -1,
   },
   subheading: {
-    color: "rgba(255,255,255,0.55)",
+    color: "#A9A9B3",
     fontSize: IS_TV ? 22 : 14,
     fontWeight: "500",
   },
   grid: {
-    flexDirection: "row",
-    gap: IS_TV ? 72 : 24,
+    flexDirection: IS_TV ? "row" : "column",
+    gap: IS_TV ? 32 : 20,
   },
+  cardSlot: { flex: IS_TV ? 1 : undefined, minWidth: 0 },
 
   // No overflow:hidden on the card itself — the border must not be clipped as it scales.
   card: {
-    width: IS_TV ? 520 : 165,
-    height: IS_TV ? 380 : 190,
-    borderRadius: IS_TV ? 22 : 14,
+    width: "100%",
+    height: IS_TV ? 380 : 224,
+    borderRadius: IS_TV ? 18 : 14,
   },
   cardFill: {
     flex: 1,
-    borderRadius: IS_TV ? 22 : 14,
+    borderRadius: IS_TV ? 18 : 14,
     overflow: "hidden",
     justifyContent: "space-between",
-    padding: IS_TV ? 44 : 20,
+    padding: IS_TV ? 36 : 24,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
   },
-  cardText: { gap: IS_TV ? 8 : 4 },
+  artwork: { ...StyleSheet.absoluteFill, overflow: "hidden" },
+  orbitOuter: {
+    position: "absolute",
+    width: IS_TV ? 440 : 280,
+    height: IS_TV ? 440 : 280,
+    borderRadius: 300,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    top: IS_TV ? -180 : -120,
+    right: -40,
+  },
+  orbitInner: {
+    position: "absolute",
+    width: IS_TV ? 320 : 200,
+    height: IS_TV ? 320 : 200,
+    borderRadius: 200,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    top: IS_TV ? -120 : -80,
+    right: 20,
+  },
+  waveform: {
+    position: "absolute",
+    right: "8%",
+    top: "12%",
+    width: "48%",
+    height: "42%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    transform: [{ rotate: "-12deg" }],
+  },
+  waveBar: { width: IS_TV ? 10 : 6, borderRadius: 6, backgroundColor: "#FFFFFF" },
+  iconBadge: {
+    width: IS_TV ? 72 : 52,
+    height: IS_TV ? 72 : 52,
+    borderRadius: IS_TV ? 20 : 16,
+    backgroundColor: "rgba(255,255,255,0.09)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardBottom: { flexDirection: "row", alignItems: "flex-end", gap: 16 },
+  cardText: { flex: 1, gap: IS_TV ? 8 : 6 },
   cardTitle: {
     color: "#FFFFFF",
-    fontSize: IS_TV ? 48 : 24,
+    fontSize: IS_TV ? 48 : 30,
+    lineHeight: IS_TV ? 56 : 36,
     fontWeight: "800",
     letterSpacing: -1,
   },
   cardSubtitle: {
     color: "rgba(255,255,255,0.75)",
-    fontSize: IS_TV ? 21 : 12,
+    fontSize: IS_TV ? 21 : 14,
     fontWeight: "500",
-    lineHeight: IS_TV ? 28 : 16,
+    lineHeight: IS_TV ? 28 : 20,
   },
+  arrow: { width: IS_TV ? 52 : 40, height: IS_TV ? 52 : 40, borderRadius: 30, borderWidth: 1, borderColor: "rgba(255,255,255,0.3)", alignItems: "center", justifyContent: "center", marginBottom: 2 },
+  arrowFocused: { backgroundColor: "#FFFFFF", borderColor: "#FFFFFF" },
   cardBorder: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    borderWidth: IS_TV ? 4 : 2,
+    borderWidth: IS_TV ? 3 : 2,
     borderColor: "#FFFFFF",
-    borderRadius: IS_TV ? 22 : 14,
+    borderRadius: IS_TV ? 18 : 14,
   },
 });

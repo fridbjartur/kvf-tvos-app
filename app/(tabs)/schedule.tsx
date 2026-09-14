@@ -10,6 +10,7 @@ import { ChannelTile, type LiveChannel } from "@/components/channel-tile";
 import { FocusableButton } from "@/components/FocusableButton";
 import { NowPlayingCard } from "@/components/now-playing-card";
 import { ScheduleEntryRow } from "@/components/schedule-entry-row";
+import { ShimmerBlock } from "@/components/shimmer-block";
 import { SegmentedTabs, type TabItem } from "@/components/segmented-tabs";
 import { SECTIONS, type Channel, type SectionId } from "@/constants/sections";
 import strings from "@/constants/strings.json";
@@ -20,7 +21,7 @@ import { setActiveSchedule } from "@/services/kvfPreload";
 import type { SchedulePage } from "@/types/kvf";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Platform, StyleSheet, Text, TVFocusGuideView, View } from "react-native";
+import { Platform, StyleSheet, Text, TVFocusGuideView, View, useWindowDimensions } from "react-native";
 
 const IS_TV = Platform.isTV;
 
@@ -32,9 +33,9 @@ const LIVE_CHANNELS: Readonly<Record<Channel, readonly LiveChannel[]>> = {
   ],
   ljod: [
     { name: "KVF", subtitle: "Útvarp", url: "https://w-live-edge2.kringvarp.fo/radio/_definst_/radio.stream/playlist.m3u8", colors: ["#3B3B98", "#14142B"] },
-    // Not HLS and not HTTPS — a bare Icecast-style stream. It plays because the
-    // app allows arbitrary media loads (app.json → NSAllowsArbitraryLoadsForMedia).
-    { name: "KVF 2", subtitle: "Útvarp 2", url: "http://netvarp.kringvarp.fo:4443/kvf2_2", colors: ["#0E7490", "#062730"] },
+    // Direct AAC+ radio stream. The host-specific ATS exception in app.json
+    // permits its HTTP connection, including the player's initial request.
+    { name: "KVF 2", subtitle: "Útvarp 2", url: "http://netvarp.kringvarp.fo:4443/kvf2_1", colors: ["#0E7490", "#062730"] },
   ],
 };
 
@@ -51,6 +52,8 @@ const CHANNEL_TABS: TabItem<Channel>[] = [
 ];
 
 export default function ScheduleScreen() {
+  const { width } = useWindowDimensions();
+  const wideLayout = IS_TV && width >= 1100;
   const router = useRouter();
   const { showGlobalLoader } = useLoading();
 
@@ -124,21 +127,34 @@ export default function ScheduleScreen() {
 
   return (
     <TVScreenScrollView contentContainerStyle={S.scrollContent} isRefreshing={showRefreshPip}>
-      <TVFocusGuideView autoFocus style={S.header}>
-        <SegmentedTabs items={CHANNEL_TABS} selected={channel} onSelect={handleChannel} />
-      </TVFocusGuideView>
-
-      <View style={S.block}>
-        <NowPlayingCard entry={nowPlaying} streamUrl={primary?.url ?? null} channelName={primary?.name ?? SECTIONS[channel].label} actionLabel={ACTION_LABEL[channel]} onPlay={handleChannelPress} />
+      <View style={S.header}>
+        <Text style={S.pageTitle}>{strings.tabs.live}</Text>
+        <TVFocusGuideView autoFocus>
+          <SegmentedTabs items={CHANNEL_TABS} selected={channel} onSelect={handleChannel} />
+        </TVFocusGuideView>
       </View>
 
-      <View style={S.block}>
-        <Text style={S.sectionHeading}>{strings.schedule.channelsHeading}</Text>
-        <TVFocusGuideView autoFocus style={S.channelGrid}>
-          {channels.map((ch) => (
-            <ChannelTile key={ch.name} channel={ch} nowPlayingTitle={ch === primary ? nowPlaying?.title : null} onPress={handleChannelPress} />
-          ))}
-        </TVFocusGuideView>
+      <View style={[S.featured, wideLayout && S.featuredWide]}>
+        <View style={S.heroColumn}>
+          <NowPlayingCard
+            entry={nowPlaying}
+            streamUrl={primary?.url ?? null}
+            channelName={primary?.subtitle ?? SECTIONS[channel].label}
+            actionLabel={ACTION_LABEL[channel]}
+            onPlay={handleChannelPress}
+            isLoading={isLoading && !view}
+            isAudio={channel === "ljod"}
+          />
+        </View>
+
+        <View style={[S.channelsColumn, wideLayout && S.channelsColumnWide]}>
+          <Text style={S.channelsHeading}>{strings.schedule.channelsHeading}</Text>
+          <TVFocusGuideView autoFocus style={[S.channelGrid, wideLayout && S.channelGridVertical]}>
+            {channels.map((ch) => (
+              <ChannelTile key={ch.name} channel={ch} nowPlayingTitle={ch === primary ? nowPlaying?.title : null} onPress={handleChannelPress} />
+            ))}
+          </TVFocusGuideView>
+        </View>
       </View>
 
       <View style={S.block}>
@@ -155,8 +171,16 @@ export default function ScheduleScreen() {
         </TVFocusGuideView>
 
         {isLoading && !view ? (
-          <View style={S.status}>
-            <ActivityIndicator size="large" color="#FFFFFF" />
+          <View style={S.entries} accessibilityLabel={strings.program.loadingButton} accessibilityState={{ busy: true }}>
+            {[0, 1, 2].map((index) => (
+              <View key={index} style={S.skeletonRow}>
+                <ShimmerBlock style={S.skeletonTime} delayMs={index * 100} />
+                <View style={S.skeletonCopy}>
+                  <ShimmerBlock style={S.skeletonTitle} delayMs={index * 100} />
+                  <ShimmerBlock style={S.skeletonDescription} delayMs={index * 100 + 80} />
+                </View>
+              </View>
+            ))}
           </View>
         ) : error && !view ? (
           <View style={S.status}>
@@ -183,15 +207,26 @@ export default function ScheduleScreen() {
 
 // Named "S" not "styles" — prevents editor auto-import from shadowing the local definition.
 const S = StyleSheet.create({
-  scrollContent: { paddingTop: IS_TV ? 34 : 16 },
+  scrollContent: { paddingTop: IS_TV ? 32 : 24 },
   header: {
-    alignItems: "flex-start",
-    paddingHorizontal: IS_TV ? 80 : 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: IS_TV ? 24 : 16,
+    paddingHorizontal: IS_TV ? 80 : 24,
   },
+  pageTitle: { color: "#FFFFFF", fontSize: IS_TV ? 48 : 30, lineHeight: IS_TV ? 58 : 38, fontWeight: "800", letterSpacing: -1 },
+  featured: { marginTop: IS_TV ? 28 : 24, marginHorizontal: IS_TV ? 80 : 24, gap: IS_TV ? 28 : 24 },
+  featuredWide: { flexDirection: "row", alignItems: "stretch" },
+  heroColumn: { flex: 2, minWidth: 0 },
+  channelsColumn: { gap: IS_TV ? 16 : 12 },
+  channelsColumnWide: { flex: 1, minWidth: 0 },
+  channelsHeading: { color: "#A9A9B3", fontSize: IS_TV ? 18 : 14, fontWeight: "600", letterSpacing: 0.3 },
   block: {
-    marginTop: IS_TV ? 32 : 18,
-    paddingHorizontal: IS_TV ? 80 : 20,
-    gap: IS_TV ? 18 : 10,
+    marginTop: IS_TV ? 40 : 32,
+    paddingHorizontal: IS_TV ? 80 : 24,
+    gap: IS_TV ? 20 : 16,
   },
   sectionHeading: {
     color: "rgba(255,255,255,0.85)",
@@ -201,25 +236,31 @@ const S = StyleSheet.create({
   },
   channelGrid: {
     flexDirection: "row",
-    gap: IS_TV ? 40 : 14,
+    flex: 1,
+    gap: IS_TV ? 20 : 12,
   },
+  channelGridVertical: { flexDirection: "column" },
   scheduleHeader: {
     flexDirection: "row",
     alignItems: "center",
     flexWrap: "wrap",
-    gap: IS_TV ? 32 : 14,
+    justifyContent: "space-between",
+    gap: IS_TV ? 24 : 14,
   },
   dayNav: {
     flexDirection: "row",
     alignItems: "center",
-    gap: IS_TV ? 20 : 10,
+    gap: IS_TV ? 16 : 8,
   },
   dayButton: {
-    minWidth: IS_TV ? 86 : 54,
-    paddingHorizontal: IS_TV ? 18 : 12,
+    minWidth: IS_TV ? 56 : 44,
+    minHeight: IS_TV ? 56 : 44,
+    paddingHorizontal: IS_TV ? 16 : 10,
+    paddingVertical: 4,
   },
   dayLabels: {
-    minWidth: IS_TV ? 300 : 140,
+    minWidth: IS_TV ? 240 : 132,
+    alignItems: "center",
   },
   dayLabel: {
     color: "#FFFFFF",
@@ -228,14 +269,19 @@ const S = StyleSheet.create({
     letterSpacing: -0.3,
   },
   weekday: {
-    color: "#636366",
+    color: "#A9A9B3",
     fontSize: IS_TV ? 16 : 11,
     fontWeight: "500",
     marginTop: 2,
   },
   entries: {
-    gap: IS_TV ? 4 : 2,
+    gap: IS_TV ? 8 : 6,
   },
+  skeletonRow: { flexDirection: "row", alignItems: "flex-start", gap: IS_TV ? 32 : 20, padding: IS_TV ? 24 : 16, borderRadius: 12, backgroundColor: "#141416" },
+  skeletonTime: { width: IS_TV ? 80 : 44, height: IS_TV ? 24 : 18, borderRadius: 4 },
+  skeletonCopy: { flex: 1, gap: IS_TV ? 12 : 8 },
+  skeletonTitle: { width: "44%", height: IS_TV ? 24 : 18, borderRadius: 4 },
+  skeletonDescription: { width: "72%", height: IS_TV ? 16 : 12, borderRadius: 4 },
   status: {
     paddingVertical: IS_TV ? 90 : 44,
     alignItems: "center",
@@ -243,5 +289,5 @@ const S = StyleSheet.create({
   },
   errorText: { color: "#FF3B30", fontSize: IS_TV ? 20 : 15, textAlign: "center", padding: 32 },
   emptyText: { color: "#98989D", fontSize: IS_TV ? 20 : 15, textAlign: "center" },
-  bottomPad: { height: IS_TV ? 200 : 80 },
+  bottomPad: { height: IS_TV ? 100 : 48 },
 });

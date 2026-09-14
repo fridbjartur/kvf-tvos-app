@@ -1,5 +1,7 @@
 module.exports = {
   preset: "jest-expo",
+  // Worklets must resolve its JS implementation in Jest, not the native bridge.
+  resolver: "react-native-worklets/jest/resolver.js",
   testEnvironment: "jest-environment-node",
   setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
   transformIgnorePatterns: [

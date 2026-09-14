@@ -1,7 +1,8 @@
+import { LoadingSpinner } from "@/components/loading-spinner";
 import { DESIGN, slotColumns, slotRatio, type SlotOrientation } from "@/constants/app";
 import { Ionicons } from "@expo/vector-icons";
 import React, { forwardRef, useCallback, useState } from "react";
-import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 const IS_TV = Platform.isTV;
 const CARD_PADDING = IS_TV ? 16 : 8;
@@ -44,7 +45,7 @@ const BackGridItemComponent = forwardRef<React.ElementRef<typeof TouchableOpacit
       <View style={styles.card}>
         <View style={[styles.imageContainer, { aspectRatio: slotRatio(slotOrientation) }]}>
           <View style={styles.placeholderPoster}>
-            {isLoading ? <ActivityIndicator size="small" color="rgba(250, 196, 0, 0.5)" /> : <Ionicons name="return-up-back" size={IS_TV ? 80 : 50} color="rgba(250, 196, 0, 0.5)" />}
+            {isLoading ? <LoadingSpinner /> : <Ionicons name="return-up-back" size={IS_TV ? 80 : 50} color="rgba(250, 196, 0, 0.5)" />}
             <Text style={styles.placeholderText}> </Text>
           </View>
 

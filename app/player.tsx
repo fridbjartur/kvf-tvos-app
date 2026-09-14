@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/loading-spinner";
 import strings from "@/constants/strings.json";
 /**
  * KVF Video Player.
@@ -18,7 +19,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Video from "react-native-video";
 import type { OnLoadData, OnProgressData } from "react-native-video";
-import { ActivityIndicator, LogBox, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { LogBox, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 LogBox.ignoreLogs(["JS object is no longer associated", "Operation requires a client callback", "Cannot Open", "Failed to load the player item"]);
 
@@ -173,7 +174,7 @@ export default function PlayerScreen() {
 
       {showLoadingOverlay && (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#FFFFFF" />
+          <LoadingSpinner size="large" />
         </View>
       )}
 

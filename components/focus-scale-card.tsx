@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Animated, TouchableOpacity, type StyleProp, type ViewStyle } from "react-native";
+import { Animated, TouchableOpacity, type AccessibilityRole, type StyleProp, type ViewStyle } from "react-native";
 
 const SPRING = { tension: 220, friction: 22, useNativeDriver: true } as const;
 
@@ -65,6 +65,7 @@ interface FocusScaleCardProps extends FocusSpringOptions {
   /** Style for the border overlay whose opacity animates with focus. */
   borderStyle?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
+  accessibilityRole?: AccessibilityRole;
   /** Card content. Pass a function to receive the current focused state. */
   children: ReactNode | ((focused: boolean) => ReactNode);
   /** Rendered inside the touchable but below/outside the scaled card. */
@@ -85,6 +86,7 @@ export function FocusScaleCard({
   cardStyle,
   borderStyle,
   accessibilityLabel,
+  accessibilityRole = "button",
   children,
   footer,
 }: FocusScaleCardProps) {
@@ -111,7 +113,7 @@ export function FocusScaleCard({
       disabled={disabled}
       style={style}
       accessibilityLabel={accessibilityLabel}
-      accessibilityRole="button">
+      accessibilityRole={accessibilityRole}>
       <Animated.View style={[cardStyle, { transform: [{ scale }] }]}>
         {typeof children === "function" ? children(focused) : children}
         <Animated.View style={[borderStyle, { opacity: borderOpacity }]} pointerEvents="none" />

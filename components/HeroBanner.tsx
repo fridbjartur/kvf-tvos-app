@@ -13,7 +13,7 @@ import strings from "@/constants/strings.json";
  *   • A non-focusable "Watch" button visually highlights when the banner is focused.
  */
 
-import { DESIGN } from "@/constants/app";
+import { ButtonVisual } from "@/components/button-visual";
 import { useFocusEffect, useIsFocused } from "expo-router";
 import type { FeaturedProgram } from "@/types/kvf";
 import { Image } from "expo-image";
@@ -84,9 +84,7 @@ const HeroSlide = memo(function HeroSlide({ hero, isActive, activeIndex, heroesL
           ) : null}
 
           <View style={S.ctaRow}>
-            <View style={[S.ctaButton, focused && S.ctaButtonFocused]}>
-              <Text style={[S.ctaText, focused && S.ctaTextFocused]}>{strings.heroBanner.watchButton}</Text>
-            </View>
+            <ButtonVisual title={strings.heroBanner.watchButton} iconName="play" focused={focused} />
 
             {heroesLength > 1 && (
               <View style={S.dots}>
@@ -247,27 +245,6 @@ const S = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginTop: IS_TV ? 16 : 8,
-  },
-  ctaButton: {
-    borderRadius: DESIGN.BORDER_RADIUS_SMALL,
-    backgroundColor: "rgba(255,255,255,0.18)",
-    paddingHorizontal: IS_TV ? 32 : 16,
-    paddingVertical: IS_TV ? 14 : 8,
-    borderWidth: IS_TV ? 2 : 1,
-    borderColor: "rgba(255,255,255,0.25)",
-  },
-  ctaButtonFocused: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#FFFFFF",
-  },
-  ctaText: {
-    color: "rgba(255,255,255,0.85)",
-    fontSize: IS_TV ? 22 : 14,
-    fontWeight: "900",
-    letterSpacing: 0.2,
-  },
-  ctaTextFocused: {
-    color: "#000000",
   },
   dots: {
     flexDirection: "row",

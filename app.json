@@ -21,7 +21,12 @@
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true,
           "NSAllowsArbitraryLoadsForMedia": true,
-          "NSAllowsLocalNetworking": true
+          "NSAllowsLocalNetworking": true,
+          "NSExceptionDomains": {
+            "netvarp.kringvarp.fo": {
+              "NSExceptionAllowsInsecureHTTPLoads": true
+            }
+          }
         },
         "NSLocalNetworkUsageDescription": "KVF needs local network access to reach your kvf-scraper-api server.",
         "NSBonjourServices": []

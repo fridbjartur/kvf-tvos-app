@@ -65,12 +65,14 @@ function ProgramSkeleton({ title, thumbnailUrl, onBack }: { title?: string; thum
       </View>
 
       <View style={styles.scroll}>
-        <View style={{ height: BANNER_H - (IS_TV ? 180 : 100) }} />
+        <View style={styles.bannerSpacer} />
 
         <View style={styles.info}>
           {title ? <Text style={styles.programTitle}>{title}</Text> : <ShimmerBlock style={styles.skelTitle} />}
-          <ShimmerBlock style={styles.skelLine} delayMs={80} />
-          <ShimmerBlock style={[styles.skelLine, styles.skelLineShort]} delayMs={160} />
+          <View style={styles.skelDescription} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            <ShimmerBlock style={styles.skelLine} delayMs={80} />
+            <ShimmerBlock style={[styles.skelLine, styles.skelLineShort]} delayMs={160} />
+          </View>
 
           <View style={styles.actions}>
             <FocusableButton title={strings.program.goBack} onPress={onBack} variant="secondary" hasTVPreferredFocus />
@@ -80,7 +82,7 @@ function ProgramSkeleton({ title, thumbnailUrl, onBack }: { title?: string; thum
         <View style={styles.episodesSection}>
           <View style={styles.episodesHeadingRow}>
             <Text style={styles.episodesHeading}>{strings.program.episodesHeading}</Text>
-            <RefreshIndicator active variant="inline" />
+            <RefreshIndicator active variant="inline" label={strings.program.loadingButton} />
           </View>
           <View style={[styles.epSkeletonRow, styles.episodesRow]}>
             {SKELETON_EPISODES.map((i) => (
@@ -299,7 +301,7 @@ export default function ProgramScreen() {
       {/* Scrollable content overlapping the banner from below */}
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Spacer: pushes content below the opaque portion of the banner */}
-        <View style={{ height: BANNER_H - (IS_TV ? 180 : 100) }} />
+        <View style={styles.bannerSpacer} />
 
         {/* Program info */}
         <View style={styles.info}>
@@ -313,7 +315,13 @@ export default function ProgramScreen() {
             {/* Deliberately only swaps the label: FocusableButton's `isLoading`
                 disables the button, and a disabled button drops the tvOS focus
                 it was holding — mid-press, which is the worst possible moment. */}
-            <FocusableButton title={isResolvingStream ? strings.program.loadingButton : strings.program.playButton} onPress={handlePlayCurrentPress} variant="primary" hasTVPreferredFocus={false} />
+            <FocusableButton
+              title={isResolvingStream ? strings.program.loadingButton : strings.program.playButton}
+              iconName="play"
+              onPress={handlePlayCurrentPress}
+              variant="primary"
+              hasTVPreferredFocus={false}
+            />
           </View>
         </View>
 
@@ -388,14 +396,16 @@ const styles = StyleSheet.create({
   // Scrollable content
   scroll: { flex: 1 },
   scrollContent: {},
+  bannerSpacer: { height: BANNER_H - (IS_TV ? 180 : 100) },
   info: {
     paddingHorizontal: IS_TV ? 80 : 24,
-    paddingBottom: IS_TV ? 32 : 20,
+    paddingBottom: IS_TV ? 24 : 20,
     maxWidth: IS_TV ? 820 : undefined,
   },
   programTitle: {
     color: "#FFFFFF",
     fontSize: IS_TV ? 48 : 26,
+    lineHeight: IS_TV ? 56 : 32,
     fontWeight: "800",
     marginBottom: IS_TV ? 12 : 8,
     letterSpacing: -0.5,
@@ -407,7 +417,7 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.78)",
     fontSize: IS_TV ? 18 : 13,
     lineHeight: IS_TV ? 27 : 19,
-    marginBottom: IS_TV ? 28 : 18,
+    marginBottom: IS_TV ? 20 : 16,
     maxWidth: IS_TV ? 700 : undefined,
   },
   actions: { flexDirection: "row", gap: IS_TV ? 20 : 12 },
@@ -417,14 +427,14 @@ const styles = StyleSheet.create({
   episodesHeadingRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: IS_TV ? 16 : 10,
+    gap: IS_TV ? 12 : 10,
+    paddingHorizontal: IS_TV ? 80 : 24,
   },
   episodesHeading: {
     color: "#FFFFFF",
     fontSize: IS_TV ? 24 : 16,
     fontWeight: "700",
-    marginLeft: IS_TV ? 80 : 24,
-    marginBottom: IS_TV ? 4 : 4,
+    lineHeight: IS_TV ? 32 : 24,
     letterSpacing: -0.2,
   },
   episodesRow: { paddingHorizontal: IS_TV ? 64 : 12 },
@@ -433,18 +443,18 @@ const styles = StyleSheet.create({
   // not shift horizontally when the placeholders are swapped out for content.
   epSkeletonRow: { flexDirection: "row" },
   skelTitle: {
-    width: IS_TV ? 520 : 240,
-    height: IS_TV ? 40 : 24,
+    width: "78%",
+    height: IS_TV ? 56 : 32,
     borderRadius: 6,
-    marginBottom: IS_TV ? 16 : 10,
+    marginBottom: IS_TV ? 12 : 8,
   },
+  skelDescription: { gap: IS_TV ? 9 : 7, marginBottom: IS_TV ? 20 : 16, paddingVertical: IS_TV ? 4 : 3 },
   skelLine: {
-    width: "60%",
+    width: "90%",
     height: IS_TV ? 18 : 12,
     borderRadius: 4,
-    marginBottom: IS_TV ? 10 : 7,
   },
-  skelLineShort: { width: "42%" },
+  skelLineShort: { width: "62%" },
   epSkeletonTitle: {
     width: "70%",
     height: IS_TV ? 16 : 11,

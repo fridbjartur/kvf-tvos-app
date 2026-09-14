@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/loading-spinner";
 /**
  * SectionScreen — the front page for one section: hero banner plus a
  * horizontal row per category.
@@ -18,7 +19,7 @@ import { frontPageResource } from "@/services/kvfApi";
 import type { Category, FrontPage, ProgramCard } from "@/types/kvf";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo } from "react";
-import { ActivityIndicator, FlatList, Platform, StyleSheet, Text, TVFocusGuideView, View } from "react-native";
+import { FlatList, Platform, StyleSheet, Text, TVFocusGuideView, View } from "react-native";
 
 const IS_TV = Platform.isTV;
 const CARD_W = IS_TV ? 360 : 220;
@@ -71,7 +72,7 @@ export function SectionScreen({ section }: { section: SectionId }) {
     <TVScreenScrollView isRefreshing={isRefreshing}>
       {isLoading && !page ? (
         <View style={S.center}>
-          <ActivityIndicator size="large" color="#FFFFFF" />
+          <LoadingSpinner size="large" />
         </View>
       ) : error && !page ? (
         <View style={S.center}>

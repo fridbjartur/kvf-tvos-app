@@ -1,5 +1,6 @@
+import { LoadingSpinner } from "@/components/loading-spinner";
 import React, { createContext, ReactNode, useCallback, useContext, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 interface LoadingContextType {
   showGlobalLoader: () => void;
@@ -30,7 +31,7 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
           when it unmounts on tvOS. */}
       {isLoading && (
         <View style={styles.globalLoader} pointerEvents="auto">
-          <ActivityIndicator size="small" color="#FFFFFF" />
+          <LoadingSpinner />
         </View>
       )}
     </LoadingContext.Provider>

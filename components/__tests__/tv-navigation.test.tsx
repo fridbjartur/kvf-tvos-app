@@ -1,12 +1,14 @@
 import React from "react";
 import { Image } from "expo-image";
 import TestRenderer, { act } from "react-test-renderer";
-import { ScrollView, TVFocusGuideView, TouchableOpacity, Pressable, View, StyleSheet, Platform, type HWEvent } from "react-native";
+import { ScrollView, TVFocusGuideView, TouchableOpacity, Pressable, View, Text, StyleSheet, Platform, type HWEvent } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { TVScreenScrollView } from "../tv-screen-scroll-view";
 import { FocusScaleCard } from "../focus-scale-card";
 import { HeroBanner, HERO_H } from "../HeroBanner";
 import { NowPlayingCard } from "../now-playing-card";
+import { ScheduleEntryRow } from "../schedule-entry-row";
+import { FocusableButton } from "../FocusableButton";
 import { SegmentedTabs } from "../segmented-tabs";
 import { useScreenBack } from "@/hooks/useScreenBack";
 import LjodSectionScreen from "@/app/(tabs)/ljod/[section]";
@@ -17,7 +19,10 @@ import { useKvfResource } from "@/hooks/useKvfResource";
 import { DESIGN } from "@/constants/app";
 import TabLayout from "@/app/(tabs)/_layout";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
-import type { FeaturedProgram } from "@/types/kvf";
+import type { FeaturedProgram, ScheduleEntry } from "@/types/kvf";
+import strings from "@/constants/strings.json";
+
+jest.mock("react-native-reanimated", () => require("react-native-reanimated/mock"));
 
 jest.mock("expo-router/unstable-native-tabs", () => {
   const React = require("react");
@@ -137,6 +142,57 @@ it("bridges the full live banner and channel selector with native guides", () =>
   expect(selectorGuide?.props.autoFocus).toBe(true);
   expect(root.findAllByType(TVFocusGuideView).every((guide) => !guide.props.trapFocusUp && !guide.props.trapFocusDown)).toBe(true);
   expect(root.findAllByType(Pressable).every((button) => !button.props.hasTVPreferredFocus)).toBe(true);
+});
+
+it("keeps live playback available while the schedule loads without reporting off-air", () => {
+  const push = jest.fn();
+  jest.mocked(useRouter).mockReturnValue({ push } as unknown as ReturnType<typeof useRouter>);
+  const root = render(<ScheduleScreen />);
+  const banner = root.findByType(NowPlayingCard);
+  expect(banner.props.isLoading).toBe(true);
+  expect(banner.findAllByType(Text).some((text) => text.props.children === strings.schedule.offAir)).toBe(false);
+  const play = banner.findByType(FocusableButton);
+  expect(play.props.disabled).toBeFalsy();
+  expect(play.props.isLoading).toBeFalsy();
+  act(() => play.props.onPress());
+  expect(push).toHaveBeenCalledWith(expect.objectContaining({ pathname: "/player", params: expect.objectContaining({ isLive: "true" }) }));
+});
+
+it("updates live artwork when the program changes and keeps the play focus target mounted", () => {
+  const entry = { title: "News", thumbnailUrl: "https://kvf.fo/news.jpg", startTime: "18:00", endTime: "18:30", startsAt: "2026-09-14T18:00:00Z", endsAt: "2026-09-14T18:30:00Z" } as ScheduleEntry;
+  const props = { streamUrl: "https://kvf.fo/live.m3u8", channelName: "KVF", actionLabel: strings.schedule.watchLive, onPlay: jest.fn() };
+  const root = render(<NowPlayingCard {...props} entry={entry} />);
+  const play = root.findByType(FocusableButton);
+  const next = { ...entry, title: "Next", thumbnailUrl: "https://kvf.fo/next.jpg" };
+  render(<NowPlayingCard {...props} entry={next} />);
+  expect(root.findByType(Image).props.source).toEqual({ uri: next.thumbnailUrl });
+  expect(root.findByType(Image).props.recyclingKey).toBe(next.thumbnailUrl);
+  expect(root.findByType(FocusableButton)).toBe(play);
+});
+
+it("only offers a schedule action when both the program route and slug are valid", () => {
+  const onPress = jest.fn();
+  const entry = { title: "News", startTime: "18:00", music: [], program: null } as unknown as ScheduleEntry;
+  const root = render(<ScheduleEntryRow entry={entry} isNow={false} onPress={onPress} />);
+  const card = root.findByType(FocusScaleCard);
+  expect(card.props.onPress).toBeUndefined();
+  expect(card.props.accessibilityRole).toBe("text");
+  expect(card.props.activeOpacity).toBe(1);
+  expect(card.props.accessibilityLabel).toContain(strings.schedule.scheduleOnly);
+  expect(root.findByType(TouchableOpacity).props.isTVSelectable).toBe(true);
+
+  const linked = { ...entry, program: { slug: "news", apiProgramUrl: "/api/sjon/vit/programs/news" } } as ScheduleEntry;
+  render(<ScheduleEntryRow entry={linked} isNow={false} onPress={onPress} />);
+  expect(root.findByType(FocusScaleCard)).toBe(card);
+  expect(card.props.accessibilityRole).toBe("link");
+  expect(card.props.accessibilityLabel).toContain(strings.schedule.openProgram);
+  act(() => card.props.onPress());
+  expect(onPress).toHaveBeenCalledWith("sjon-vit", "news");
+
+  render(<ScheduleEntryRow entry={{ ...linked, program: { ...linked.program!, apiProgramUrl: null } }} isNow={false} onPress={onPress} />);
+  expect(card.props.onPress).toBeUndefined();
+  render(<ScheduleEntryRow entry={{ ...linked, program: { ...linked.program!, slug: "" } }} isNow={false} onPress={onPress} />);
+  expect(card.props.onPress).toBeUndefined();
 });
 
 it("keeps the section scroll/focus boundary mounted through loading, content, and errors", () => {

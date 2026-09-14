@@ -1,3 +1,4 @@
+import { LoadingSpinner } from "@/components/loading-spinner";
 /**
  * Passive "checking for new content" affordance.
  *
@@ -11,7 +12,7 @@
  */
 
 import { useEffect } from "react";
-import { ActivityIndicator, Platform, StyleSheet, Text } from "react-native";
+import { Platform, StyleSheet, Text } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 import strings from "@/constants/strings.json";
@@ -29,9 +30,10 @@ interface RefreshIndicatorProps {
    * `inline` sits in a row of content, e.g. beside a section heading.
    */
   variant?: "overlay" | "inline";
+  label?: string;
 }
 
-export function RefreshIndicator({ active, variant = "overlay" }: RefreshIndicatorProps) {
+export function RefreshIndicator({ active, variant = "overlay", label = strings.common.updating }: RefreshIndicatorProps) {
   const visible = useDelayedFlag(active);
   const fade = useSharedValue(0);
 
@@ -46,12 +48,12 @@ export function RefreshIndicator({ active, variant = "overlay" }: RefreshIndicat
       pointerEvents="none"
       accessibilityElementsHidden={!visible}
       importantForAccessibility={visible ? "yes" : "no-hide-descendants"}
-      accessibilityLabel={strings.common.updating}
+      accessibilityLabel={label}
       style={[variant === "overlay" ? S.overlay : S.inline, container]}>
       {/* Spins only while shown, but stays laid out through the fade-out so it
           cannot pop away before the pill behind it has finished disappearing. */}
-      <ActivityIndicator size="small" color="#FFFFFF" animating={visible} hidesWhenStopped={false} />
-      <Text style={S.label}>{strings.common.updating}</Text>
+      <LoadingSpinner animating={visible} hidesWhenStopped={false} />
+      <Text style={S.label}>{label}</Text>
     </Animated.View>
   );
 }
@@ -73,7 +75,7 @@ const S = StyleSheet.create({
   inline: {
     flexDirection: "row",
     alignItems: "center",
-    gap: IS_TV ? 12 : 8,
+    gap: 8,
   },
   label: {
     color: "#8E8E93",

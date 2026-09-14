@@ -38,10 +38,10 @@
     "failedToLoad": "Villa komin í leitingina"
   },
   "heroBanner": {
-    "watchButton": "▶ Hygg"
+    "watchButton": "Hygg"
   },
   "program": {
-    "playButton": "▶  Avspæl",
+    "playButton": "Avspæl",
     "loadingButton": "Innlesur…",
     "episodesHeading": "Sendingar",
     "goBack": "Aftur",
@@ -57,10 +57,12 @@
   "schedule": {
     "channelsHeading": "Rásir",
     "scheduleHeading": "Skrá",
+    "openProgram": "Vís sending",
+    "scheduleOnly": "Bert skrá",
     "comingSoon": "Kemur seinni",
     "liveTag": "● BEINLEIÐIS",
-    "watchLive": "▶  Hygg beinleiðis",
-    "listenLive": "▶  Hoyr beinleiðis",
+    "watchLive": "Hygg beinleiðis",
+    "listenLive": "Hoyr beinleiðis",
     "offAir": "Einki beinleiðis nú",
     "previousDay": "‹",
     "nextDay": "›",

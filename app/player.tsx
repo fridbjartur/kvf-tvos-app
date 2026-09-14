@@ -6,6 +6,7 @@ import strings from "@/constants/strings.json";
  * Uses the play queue from PlayQueueContext to handle "Up Next" and auto-advance.
  */
 
+import { useScreenBack } from "@/hooks/useScreenBack";
 import { FocusableButton } from "@/components/FocusableButton";
 import { UpNextOverlay } from "@/components/up-next-overlay";
 import { usePlayQueue } from "@/contexts/PlayQueueContext";
@@ -17,7 +18,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Video from "react-native-video";
 import type { OnLoadData, OnProgressData } from "react-native-video";
-import { ActivityIndicator, BackHandler, LogBox, Platform, StyleSheet, Text, TouchableOpacity, View, useTVEventHandler } from "react-native";
+import { ActivityIndicator, LogBox, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 LogBox.ignoreLogs(["JS object is no longer associated", "Operation requires a client callback", "Cannot Open", "Failed to load the player item"]);
 
@@ -137,24 +138,7 @@ export default function PlayerScreen() {
     router.back();
   }, [pause, clear, router]);
 
-  useTVEventHandler(
-    useCallback(
-      (evt: { eventType: string }) => {
-        if (evt.eventType === "menu") handleBack();
-      },
-      [handleBack],
-    ),
-  );
-
-  useEffect(() => {
-    if (Platform.OS === "android") {
-      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-        handleBack();
-        return true;
-      });
-      return () => sub.remove();
-    }
-  }, [handleBack]);
+  useScreenBack(handleBack);
 
   // ── Error state ──────────────────────────────────────────────────────────────
   if (state.type === "ERROR") {

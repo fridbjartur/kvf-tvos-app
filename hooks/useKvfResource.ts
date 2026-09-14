@@ -28,81 +28,82 @@ export interface KvfResourceState<T> {
   refresh: () => void;
 }
 
-/** Data is stored with the key it belongs to, so a key change can't show stale content. */
+/** Keep data and request status together so switching keys cannot leak either. */
 interface Held<T> {
   key: string | null;
   data: T | null;
+  loading: boolean;
+  refreshing: boolean;
+  error: string | null;
 }
 
 export function useKvfResource<T>(resource: Resource<T> | null, fallbackError = "Failed to load"): KvfResourceState<T> {
-  const [held, setHeld] = useState<Held<T>>({ key: null, data: null });
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // The caller rebuilds the resource object every render; only its key
-  // identifies it, so hold the latest object in a ref and key the load effect
-  // on `key` alone. Depending on `resource` would refetch on every render.
+  const [held, setHeld] = useState<Held<T>>({ key: null, data: null, loading: false, refreshing: false, error: null });
   const resourceRef = useRef(resource);
+  const refreshRef = useRef<(() => void) | null>(null);
 
-  // Declared before the load effect, so on the commit where `key` changes the
-  // ref is already updated by the time the load below runs.
   useEffect(() => {
     resourceRef.current = resource;
   });
 
   const key = resource?.key ?? null;
 
-  const load = useCallback(
-    (force: boolean) => {
-      const current = resourceRef.current;
-      if (!current) return;
+  useEffect(() => {
+    const current = resourceRef.current;
+    if (!current) return;
+
+    let active = true;
+    let request = 0;
+    const initial: Held<T> = { key, data: null, loading: true, refreshing: false, error: null };
+
+    const update = (patch: Partial<Held<T>>) => {
+      if (!active) return;
+      setHeld((previous) => ({ ...(previous.key === key ? previous : initial), ...patch }));
+    };
+
+    const unsubscribe = subscribe<T>(current.key, (entry) => {
+      update({ data: entry.data, error: null, loading: false });
+    });
+
+    const load = (force: boolean) => {
+      const id = ++request;
+      update({ error: null, loading: true, refreshing: false });
+      const apply = (patch: Partial<Held<T>>) => {
+        if (id === request) update(patch);
+      };
+      // Cache work may finish after a route change. Every callback, including
+      // loading/error callbacks, belongs to this effect and this request only.
       void swr(
         current,
         {
-          onData: (next) => {
-            setHeld({ key: current.key, data: next });
-            setError(null);
-          },
-          onLoading: setLoading,
-          onRefreshing: setRefreshing,
-          onError: (err) => setError(err instanceof Error ? err.message : fallbackError),
+          onData: (data) => apply({ data, error: null, loading: false }),
+          onLoading: (loading) => apply({ loading }),
+          onRefreshing: (refreshing) => apply({ refreshing }),
+          onError: (err) => apply({ error: err instanceof Error ? err.message : fallbackError }),
         },
         force,
       );
-    },
-    [fallbackError],
-  );
+    };
 
-  useEffect(() => {
-    if (!key) return;
-
-    let active = true;
-
-    // Another screen (or kvfPreload) refreshing this key updates us too.
-    const unsubscribe = subscribe<T>(key, (entry) => {
-      if (active) setHeld({ key, data: entry.data });
-    });
-
+    refreshRef.current = () => load(true);
     load(false);
 
     return () => {
       active = false;
+      refreshRef.current = null;
       unsubscribe();
     };
-  }, [key, load]);
+  }, [key, fallbackError]);
 
-  const refresh = useCallback(() => load(true), [load]);
-
-  // Derived rather than synced: state left over from a previous key (or from
-  // before the resource went null) is never rendered.
+  const refresh = useCallback(() => refreshRef.current?.(), []);
   const matches = held.key === key;
+  const data = matches ? held.data : null;
 
   return {
-    data: matches ? held.data : null,
-    isLoading: key !== null && loading && !(matches && held.data !== null),
-    isRefreshing: key !== null && matches && refreshing,
-    error: matches && held.data !== null ? null : error,
+    data,
+    isLoading: key !== null && data === null && (!matches || held.loading),
+    isRefreshing: key !== null && matches && held.refreshing,
+    error: key !== null && matches && data === null ? held.error : null,
     refresh,
   };
 }

@@ -13,15 +13,16 @@ import strings from "@/constants/strings.json";
  *   • A non-focusable "Watch" button visually highlights when the banner is focused.
  */
 
+import { DESIGN } from "@/constants/app";
+import { useFocusEffect, useIsFocused } from "expo-router";
 import type { FeaturedProgram } from "@/types/kvf";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Animated, Dimensions, Platform, StyleSheet, Text, TouchableOpacity, View, useTVEventHandler, type HWEvent } from "react-native";
-import { FocusableButton } from "./FocusableButton";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { Animated, Platform, StyleSheet, Text, TouchableOpacity, TVFocusGuideView, View, useTVEventHandler, type HWEvent } from "react-native";
 
 const IS_TV = Platform.isTV;
-const { width: SCREEN_W } = Dimensions.get("window");
 
 export const HERO_H = IS_TV ? 780 : 460;
 const SLIDE_INTERVAL_MS = 8000;
@@ -43,24 +44,28 @@ type SlideProps = {
   focused: boolean;
 };
 
-function HeroSlide({ hero, isActive, activeIndex, heroesLength, focused }: SlideProps) {
+const HeroSlide = memo(function HeroSlide({ hero, isActive, activeIndex, heroesLength, focused }: SlideProps) {
   // useState lazy init: created once, mutated by Animated — no re-render on animate.
   // Avoids the "ref.current during render" lint rule.
   const [opacity] = useState(() => new Animated.Value(isActive ? 1 : 0));
 
   useEffect(() => {
-    Animated.timing(opacity, {
+    const animation = Animated.timing(opacity, {
       toValue: isActive ? 1 : 0,
       duration: FADE_MS,
       useNativeDriver: true,
-    }).start();
+    });
+    animation.start();
+    return () => animation.stop();
   }, [isActive, opacity]);
 
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, { opacity }]} pointerEvents={isActive ? "auto" : "none"}>
+    <Animated.View style={[StyleSheet.absoluteFill, { opacity }]} pointerEvents="none" accessibilityElementsHidden={!isActive} importantForAccessibility={isActive ? "auto" : "no-hide-descendants"}>
       <View style={S.slideContainer}>
         {hero.thumbnailUrl ? (
-          <Image source={{ uri: hero.thumbnailUrl, cacheKey: `hero-${hero.slug}` }} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" priority="high" />
+          // MiKS episode links can have empty slugs. Use expo-image's default
+          // URL cache identity so unrelated artwork never shares a cache entry.
+          <Image source={{ uri: hero.thumbnailUrl }} recyclingKey={hero.thumbnailUrl} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" priority="high" />
         ) : null}
 
         <View style={S.dimmer} pointerEvents="none" />
@@ -79,11 +84,9 @@ function HeroSlide({ hero, isActive, activeIndex, heroesLength, focused }: Slide
           ) : null}
 
           <View style={S.ctaRow}>
-            {/* "Watch" — visual only, focus is on the parent TouchableOpacity */}
-            {/* <View style={[S.ctaButton, focused && S.ctaButtonFocused]}>
+            <View style={[S.ctaButton, focused && S.ctaButtonFocused]}>
               <Text style={[S.ctaText, focused && S.ctaTextFocused]}>{strings.heroBanner.watchButton}</Text>
-            </View> */}
-            <FocusableButton title={strings.heroBanner.watchButton} variant={focused ? "primary" : "secondary"} focus={focused} hasTVPreferredFocus={false} />
+            </View>
 
             {heroesLength > 1 && (
               <View style={S.dots}>
@@ -97,86 +100,111 @@ function HeroSlide({ hero, isActive, activeIndex, heroesLength, focused }: Slide
       </View>
     </Animated.View>
   );
-}
+});
 
 // ── Banner ─────────────────────────────────────────────────────────────────────
 
 export function HeroBanner({ heroes, onPress, hasTVPreferredFocus }: HeroBannerProps) {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const screenFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
+  const artworkInset = Platform.OS === "ios" ? insets.top : 0;
+  const [activeKey, setActiveKey] = useState<string | null>(null);
   const [focused, setFocused] = useState(false);
-
-  // Stable refs for callbacks
   const focusedRef = useRef(false);
-  const activeIndexRef = useRef(0);
-  const heroesLengthRef = useRef(heroes.length);
 
-  useEffect(() => {
-    focusedRef.current = focused;
-  }, [focused]);
-  useEffect(() => {
-    activeIndexRef.current = activeIndex;
-  }, [activeIndex]);
-  useEffect(() => {
-    heroesLengthRef.current = heroes.length;
-  }, [heroes.length]);
+  // Preserve the selected program when a refresh replaces or reorders the
+  // array. If it disappeared, fall back to the first slide without remounting
+  // the touchable that owns native focus.
+  const activeIndex = Math.max(
+    0,
+    heroes.findIndex((hero) => hero.listKey === activeKey),
+  );
+  const activeHero = heroes[activeIndex];
 
-  // Reset to slide 0 when heroes changes — state adjustment during render
-  // (no effect, no extra cascading render).
-  const [prevHeroes, setPrevHeroes] = useState(heroes);
-  if (heroes !== prevHeroes) {
-    setPrevHeroes(heroes);
-    setActiveIndex(0);
-  }
-
-  const changeSlide = useCallback((direction: "left" | "right") => {
-    const current = activeIndexRef.current;
-    const length = heroesLengthRef.current;
-    const next = direction === "left" ? (current === 0 ? length - 1 : current - 1) : (current + 1) % length;
-    setActiveIndex(next);
-    activeIndexRef.current = next;
+  const handleFocus = useCallback(() => {
+    focusedRef.current = true;
+    setFocused(true);
   }, []);
+  const handleBlur = useCallback(() => {
+    focusedRef.current = false;
+    setFocused(false);
+  }, []);
+  useFocusEffect(useCallback(() => handleBlur, [handleBlur]));
+
+  const changeSlide = useCallback(
+    (direction: "left" | "right") => {
+      if (heroes.length <= 1) return;
+      setActiveKey((previous) => {
+        const current = Math.max(
+          0,
+          heroes.findIndex((hero) => hero.listKey === previous),
+        );
+        const next = (current + (direction === "left" ? -1 : 1) + heroes.length) % heroes.length;
+        return heroes[next].listKey;
+      });
+    },
+    [heroes],
+  );
 
   useEffect(() => {
-    if (focused || heroes.length <= 1) return;
+    if (!screenFocused || focused || heroes.length <= 1) return;
     const timer = setInterval(() => changeSlide("right"), SLIDE_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [focused, heroes.length, changeSlide]);
+  }, [screenFocused, focused, heroes.length, changeSlide]);
 
   useTVEventHandler(
     useCallback(
       (event: HWEvent) => {
-        if (!focusedRef.current) return;
+        if (!screenFocused || !focusedRef.current) return;
+        // tvOS tap recognizers emit a single Ended (1) event. Android emits
+        // down/up pairs; ignore the release only on Android.
+        if (Platform.OS === "android" && event.eventKeyAction === 1) return;
         if (event.eventType === "left") changeSlide("left");
         else if (event.eventType === "right") changeSlide("right");
       },
-      [changeSlide],
+      [screenFocused, changeSlide],
     ),
   );
 
-  const activeHero = heroes[activeIndex] ?? null;
-  if (!activeHero || heroes.length === 0) return null;
+  if (!activeHero) return null;
 
   return (
-    <TouchableOpacity
-      activeOpacity={1}
-      isTVSelectable
-      hasTVPreferredFocus={hasTVPreferredFocus}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      onPress={() => onPress(activeHero)}
-      style={S.frame}>
-      {heroes.map((hero, i) => (
-        <HeroSlide key={hero.listKey} hero={hero} isActive={i === activeIndex} activeIndex={activeIndex} heroesLength={heroes.length} focused={focused} />
-      ))}
-    </TouchableOpacity>
+    // Artwork extends into the scroll view's top safe-area inset, but the
+    // focusable rectangle starts below the tab bar. UIKit can then find the
+    // tabs above it and keep automatic scroll/inset coordination enabled.
+    <View style={[S.frame, { height: Math.max(1, HERO_H - artworkInset) }]}>
+      <View pointerEvents="none" style={[S.artwork, { top: -artworkInset }]}>
+        {heroes.map((hero, i) => (
+          <HeroSlide key={hero.listKey} hero={hero} isActive={i === activeIndex} activeIndex={activeIndex} heroesLength={heroes.length} focused={focused} />
+        ))}
+      </View>
+      <TVFocusGuideView autoFocus trapFocusLeft trapFocusRight style={S.focusArea}>
+        <TouchableOpacity
+          activeOpacity={1}
+          isTVSelectable={screenFocused}
+          disabled={!screenFocused}
+          tvParallaxProperties={{ enabled: false }}
+          hasTVPreferredFocus={screenFocused && hasTVPreferredFocus}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          accessibilityRole="button"
+          accessibilityLabel={`${activeHero.title}. ${strings.heroBanner.watchButton}`}
+          onPress={() => {
+            if (screenFocused) onPress(activeHero);
+          }}
+          style={S.focusArea}
+        />
+      </TVFocusGuideView>
+    </View>
   );
 }
 
 const S = StyleSheet.create({
   frame: {
-    width: SCREEN_W,
-    height: HERO_H,
+    width: "100%",
   },
+  artwork: { position: "absolute", left: 0, right: 0, bottom: 0 },
+  focusArea: { flex: 1 },
   slideContainer: {
     flex: 1,
     backgroundColor: "#1a1a1a",
@@ -221,6 +249,7 @@ const S = StyleSheet.create({
     marginTop: IS_TV ? 16 : 8,
   },
   ctaButton: {
+    borderRadius: DESIGN.BORDER_RADIUS_SMALL,
     backgroundColor: "rgba(255,255,255,0.18)",
     paddingHorizontal: IS_TV ? 32 : 16,
     paddingVertical: IS_TV ? 14 : 8,

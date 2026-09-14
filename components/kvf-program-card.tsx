@@ -17,16 +17,18 @@ const IS_TV = Platform.isTV;
 const SCALE_FOCUSED = 1.05;
 const ASPECT_RATIO = 16 / 10;
 
-interface KvfProgramCardProps {
-  program: ProgramCard;
-  onPress: (program: ProgramCard) => void;
-  onFocus?: (program: ProgramCard) => void;
+// Generic over the card type so callers holding a richer program (e.g. the
+// search index's IndexedProgram) get it back in their handlers unwidened.
+interface KvfProgramCardProps<T extends ProgramCard> {
+  program: T;
+  onPress: (program: T) => void;
+  onFocus?: (program: T) => void;
   cardWidth: number;
   index?: number;
   hasTVPreferredFocus?: boolean;
 }
 
-function KvfProgramCardComponent({ program, onPress, onFocus, cardWidth, index = 0, hasTVPreferredFocus }: KvfProgramCardProps) {
+function KvfProgramCardComponent<T extends ProgramCard>({ program, onPress, onFocus, cardWidth, index = 0, hasTVPreferredFocus }: KvfProgramCardProps<T>) {
   const handleFocus = useCallback(() => onFocus?.(program), [onFocus, program]);
   const handlePress = useCallback(() => onPress(program), [onPress, program]);
 

@@ -15,7 +15,8 @@
  */
 
 import * as SecureStore from "expo-secure-store";
-import type { EpisodeDetail, FrontPage, ProgramCard, ProgramPage, Section } from "@/types/kvf";
+import { SECTION_IDS, SECTIONS, sectionIdFromApiProgramUrl, type Channel, type SectionId } from "@/constants/sections";
+import type { EpisodeDetail, FrontPage, IndexedProgram, ProgramPage, SchedulePage } from "@/types/kvf";
 import { CacheMeta, ConditionalFetch, contentHash, ensure, FetchOutcome, Resource, setNamespace, TTL } from "./kvfCache";
 import { withListKeys } from "@/utils/keys";
 import { logger } from "@/utils/logger";
@@ -154,57 +155,107 @@ function keyProgramPage(page: ProgramPage): ProgramPage {
   return { ...page, episodes: withListKeys(page.episodes, (e) => e.sid) };
 }
 
+function keySchedulePage(page: SchedulePage): SchedulePage {
+  const entries = withListKeys(page.entries, (e) => e.startTime).map((entry) => ({
+    ...entry,
+    music: withListKeys(entry.music, (m) => m.title),
+  }));
+
+  // Re-resolve against the keyed array so `nowPlaying` is the *same object* as
+  // its row, and "is this the live entry?" stays an identity check.
+  const startsAt = page.nowPlaying?.startsAt;
+  const nowPlaying = startsAt ? (entries.find((e) => e.startsAt === startsAt) ?? null) : null;
+
+  return { ...page, entries, nowPlaying };
+}
+
 // ── Resources ──────────────────────────────────────────────────────────────────
 
-export function frontPageResource(section: Section): Resource<FrontPage> {
+export function frontPageResource(section: SectionId): Resource<FrontPage> {
   return {
     key: `kvf:${section}:front`,
     ttlMs: TTL.FRONT_PAGE,
     pinned: true,
-    fetcher: jsonFetcher<FrontPage>(`/api/${section}`, keyFrontPage),
+    fetcher: jsonFetcher<FrontPage>(`/api/${SECTIONS[section].apiPath}`, keyFrontPage),
   };
 }
 
-export function programResource(section: Section, slug: string): Resource<ProgramPage> {
+export function programResource(section: SectionId, slug: string): Resource<ProgramPage> {
   return {
     key: `kvf:${section}:program:${slug}`,
     ttlMs: TTL.PROGRAM,
-    fetcher: jsonFetcher<ProgramPage>(`/api/${section}/programs/${slug}`, keyProgramPage),
+    fetcher: jsonFetcher<ProgramPage>(`/api/${SECTIONS[section].apiPath}/programs/${slug}`, keyProgramPage),
   };
 }
 
-export function episodeResource(section: Section, slug: string, sid: string): Resource<EpisodeDetail> {
+export function episodeResource(section: SectionId, slug: string, sid: string): Resource<EpisodeDetail> {
   return {
     key: `kvf:${section}:episode:${slug}:${sid}`,
     ttlMs: TTL.EPISODE,
-    fetcher: jsonFetcher<EpisodeDetail>(`/api/${section}/episodes/${slug}/${sid}`, (d) => d),
+    fetcher: jsonFetcher<EpisodeDetail>(`/api/${SECTIONS[section].apiPath}/episodes/${slug}/${sid}`, (d) => d),
   };
 }
 
 /**
- * Every program from both sections, deduplicated and sorted — the search index.
+ * A day of broadcast schedule for one channel.
  *
- * There is no search endpoint, so this is *derived* from the two front pages
- * rather than fetched: it reuses their cache entries and costs no extra network.
- * Its hash is the pair of source hashes, so the merge only re-runs when one of
- * the front pages actually changed.
+ * `date` is null for the initial load so the *server* decides what "today" means
+ * in Atlantic/Faroe — the client has no reliable timezone database. Every
+ * subsequent day is navigated with the server's own previousDate/nextDate, so
+ * only the entry point is ever ambiguous, and its 5-minute TTL rolls it over.
  */
-export function allProgramsResource(): Resource<ProgramCard[]> {
-  const fetcher: ConditionalFetch<ProgramCard[]> = async (cached): Promise<FetchOutcome<ProgramCard[]>> => {
-    const [sjon, vit] = await Promise.all([ensure(frontPageResource("sjon")), ensure(frontPageResource("vit"))]);
+export function scheduleResource(channel: Channel, date: string | null): Resource<SchedulePage> {
+  const query = date ? `?date=${encodeURIComponent(date)}` : "";
+  return {
+    key: `kvf:${channel}:schedule:${date ?? "today"}`,
+    ttlMs: TTL.SCHEDULE,
+    fetcher: jsonFetcher<SchedulePage>(`/api/${channel}/schedule${query}`, keySchedulePage),
+  };
+}
 
-    const hash = `${sjon.hash}+${vit.hash}`;
+/**
+ * Every program from every section, deduplicated, sorted and tagged with the
+ * section that serves it — the search index.
+ *
+ * There is no search endpoint, so this is *derived* from the front pages rather
+ * than fetched: it reuses their cache entries and costs no extra network. Its
+ * hash is the joined source hashes, so the merge only re-runs when one of the
+ * pages actually changed.
+ *
+ * Sections are gathered individually rather than with Promise.all: across five
+ * sources, one flaky front page emptying the whole index is a question of when,
+ * not whether. A failed section contributes an "x" to the hash so that a later
+ * success still counts as a change and the merge re-runs.
+ */
+export function allProgramsResource(): Resource<IndexedProgram[]> {
+  const fetcher: ConditionalFetch<IndexedProgram[]> = async (cached): Promise<FetchOutcome<IndexedProgram[]>> => {
+    const sources = await Promise.all(
+      SECTION_IDS.map(async (id) => {
+        try {
+          return { id, entry: await ensure(frontPageResource(id)) };
+        } catch (err) {
+          logger.debug("kvfApi: search index skipping section", { id, err });
+          return { id, entry: null };
+        }
+      }),
+    );
+
+    const hash = sources.map((s) => s.entry?.hash ?? "x").join("+");
     if (cached && cached.hash === hash) return { status: "unchanged" };
 
     const seen = new Set<string>();
-    const all: ProgramCard[] = [];
+    const all: IndexedProgram[] = [];
 
-    for (const page of [sjon.data, vit.data]) {
-      for (const cat of page.categories) {
+    for (const { id, entry } of sources) {
+      if (!entry) continue;
+      for (const cat of entry.data.categories) {
         for (const prog of cat.programs) {
           if (seen.has(prog.slug)) continue;
           seen.add(prog.slug);
-          all.push(prog);
+          // apiProgramUrl is authoritative — a card on one front page can point
+          // at a program served by another section — but it is nullable, so
+          // fall back to the page the card came from.
+          all.push({ ...prog, sectionId: sectionIdFromApiProgramUrl(prog.apiProgramUrl) ?? id });
         }
       }
     }
@@ -219,7 +270,7 @@ export function allProgramsResource(): Resource<ProgramCard[]> {
 // ── Imperative helpers ─────────────────────────────────────────────────────────
 
 /** Load an episode detail, cache-first. Used when starting playback. */
-export async function loadEpisode(section: Section, slug: string, sid: string): Promise<EpisodeDetail> {
+export async function loadEpisode(section: SectionId, slug: string, sid: string): Promise<EpisodeDetail> {
   const entry = await ensure(episodeResource(section, slug, sid));
   return entry.data;
 }
@@ -228,7 +279,7 @@ export async function loadEpisode(section: Section, slug: string, sid: string): 
  * Warm an episode into the cache without touching any UI.
  * Called when "Up Next" appears so the transition is instant.
  */
-export async function prefetchEpisode(section: Section, slug: string, sid: string): Promise<void> {
+export async function prefetchEpisode(section: SectionId, slug: string, sid: string): Promise<void> {
   try {
     await ensure(episodeResource(section, slug, sid));
   } catch (err) {
@@ -237,7 +288,7 @@ export async function prefetchEpisode(section: Section, slug: string, sid: strin
 }
 
 /** Resolve a stream URL, from cache when possible. Returns null on failure. */
-export async function resolveStreamUrl(section: Section, slug: string, sid: string): Promise<string | null> {
+export async function resolveStreamUrl(section: SectionId, slug: string, sid: string): Promise<string | null> {
   try {
     const detail = await loadEpisode(section, slug, sid);
     return detail.streamUrl;

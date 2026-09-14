@@ -9,34 +9,70 @@
 
 import { AppState, type AppStateStatus } from "react-native";
 import { Image } from "expo-image";
+import { SECTION_IDS } from "@/constants/sections";
+import type { SchedulePage } from "@/types/kvf";
 import { allProgramsResource, frontPageResource } from "./kvfApi";
-import { ensure, flushIndex, hydrate, prefetch } from "./kvfCache";
+import { ensure, flushIndex, hydrate, prefetch, type Resource } from "./kvfCache";
 import { logger } from "@/utils/logger";
 
 /** Posters warmed at launch, per front page — roughly the first visible rows. */
 const PREFETCH_IMAGE_COUNT = 18;
 
+/**
+ * Sections whose posters are warmed at launch.
+ *
+ * All five front pages are warmed as JSON so a pill press never hits the
+ * network, but only the two landing sections have their images decoded — the
+ * rest arrive by the time the user has navigated to them.
+ */
+const IMAGE_WARM_SECTIONS = ["sjon", "ljod"] as const;
+
 /** Revalidation cadence while the app sits open. Matches the front-page TTL. */
 const REFRESH_INTERVAL_MS = 15 * 60 * 1000;
 
+/** Schedules move far faster than front pages — `isLive` turns over hourly. */
+const SCHEDULE_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+
 let started = false;
 let intervalTimer: ReturnType<typeof setInterval> | null = null;
+let scheduleTimer: ReturnType<typeof setInterval> | null = null;
 let appStateSub: { remove: () => void } | null = null;
 let lastRefreshAt = 0;
+let activeSchedule: Resource<SchedulePage> | null = null;
 
 /**
- * Read the manifest, then warm both front pages and the derived search index.
- * The search index costs no extra request — it is merged from the two pages.
+ * Read the manifest, then warm every front page and the derived search index.
+ * The search index costs no extra request — it is merged from those pages.
  */
 export async function warmOnLaunch(): Promise<void> {
   await hydrate();
 
-  await Promise.all([prefetch(frontPageResource("sjon")), prefetch(frontPageResource("vit"))]);
+  await Promise.all(SECTION_IDS.map((section) => prefetch(frontPageResource(section))));
 
-  // Derived from the two entries just warmed above, so this adds no network.
+  // Derived from the entries just warmed above, so this adds no network.
   await prefetch(allProgramsResource());
 
   void warmImages();
+}
+
+/**
+ * Register the schedule currently on screen so it can be polled at its own
+ * cadence. The screen says *what* is visible; refresh timing stays here, since
+ * the native tab bar keeps every screen mounted and per-screen timers would
+ * fan out.
+ */
+export function setActiveSchedule(resource: Resource<SchedulePage> | null): void {
+  activeSchedule = resource;
+}
+
+async function refreshActiveSchedule(): Promise<void> {
+  const resource = activeSchedule;
+  if (!resource) return;
+  try {
+    await ensure(resource, true);
+  } catch (err) {
+    logger.debug("kvfPreload: schedule refresh failed, keeping cached data", { err });
+  }
 }
 
 /**
@@ -49,20 +85,29 @@ async function warmImages(): Promise<void> {
   try {
     const urls: string[] = [];
 
-    for (const section of ["sjon", "vit"] as const) {
+    for (const section of IMAGE_WARM_SECTIONS) {
       const entry = await ensure(frontPageResource(section));
       const page = entry.data;
 
+      // Budgeted per section, heroes included — an unbounded hero loop would
+      // let one page with a long carousel crowd out the other's first row.
+      let taken = 0;
+
       for (const hero of page.featuredPrograms) {
-        if (hero.thumbnailUrl) urls.push(hero.thumbnailUrl);
+        if (taken >= PREFETCH_IMAGE_COUNT) break;
+        if (!hero.thumbnailUrl) continue;
+        urls.push(hero.thumbnailUrl);
+        taken += 1;
       }
 
       for (const cat of page.categories) {
         for (const prog of cat.programs) {
-          if (prog.thumbnailUrl) urls.push(prog.thumbnailUrl);
-          if (urls.length >= PREFETCH_IMAGE_COUNT * 2) break;
+          if (taken >= PREFETCH_IMAGE_COUNT) break;
+          if (!prog.thumbnailUrl) continue;
+          urls.push(prog.thumbnailUrl);
+          taken += 1;
         }
-        if (urls.length >= PREFETCH_IMAGE_COUNT * 2) break;
+        if (taken >= PREFETCH_IMAGE_COUNT) break;
       }
     }
 
@@ -81,7 +126,7 @@ async function warmImages(): Promise<void> {
 export async function refreshAll(): Promise<void> {
   lastRefreshAt = Date.now();
   try {
-    await Promise.all([ensure(frontPageResource("sjon"), true), ensure(frontPageResource("vit"), true)]);
+    await Promise.all(SECTION_IDS.map((section) => ensure(frontPageResource(section), true)));
     await ensure(allProgramsResource(), true);
   } catch (err) {
     logger.debug("kvfPreload: refresh failed, keeping cached data", { err });
@@ -90,6 +135,10 @@ export async function refreshAll(): Promise<void> {
 
 function onAppStateChange(next: AppStateStatus): void {
   if (next === "active") {
+    // The schedule has a five-minute TTL of its own, so it is worth refetching
+    // on every return regardless of when the front pages last moved.
+    void refreshActiveSchedule();
+
     // Coming back inside the TTL means the data is still current — a refresh
     // would be a wasted round-trip on every tab-out.
     if (Date.now() - lastRefreshAt < REFRESH_INTERVAL_MS) return;
@@ -116,6 +165,10 @@ export function startKvfSync(): () => void {
     if (AppState.currentState === "active") void refreshAll();
   }, REFRESH_INTERVAL_MS);
 
+  scheduleTimer = setInterval(() => {
+    if (AppState.currentState === "active") void refreshActiveSchedule();
+  }, SCHEDULE_REFRESH_INTERVAL_MS);
+
   return stopKvfSync;
 }
 
@@ -126,6 +179,10 @@ export function stopKvfSync(): void {
   if (intervalTimer) {
     clearInterval(intervalTimer);
     intervalTimer = null;
+  }
+  if (scheduleTimer) {
+    clearInterval(scheduleTimer);
+    scheduleTimer = null;
   }
   void flushIndex();
 }

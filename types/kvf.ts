@@ -3,8 +3,13 @@
 // `listKey` is NOT part of the API payload: kvfApi attaches it client-side
 // (see utils/keys.ts) so React lists always have unique, stable keys even
 // when the API returns duplicate or missing slugs/sids.
+//
+// Sections are identified app-side by `SectionId` (constants/sections.ts). The
+// wire format uses the nested path form (`sjon/vit`) — that's `ApiSectionPath`.
 
-export type Section = "sjon" | "vit";
+import type { ApiSectionPath, Channel, SectionId } from "@/constants/sections";
+
+export type { ApiSectionPath, Channel, SectionId };
 
 export interface ProgramCard {
   title: string;
@@ -15,6 +20,15 @@ export interface ProgramCard {
   apiProgramUrl: string | null;
   /** Unique render key, attached client-side by kvfApi. */
   listKey: string;
+}
+
+/**
+ * A program in the merged search index, tagged with the section whose endpoint
+ * serves it. Tagged at merge time rather than sniffed from `path`, which can no
+ * longer tell `sjon/vit` from `ljod/vit`.
+ */
+export interface IndexedProgram extends ProgramCard {
+  sectionId: SectionId;
 }
 
 export interface FeaturedProgram extends ProgramCard {
@@ -33,7 +47,7 @@ export interface Category {
 export interface FrontPage {
   fetchedAt: string;
   sourceUrl: string;
-  section: Section;
+  section: ApiSectionPath;
   featuredPrograms: FeaturedProgram[];
   categories: Category[];
 }
@@ -52,7 +66,7 @@ export interface Episode {
 export interface ProgramPage {
   sourceUrl: string;
   finalUrl: string;
-  section: Section;
+  section: ApiSectionPath;
   program: ProgramCard & {
     description: string | null;
   };
@@ -85,6 +99,51 @@ export interface QueueEpisode {
   sid: string;
   slug: string;
   title: string;
-  section: Section;
+  section: SectionId;
   thumbnailUrl: string | null;
+}
+
+// ── Broadcast schedule (skrá) ─────────────────────────────────────────────────
+
+export interface MusicTrack {
+  title: string;
+  artist: string | null;
+  /** Unique render key, attached client-side by kvfApi. */
+  listKey: string;
+}
+
+export interface ScheduleEntry {
+  /** KVF's printed clock times. */
+  startTime: string;
+  endTime: string | null;
+  /** The same instants resolved against Atlantic/Faroe — compare these to now. */
+  startsAt: string;
+  endsAt: string | null;
+  title: string;
+  subtitle: string | null;
+  description: string | null;
+  producer: string | null;
+  thumbnailUrl: string | null;
+  isLive: boolean;
+  faroeIslandsOnly: boolean;
+  /** Set when KVF links the row to a program page. `apiProgramUrl` may still be null. */
+  program: ProgramCard | null;
+  /** The logged playlist — radio only, and empty until the program has aired. */
+  music: MusicTrack[];
+  /** Unique render key, attached client-side by kvfApi. */
+  listKey: string;
+}
+
+export interface SchedulePage {
+  fetchedAt: string;
+  sourceUrl: string;
+  channel: Channel;
+  date: string;
+  weekday: string | null;
+  dateLabel: string | null;
+  previousDate: string | null;
+  nextDate: string | null;
+  /** The entry KVF flags as on air, hoisted. Reference-identical to its row in `entries`. */
+  nowPlaying: ScheduleEntry | null;
+  entries: ScheduleEntry[];
 }

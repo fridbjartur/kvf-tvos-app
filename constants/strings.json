@@ -5,9 +5,26 @@
   "tabs": {
     "sjon": "Sjón",
     "vit": "VIT",
-    "search": "Leita",
+    "miks": "MiKS",
+    "ljod": "Ljóð",
     "live": "Beinleiðis",
+    "search": "Leita",
     "settings": "Stillingar"
+  },
+  "ljodPicker": {
+    "heading": "Ljóð",
+    "subheading": "Vel hvat tú vilt hoyra",
+    "ljodTitle": "Ljóð",
+    "ljodSubtitle": "Útvarpssendingar og tónleikur",
+    "vitTitle": "VIT",
+    "vitSubtitle": "Sendingar fyri børn og ung"
+  },
+  "sections": {
+    "sjon": "Sjón",
+    "sjonVit": "VIT",
+    "sjonMiks": "MiKS",
+    "ljod": "Ljóð",
+    "ljodVit": "VIT"
   },
   "search": {
     "placeholder": "Leita í sendingum…",
@@ -37,10 +54,20 @@
     "retryButton": "Royn aftur",
     "goBackButton": "Aftur"
   },
-  "live": {
-    "heading": "Beinleiðis",
+  "schedule": {
+    "channelsHeading": "Rásir",
+    "scheduleHeading": "Skrá",
     "comingSoon": "Kemur seinni",
-    "liveTag": "● BEINLEIÐIS"
+    "liveTag": "● BEINLEIÐIS",
+    "watchLive": "▶  Hygg beinleiðis",
+    "listenLive": "▶  Hoyr beinleiðis",
+    "offAir": "Einki beinleiðis nú",
+    "previousDay": "‹",
+    "nextDay": "›",
+    "empty": "Ongin skrá henda dagin",
+    "music": "Tónleikur",
+    "faroeIslandsOnly": "Bara í Føroyum",
+    "failedToLoad": "Innlesingar villa"
   },
   "settings": {
     "heading": "Stillingar",
@@ -51,6 +78,6 @@
     "savedButton": "Goymt ✓",
     "resetButton": "Endurset",
     "aboutTitle": "Um KVF",
-    "aboutText": "Spælir Sjón og VIT innihald frá KVF."
+    "aboutText": "Spælir Sjón og Ljóð innihald frá KVF."
   }
 }

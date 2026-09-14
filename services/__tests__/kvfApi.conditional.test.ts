@@ -29,9 +29,12 @@ jest.mock("expo-file-system/legacy", () => ({
 
 import { allProgramsResource, episodeResource, frontPageResource } from "../kvfApi";
 import { ensure, __resetForTests } from "../kvfCache";
-import type { FrontPage } from "@/types/kvf";
+import { SECTION_IDS, SECTIONS } from "@/constants/sections";
+import type { ApiSectionPath, FrontPage } from "@/types/kvf";
 
-function frontPage(section: "sjon" | "vit", titles: string[]): FrontPage {
+const API_PATHS = SECTION_IDS.map((id) => SECTIONS[id].apiPath);
+
+function frontPage(section: ApiSectionPath, titles: string[], apiProgramUrlFor?: (title: string) => string | null): FrontPage {
   return {
     fetchedAt: "2026-01-01",
     sourceUrl: `https://kvf.fo/${section}`,
@@ -43,10 +46,34 @@ function frontPage(section: "sjon" | "vit", titles: string[]): FrontPage {
         title: "Cat",
         programCount: titles.length,
         listKey: "1",
-        programs: titles.map((t) => ({ title: t, slug: t.toLowerCase(), url: "", path: `/${section}/`, thumbnailUrl: null, apiProgramUrl: null, listKey: t.toLowerCase() })),
+        programs: titles.map((t) => ({
+          title: t,
+          slug: t.toLowerCase(),
+          url: "",
+          path: `/${section}/`,
+          thumbnailUrl: null,
+          apiProgramUrl: apiProgramUrlFor?.(t) ?? null,
+          listKey: t.toLowerCase(),
+        })),
       },
     ],
   } as FrontPage;
+}
+
+/**
+ * Serve a front page per section, dispatching on the exact path a URL ends
+ * with. `/api/sjon` does not match `/api/sjon/vit`, so the nested sections
+ * cannot be shadowed by their parent.
+ */
+function serveFrontPages(titles: Partial<Record<ApiSectionPath, string[]>>, failing: ApiSectionPath[] = []) {
+  return async (url: string) => {
+    const path = API_PATHS.find((p) => url.endsWith(`/api/${p}`));
+    if (!path) throw new Error(`unexpected request: ${url}`);
+    // 404 rather than 503: a permanent failure is not retried, so the test
+    // does not sit through the backoff.
+    if (failing.includes(path)) return jsonResponse({}, {}, 404);
+    return jsonResponse(frontPage(path, titles[path] ?? []));
+  };
 }
 
 function jsonResponse(body: unknown, headers: Record<string, string> = {}, status = 200) {
@@ -122,9 +149,9 @@ describe("failure handling", () => {
   });
 
   it("retries a 503 and succeeds on a later attempt", async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({}, {}, 503)).mockResolvedValueOnce(jsonResponse(frontPage("vit", ["A"])));
+    fetchMock.mockResolvedValueOnce(jsonResponse({}, {}, 503)).mockResolvedValueOnce(jsonResponse(frontPage("sjon/vit", ["A"])));
 
-    const entry = await ensure(frontPageResource("vit"));
+    const entry = await ensure(frontPageResource("sjon-vit"));
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(entry.data.categories[0].programs).toHaveLength(1);
@@ -146,24 +173,86 @@ describe("failure handling", () => {
 });
 
 describe("derived search index", () => {
-  it("merges both front pages without issuing extra requests", async () => {
-    fetchMock.mockImplementation(async (url: string) => jsonResponse(url.endsWith("/api/sjon") ? frontPage("sjon", ["Beta", "Alpha"]) : frontPage("vit", ["Gamma"])));
+  it("merges every front page without issuing extra requests", async () => {
+    fetchMock.mockImplementation(serveFrontPages({ sjon: ["Beta", "Alpha"], "sjon/vit": ["Gamma"], ljod: ["Delta"] }));
 
     const entry = await ensure(allProgramsResource());
 
-    // Exactly two requests total — the index costs no network of its own.
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(entry.data.map((p) => p.title)).toEqual(["Alpha", "Beta", "Gamma"]);
+    // One request per section and nothing more — the index costs no network of its own.
+    expect(fetchMock).toHaveBeenCalledTimes(SECTION_IDS.length);
+    expect(entry.data.map((p) => p.title)).toEqual(["Alpha", "Beta", "Delta", "Gamma"]);
   });
 
-  it("deduplicates programs that appear in both sections", async () => {
+  it("makes radio programs searchable", async () => {
+    fetchMock.mockImplementation(serveFrontPages({ ljod: ["Útvarpssøga"], "ljod/vit": ["Barnatíðindi"] }));
+
+    const entry = await ensure(allProgramsResource());
+
+    expect(entry.data.map((p) => p.title)).toEqual(["Barnatíðindi", "Útvarpssøga"]);
+  });
+
+  it("deduplicates programs that appear in more than one section", async () => {
     fetchMock.mockImplementation(async () => jsonResponse(frontPage("sjon", ["Same"])));
     const entry = await ensure(allProgramsResource());
     expect(entry.data).toHaveLength(1);
   });
 
-  it("keeps its cached array when neither front page changed", async () => {
-    fetchMock.mockImplementation(async (url: string) => jsonResponse(url.endsWith("/api/sjon") ? frontPage("sjon", ["A"]) : frontPage("vit", ["B"])));
+  it("tags each program with the section its apiProgramUrl points at", async () => {
+    // A card on the sjon front page whose canonical endpoint lives under ljod.
+    fetchMock.mockImplementation(async (url: string) => {
+      const path = API_PATHS.find((p) => url.endsWith(`/api/${p}`))!;
+      if (path === "sjon") return jsonResponse(frontPage("sjon", ["Crossover"], () => "/api/ljod/programs/crossover"));
+      return jsonResponse(frontPage(path, []));
+    });
+
+    const entry = await ensure(allProgramsResource());
+
+    expect(entry.data[0].sectionId).toBe("ljod");
+  });
+
+  it("does not let a parent section shadow its nested one", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      const path = API_PATHS.find((p) => url.endsWith(`/api/${p}`))!;
+      if (path === "sjon") return jsonResponse(frontPage("sjon", ["Kids"], () => "/api/sjon/vit/programs/kids"));
+      return jsonResponse(frontPage(path, []));
+    });
+
+    const entry = await ensure(allProgramsResource());
+
+    expect(entry.data[0].sectionId).toBe("sjon-vit");
+  });
+
+  it("falls back to the source front page when apiProgramUrl is null", async () => {
+    fetchMock.mockImplementation(serveFrontPages({ "sjon/miks": ["Miks Show"] }));
+
+    const entry = await ensure(allProgramsResource());
+
+    expect(entry.data[0].sectionId).toBe("sjon-miks");
+  });
+
+  it("still builds an index when one front page fails", async () => {
+    fetchMock.mockImplementation(serveFrontPages({ sjon: ["Alpha"], ljod: ["Beta"] }, ["ljod"]));
+
+    const entry = await ensure(allProgramsResource());
+
+    expect(entry.data.map((p) => p.title)).toEqual(["Alpha"]);
+  });
+
+  it("rebuilds the index once a failed section recovers", async () => {
+    fetchMock.mockImplementation(serveFrontPages({ sjon: ["Alpha"], ljod: ["Beta"] }, ["ljod"]));
+    const first = await ensure(allProgramsResource());
+
+    // The "x" placeholder in the hash is what makes the recovery register as a
+    // change; without it the incomplete index would look unchanged forever.
+    fetchMock.mockImplementation(serveFrontPages({ sjon: ["Alpha"], ljod: ["Beta"] }));
+    const second = await ensure(allProgramsResource(), true);
+
+    expect(second.data).not.toBe(first.data);
+    expect(second.data.map((p) => p.title)).toEqual(["Alpha", "Beta"]);
+  });
+
+  it("keeps its cached array when no front page changed", async () => {
+    fetchMock.mockImplementation(serveFrontPages({ sjon: ["A"], ljod: ["B"] }));
 
     const first = await ensure(allProgramsResource());
     const second = await ensure(allProgramsResource(), true);

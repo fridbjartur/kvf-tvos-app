@@ -474,3 +474,105 @@ which on tvOS can throw D-pad focus back to the first card mid-browse.
   `app/(tabs)/search.tsx`, `app/(tabs)/settings.tsx`, `app/program.tsx`, `app/_layout.tsx`,
   `constants/strings.json`, `services/__tests__/kvfCache.test.ts`,
   `services/__tests__/kvfApi.conditional.test.ts`
+
+---
+
+## Nested API Sections, Flat TV Navigation (September 2026)
+
+### Problem
+
+`kvf-scraper-api` went from two flat sections (`sjon`, `vit`) to a two-level tree of five —
+`sjon`, `sjon/vit`, `sjon/miks`, `ljod`, `ljod/vit` — and added a per-channel schedule endpoint.
+`/api/vit` was deleted outright (the scraper pins the 404 with a regression test), so the app's
+VIT tab was broken against the live API.
+
+The first attempt mirrored the API's shape in the UI: two channel tabs (Sjón, Ljóð), each with an
+in-screen selector for its sub-sections. It was rejected on the right grounds — **this is a TV app,
+and the remote is not a mouse.** Every extra level of in-screen chrome is another D-pad journey
+before the user sees content.
+
+### Root Cause
+
+Two separate things. Structurally, sections had no representation of their own: the section string
+was hardcoded in each tab screen, in `kvfPreload`'s warm-up lists, and _sniffed from a URL_ in
+search (`program.path?.includes("/vit/")`) — a test that cannot distinguish `sjon/vit` from
+`ljod/vit`, so it silently sent radio programs to the TV endpoint.
+
+Conceptually: an API's hierarchy is not automatically an information architecture. TV's five
+sections do not have equal weight — three are TV genres the viewer picks between constantly, two
+are radio audiences picked once per session.
+
+### Solution
+
+- `constants/sections.ts` — one registry: `SectionId` (flat slug) ↔ `ApiSectionPath` (the
+  `/`-nested wire form), plus label, channel and video/audio kind.
+- **The three TV sections became top-level tabs** (Sjón · VIT · MiKS). One press, no chrome.
+- **Ljóð became a picker screen** — two large cards, nothing else — pushing to a `/section` stack
+  route. Radio's split is a once-per-session choice, so it costs a screen rather than two tabs.
+- Beinleiðis merged the old live tab with `/api/{channel}/schedule`: now-playing banner, live
+  channel tiles, and the day's listing under a Sjón/Ljóð tab strip.
+
+### Key Takeaways
+
+1. **Depth in the API is not depth in the UI.** Flatten what users pick between often; spend a
+   screen on what they pick once. Mirroring the backend's tree was the wrong default.
+2. **On tvOS, prefer a tab over an in-screen selector.** The native tab bar is always reachable and
+   is not subject to the scroll-containment bug. Anything rendered _above_ scrollable content is.
+3. **If a selector must be in-screen, it must live inside the same ScrollView as the content it
+   filters.** tvOS blocks an upward focus move whose target lies outside a scroll view with
+   `contentOffset.y > 0`. This is why Beinleiðis' channel tabs sit inside its ScrollView. Do **not**
+   reach for `TVFocusGuideView` — it already made this worse once.
+4. **Never prefix-match a nested API path.** `startsWith("/api/sjon")` also matches
+   `/api/sjon/vit/…`. Split on the `/programs/` marker and look the prefix up exactly.
+5. **Derive identity, don't sniff it.** Tagging each program with its section when the search index
+   is merged removed the `path.includes("/vit/")` guess from two call sites — and made radio
+   searchable for the first time.
+6. **Across five sources, `Promise.all` is a liability.** One flaky front page emptied the whole
+   search index. Gather per section and put an `x` placeholder in the hash for failures, so a later
+   recovery still registers as a change.
+7. **Don't run a clock to show "what's on now".** A 30s ticker re-renders the schedule 120×/hour,
+   and on tvOS every needless re-render is a focus bug. Compute progress once per payload and let
+   `kvfPreload` poll the registered schedule at its 5-minute TTL.
+8. **Focus needs a continuous chain, and gaps trap the user.** The schedule listing first made only
+   the rows with a program link focusable — tidy in theory, broken in practice: KVF links few TV
+   rows, so the focusable ones ended up hundreds of points apart, tvOS's directional search could
+   not reach across the gap, and the page could be scrolled into but never out of. Every row is
+   focusable now, even the inert ones. **Correcting an earlier takeaway in this file:** "a row with
+   nowhere to go should be a plain View" is wrong whenever that row sits between two focusable
+   ones. A harmless dead end beats a broken chain.
+9. **Keep a screen's focusables in one left-aligned column.** tvOS finds the next target by
+   projecting straight along the direction of travel. Day-nav buttons parked on the far right with
+   `justifyContent: "space-between"` projected up into empty space and trapped focus, even though
+   everything was in the same ScrollView. Same reason the screen's title was dropped: it pushed the
+   tab strip out of the column the play button sits in.
+10. **Height above the first focusable is height the user must climb back through.** The tab bar is
+    outside the ScrollView, so escaping upward only works from offset 0. Every heading and spacer
+    above the topmost focusable makes that climb longer.
+11. **Select on press, never on focus.** Focus-select swaps content under every tab the user D-pads
+    across on the way to the one they wanted.
+12. **Sub-navigation belongs on a stack nested inside the tab.** The Ljóð picker went through three
+    attempts before landing:
+    - Pushing `/section` on the **root** stack covered the native tab bar — a root push always does.
+    - Swapping the tab screen's own content kept the tab bar but left no way back: **the Menu key
+      is not enabled for JS anywhere in this app**, so `useTVEventHandler`'s `"menu"` event never
+      fires and Menu goes to the system instead. `/program` only appears to handle Menu because
+      UIKit's navigation controller pops it — the JS handler there is dead code.
+    - The fix is a `Stack` in `app/(tabs)/ljod/_layout.tsx`. A push inside the tab keeps the tab bar
+      on screen with Ljóð selected, and gives UIKit a navigation controller to pop, so the remote's
+      back button works without touching the Menu key at all.
+      **Rule: if a screen needs a back button on tvOS, it must be a pushed route.** In-screen state
+      plus a JS Menu handler is not a substitute.
+
+### Files Affected
+
+- New: `constants/sections.ts`, `components/section-screen.tsx`, `components/segmented-tabs.tsx`,
+  `components/now-playing-card.tsx`, `components/channel-tile.tsx`,
+  `components/schedule-entry-row.tsx`, `app/(tabs)/ljod/_layout.tsx`, `app/(tabs)/ljod/index.tsx`,
+  `app/(tabs)/ljod/[section].tsx`, `app/(tabs)/vit.tsx`,
+  `app/(tabs)/miks.tsx`, `app/(tabs)/ljod.tsx`, `app/(tabs)/schedule.tsx`,
+  `constants/__tests__/sections.test.ts`, `services/__tests__/kvfSchedule.test.ts`
+- Changed: `types/kvf.ts`, `services/kvfApi.ts`, `services/kvfCache.ts` (CACHE_VERSION 2→3),
+  `services/kvfPreload.ts`, `app/_layout.tsx`, `app/(tabs)/_layout.tsx`, `app/(tabs)/index.tsx`,
+  `app/(tabs)/search.tsx`, `app/program.tsx`, `components/kvf-program-card.tsx`,
+  `constants/strings.json`, `services/__tests__/kvfApi.conditional.test.ts`
+- Deleted: `app/(tabs)/live.tsx`

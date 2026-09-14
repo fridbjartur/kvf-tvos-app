@@ -10,18 +10,20 @@ import strings from "@/constants/strings.json";
  * Episode cards have Animated.spring scale on focus.
  */
 
+import { useScreenBack } from "@/hooks/useScreenBack";
 import { FocusableButton } from "@/components/FocusableButton";
 import { FocusScaleCard } from "@/components/focus-scale-card";
 import { usePlayQueue } from "@/contexts/PlayQueueContext";
 import { loadEpisode, prefetchEpisode, programResource } from "@/services/kvfApi";
 import { useKvfResource } from "@/hooks/useKvfResource";
-import type { Episode, ProgramPage, QueueEpisode, Section } from "@/types/kvf";
+import { isSectionId } from "@/constants/sections";
+import type { Episode, ProgramPage, QueueEpisode } from "@/types/kvf";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, BackHandler, Dimensions, FlatList, Platform, ScrollView, StyleSheet, Text, View, useTVEventHandler } from "react-native";
+import { ActivityIndicator, Dimensions, FlatList, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { DESIGN } from "@/constants/app";
 
 const IS_TV = Platform.isTV;
@@ -91,7 +93,9 @@ export default function ProgramScreen() {
   const [isResolvingStream, setIsResolvingStream] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
 
-  const safeSection = (section === "vit" ? "vit" : "sjon") as Section;
+  // Router params are strings; anything we don't recognise falls back to the
+  // main TV section rather than being fetched as a bogus path.
+  const safeSection = isSectionId(section) ? section : "sjon";
 
   const resource = useMemo(() => (slug ? programResource(safeSection, slug) : null), [safeSection, slug]);
   const { data: programPage, isLoading, error: loadError } = useKvfResource<ProgramPage>(resource, strings.program.failedToLoad);
@@ -164,23 +168,7 @@ export default function ProgramScreen() {
 
   const handleBack = useCallback(() => router.back(), [router]);
 
-  useTVEventHandler(
-    useCallback(
-      (evt: { eventType: string }) => {
-        if (evt.eventType === "menu") handleBack();
-      },
-      [handleBack],
-    ),
-  );
-
-  useEffect(() => {
-    if (Platform.OS !== "android") return;
-    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      handleBack();
-      return true;
-    });
-    return () => sub.remove();
-  }, [handleBack]);
+  useScreenBack(handleBack);
 
   const activeEpSid = programPage?.currentEpisodeSid ?? programPage?.episodes[0]?.sid ?? null;
 

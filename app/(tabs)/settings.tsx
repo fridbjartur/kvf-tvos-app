@@ -4,20 +4,18 @@ import strings from "@/constants/strings.json";
  * Defaults to EXPO_PUBLIC_KVF_API_BASE_URL or the home NAS API URL.
  */
 
+import { TVScreenScrollView } from "@/components/tv-screen-scroll-view";
 import { FocusableButton } from "@/components/FocusableButton";
 import { DEFAULT_API_BASE_URL, getApiUrl, loadApiUrl, saveApiUrl } from "@/services/kvfApi";
 import { refreshAll, warmOnLaunch } from "@/services/kvfPreload";
 import React, { useCallback, useEffect, useState } from "react";
-import { Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Platform, StyleSheet, Text, TextInput, View } from "react-native";
 
 const IS_TV = Platform.isTV;
 
 export default function SettingsScreen() {
   const [url, setUrl] = useState(getApiUrl());
   const [saved, setSaved] = useState(false);
-  const insets = useSafeAreaInsets();
-  const topPad = insets.top + (IS_TV ? 80 : 20);
 
   // Keep UI in sync with the stored URL (may still be loading at mount).
   useEffect(() => {
@@ -48,8 +46,8 @@ export default function SettingsScreen() {
   }, [applyUrl]);
 
   return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: topPad }]}>
+    <TVScreenScrollView>
+      <View style={styles.content}>
         <Text style={styles.heading}>{strings.settings.heading}</Text>
 
         <View style={styles.section}>
@@ -71,7 +69,7 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.actions}>
-          <FocusableButton title={saved ? strings.settings.savedButton : strings.settings.saveButton} onPress={handleSave} variant="primary" hasTVPreferredFocus />
+          <FocusableButton title={saved ? strings.settings.savedButton : strings.settings.saveButton} onPress={handleSave} variant="primary" />
           <FocusableButton title={strings.settings.resetButton} onPress={handleReset} variant="secondary" />
         </View>
 
@@ -79,13 +77,12 @@ export default function SettingsScreen() {
           <Text style={styles.infoTitle}>{strings.settings.aboutTitle}</Text>
           <Text style={styles.infoText}>{strings.settings.aboutText}</Text>
         </View>
-      </ScrollView>
-    </View>
+      </View>
+    </TVScreenScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
   content: {
     padding: IS_TV ? 80 : 24,
     maxWidth: IS_TV ? 800 : undefined,

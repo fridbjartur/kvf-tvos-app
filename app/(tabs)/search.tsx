@@ -8,7 +8,7 @@
 import { KvfProgramCard } from "@/components/kvf-program-card";
 import { allProgramsResource } from "@/services/kvfApi";
 import { useKvfResource } from "@/hooks/useKvfResource";
-import type { ProgramCard } from "@/types/kvf";
+import type { IndexedProgram } from "@/types/kvf";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { isNativeSearchAvailable, SearchResult, TvosSearchView } from "expo-tvos-search";
@@ -23,16 +23,16 @@ const CARD_W = IS_TV ? 360 : 170;
 // ── Shared data hook ──────────────────────────────────────────────────────────
 
 function useAllPrograms() {
-  // Derived from the two cached front pages — after the launch warm-up this
+  // Derived from the cached front pages — after the launch warm-up this
   // resolves from cache and the grid paints without ever showing a spinner.
   const resource = useMemo(() => allProgramsResource(), []);
-  const { data, isLoading, error } = useKvfResource<ProgramCard[]>(resource, strings.search.failedToLoad);
+  const { data, isLoading, error } = useKvfResource<IndexedProgram[]>(resource, strings.search.failedToLoad);
 
   return { programs: data ?? EMPTY_PROGRAMS, isLoading, error };
 }
 
 // Stable identity — a fresh [] each render would re-run every downstream memo.
-const EMPTY_PROGRAMS: ProgramCard[] = [];
+const EMPTY_PROGRAMS: IndexedProgram[] = [];
 
 // ── Native tvOS search (TvosSearchView) ───────────────────────────────────────
 
@@ -61,8 +61,7 @@ function NativeSearchScreen() {
     (event: { nativeEvent: { id: string } }) => {
       const program = programs.find((p) => p.listKey === event.nativeEvent.id);
       if (!program) return;
-      const section = program.path?.includes("/vit/") ? "vit" : "sjon";
-      router.push({ pathname: "/program", params: { section, slug: program.slug } });
+      router.push({ pathname: "/program", params: { section: program.sectionId, slug: program.slug } });
     },
     [programs, router],
   );
@@ -132,14 +131,13 @@ function ReactNativeSearchScreen() {
   }, [searchQuery, programs]);
 
   const handlePress = useCallback(
-    (program: ProgramCard) => {
-      const section = program.path?.includes("/vit/") ? "vit" : "sjon";
-      router.push({ pathname: "/program", params: { section, slug: program.slug } });
+    (program: IndexedProgram) => {
+      router.push({ pathname: "/program", params: { section: program.sectionId, slug: program.slug } });
     },
     [router],
   );
 
-  const renderItem = useCallback(({ item }: { item: ProgramCard }) => <KvfProgramCard program={item} onPress={handlePress} cardWidth={CARD_W} />, [handlePress]);
+  const renderItem = useCallback(({ item }: { item: IndexedProgram }) => <KvfProgramCard program={item} onPress={handlePress} cardWidth={CARD_W} />, [handlePress]);
 
   const renderEmpty = useCallback(() => {
     if (isLoading) {

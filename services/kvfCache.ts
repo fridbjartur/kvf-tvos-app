@@ -20,7 +20,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { logger } from "@/utils/logger";
 
 /** Bump whenever the cached payload shape changes (e.g. edits to types/kvf.ts). */
-export const CACHE_VERSION = 2;
+export const CACHE_VERSION = 3;
 
 const CACHE_DIR = `${FileSystem.cacheDirectory}kvf-cache/`;
 const INDEX_PATH = `${CACHE_DIR}index.json`;
@@ -28,7 +28,9 @@ const TMP_SUFFIX = ".tmp";
 
 /** Disk budget. tvOS may purge the cache directory at any time, so stay modest. */
 const MAX_ENTRIES = 240;
-const MAX_BYTES = 8 * 1024 * 1024;
+// Pinned entries are exempt from LRU but still count against the budget, and
+// there are now five pinned front pages instead of two.
+const MAX_BYTES = 12 * 1024 * 1024;
 
 /** Payloads held in RAM. Front pages are pinned and never counted out. */
 const MAX_MEM_ENTRIES = 60;
@@ -533,4 +535,6 @@ export const TTL = {
   PROGRAM: 60 * 60 * 1000,
   /** Stream URLs are stable but not permanent. */
   EPISODE: 6 * 60 * 60 * 1000,
+  /** Matches the server: `isLive` and the music logs move through the day. */
+  SCHEDULE: 5 * 60 * 1000,
 } as const;

@@ -9,7 +9,6 @@ import { LoadingProvider } from "@/contexts/LoadingContext";
 import { PlayQueueProvider } from "@/contexts/PlayQueueContext";
 import { PosterBackdropProvider } from "@/contexts/PosterBackdropContext";
 import { registerMultiAudioPlugin } from "@/services/multiAudioLoader";
-import { loadApiUrl } from "@/services/kvfApi";
 import { startKvfSync } from "@/services/kvfPreload";
 
 if (Platform.isTV) {
@@ -20,22 +19,8 @@ export default function RootLayout() {
   useEffect(() => {
     registerMultiAudioPlugin();
 
-    let cancelled = false;
-    let stop: (() => void) | undefined;
-
-    // The saved base URL namespaces the cache, so it must be restored before
-    // anything is read — otherwise the warm-up would miss every cached entry.
-    loadApiUrl().then(() => {
-      // Unmounting before this resolves must not leave the interval and the
-      // AppState listener running with nothing to stop them.
-      if (cancelled) return;
-      stop = startKvfSync();
-    });
-
-    return () => {
-      cancelled = true;
-      stop?.();
-    };
+    const stop = startKvfSync();
+    return stop;
   }, []);
 
   return (

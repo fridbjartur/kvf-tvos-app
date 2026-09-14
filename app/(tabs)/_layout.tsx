@@ -37,11 +37,6 @@ export default function TabLayout() {
         <Icon sf="magnifyingglass" />
         <Label>{strings.tabs.search}</Label>
       </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="settings">
-        <Icon sf="gearshape.fill" />
-        <Label>{strings.tabs.settings}</Label>
-      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }

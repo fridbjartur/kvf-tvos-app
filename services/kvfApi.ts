@@ -10,11 +10,10 @@
  * new published" refresh costs one request and nothing else — no parse, no
  * re-keying, no React state change.
  *
- * Base URL comes from EXPO_PUBLIC_KVF_API_BASE_URL, falls back to the home NAS,
- * and can be overridden in Settings.
+ * Base URL comes from EXPO_PUBLIC_KVF_API_BASE_URL and falls back to the home
+ * NAS. It is fixed at build time — there is no runtime override.
  */
 
-import * as SecureStore from "expo-secure-store";
 import { SECTION_IDS, SECTIONS, sectionIdFromApiProgramUrl, type Channel, type SectionId } from "@/constants/sections";
 import type { EpisodeDetail, FrontPage, IndexedProgram, ProgramPage, SchedulePage } from "@/types/kvf";
 import { CacheMeta, ConditionalFetch, contentHash, ensure, FetchOutcome, Resource, setNamespace, TTL } from "./kvfCache";
@@ -23,7 +22,6 @@ import { logger } from "@/utils/logger";
 import { retryWithBackoff } from "@/utils/retry";
 
 const FALLBACK_BASE_URL = "http://192.168.1.10:3939";
-const STORE_KEY = "kvf_api_base_url";
 
 /** A stalled request is worse than stale data — fail fast and keep what we have. */
 const REQUEST_TIMEOUT_MS = 10000;
@@ -37,34 +35,10 @@ function normalizeBaseUrl(url: string): string {
   return url.trim().replace(/\/+$/, "");
 }
 
-export const DEFAULT_API_BASE_URL = normalizeBaseUrl(process.env.EXPO_PUBLIC_KVF_API_BASE_URL || FALLBACK_BASE_URL);
+const BASE_URL = normalizeBaseUrl(process.env.EXPO_PUBLIC_KVF_API_BASE_URL || FALLBACK_BASE_URL);
 
-let _baseUrl: string = DEFAULT_API_BASE_URL;
-setNamespace(_baseUrl);
-
-// ── Config ─────────────────────────────────────────────────────────────────────
-
-export async function loadApiUrl(): Promise<void> {
-  try {
-    const stored = await SecureStore.getItemAsync(STORE_KEY);
-    if (stored) _baseUrl = normalizeBaseUrl(stored);
-  } catch {
-    // Fall back to default
-  }
-  setNamespace(_baseUrl);
-}
-
-export async function saveApiUrl(url: string): Promise<void> {
-  _baseUrl = normalizeBaseUrl(url || DEFAULT_API_BASE_URL);
-  await SecureStore.setItemAsync(STORE_KEY, _baseUrl);
-  // Namespacing (rather than clearing) keeps the previous server's cache warm
-  // in case the user switches back.
-  setNamespace(_baseUrl);
-}
-
-export function getApiUrl(): string {
-  return _baseUrl;
-}
+// The cache is namespaced by server, so this has to be set before anything is read.
+setNamespace(BASE_URL);
 
 // ── HTTP ───────────────────────────────────────────────────────────────────────
 
@@ -77,7 +51,7 @@ type HttpResult = { status: 304 } | { status: 200; raw: string; etag?: string; l
  * so transient failures back off and permanent ones (404, 400) fail at once.
  */
 async function httpGet(path: string, cached: CacheMeta | null): Promise<HttpResult> {
-  const url = `${_baseUrl}${path}`;
+  const url = `${BASE_URL}${path}`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 

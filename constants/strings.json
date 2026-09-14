@@ -8,8 +8,7 @@
     "miks": "MiKS",
     "ljod": "Ljóð",
     "live": "Beinleiðis",
-    "search": "Leita",
-    "settings": "Stillingar"
+    "search": "Leita"
   },
   "ljodPicker": {
     "heading": "Ljóð",
@@ -68,16 +67,5 @@
     "music": "Tónleikur",
     "faroeIslandsOnly": "Bara í Føroyum",
     "failedToLoad": "Innlesingar villa"
-  },
-  "settings": {
-    "heading": "Stillingar",
-    "apiUrlLabel": "API Server URL",
-    "apiUrlHint": "Adressa á tínum kvf-scraper-api.\nStandardur: EXPO_PUBLIC_KVF_API_BASE_URL ella http://192.168.1.10:3939",
-    "apiUrlPlaceholder": "http://192.168.1.10:3939",
-    "saveButton": "Goym",
-    "savedButton": "Goymt ✓",
-    "resetButton": "Endurset",
-    "aboutTitle": "Um KVF",
-    "aboutText": "Spælir Sjón og Ljóð innihald frá KVF."
   }
 }

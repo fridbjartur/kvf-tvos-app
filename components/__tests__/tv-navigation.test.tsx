@@ -1,7 +1,10 @@
 import React from "react";
 import { Image } from "expo-image";
 import TestRenderer, { act } from "react-test-renderer";
-import { ScrollView, TVFocusGuideView, TouchableOpacity, Pressable, View, Text, StyleSheet, Platform, type HWEvent } from "react-native";
+import { AppState, ScrollView, TVFocusGuideView, TouchableOpacity, Pressable, View, Text, StyleSheet, Platform, type HWEvent } from "react-native";
+import { KvfProgramCard } from "../kvf-program-card";
+import { setActiveSchedule } from "@/services/kvfPreload";
+import { scheduleResource } from "@/services/kvfApi";
 import { useFocusEffect, useRouter } from "expo-router";
 import { TVScreenScrollView } from "../tv-screen-scroll-view";
 import { FocusScaleCard } from "../focus-scale-card";
@@ -38,7 +41,8 @@ jest.mock("@/hooks/useKvfResource", () => ({ useKvfResource: jest.fn() }));
 jest.mock("@/services/kvfApi", () => ({ frontPageResource: jest.fn(), scheduleResource: jest.fn() }));
 jest.mock("@/services/kvfPreload", () => ({ setActiveSchedule: jest.fn() }));
 jest.mock("@/contexts/LoadingContext", () => ({ useLoading: () => ({ showGlobalLoader: jest.fn() }) }));
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
+jest.mock("@/contexts/PlayQueueContext", () => ({ usePlayQueue: () => ({ clear: jest.fn() }) }));
+jest.mock("@expo/vector-icons/Ionicons", () => "Ionicons");
 jest.mock("expo-image", () => ({ Image: "Image" }));
 jest.mock("expo-linear-gradient", () => ({ LinearGradient: "LinearGradient" }));
 jest.mock("@/components/MarqueeText", () => ({ MarqueeText: "MarqueeText" }));
@@ -46,6 +50,7 @@ jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({
 jest.mock("expo-blur", () => ({ BlurView: "BlurView" }));
 
 let renderer: TestRenderer.ReactTestRenderer;
+const originalAppState = AppState.currentState;
 function render(element: React.ReactElement) {
   act(() => {
     if (renderer) renderer.update(element);
@@ -55,6 +60,7 @@ function render(element: React.ReactElement) {
 }
 
 beforeEach(() => {
+  AppState.currentState = "active";
   mockFocused = true;
   jest.useFakeTimers();
   jest.clearAllMocks();
@@ -65,6 +71,7 @@ beforeEach(() => {
   jest.mocked(useKvfResource).mockReturnValue({ data: null, isLoading: true, isRefreshing: false, error: null, refresh: jest.fn() });
 });
 afterEach(() => {
+  AppState.currentState = originalAppState;
   act(() => renderer.unmount());
   renderer = undefined!;
   jest.restoreAllMocks();
@@ -409,4 +416,65 @@ it("updates image identity when artwork changes without replacing the hero focus
   expect(nextImage.recyclingKey).toBe(updated.thumbnailUrl);
   expect(nextImage.recyclingKey).not.toBe(oldImage.recyclingKey);
   expect(root.findByType(TouchableOpacity)).toBe(touchable);
+});
+
+it("opens a featured program using its canonical section instead of the current tab", () => {
+  const push = jest.fn();
+  jest.mocked(useRouter).mockReturnValue({ push } as unknown as ReturnType<typeof useRouter>);
+  const program = { title: "Kids", slug: "kids", listKey: "kids", apiProgramUrl: "/api/sjon/vit/programs/kids", thumbnailUrl: null };
+  jest.mocked(useKvfResource).mockReturnValue({ data: { featuredPrograms: [program], categories: [] }, isLoading: false, isRefreshing: false, error: null, refresh: jest.fn() });
+  const root = render(<SectionScreen section="sjon" />);
+  act(() => root.findByType(HeroBanner).props.onPress(program));
+  expect(push).toHaveBeenCalledWith({ pathname: "/program", params: { section: "sjon-vit", slug: "kids", title: "Kids", thumb: undefined } });
+});
+
+it("bounds a large hero carousel to three decoded images while preserving navigation", () => {
+  const heroes = Array.from({ length: 30 }, (_, index) => ({ listKey: String(index), title: `Hero ${index}`, slug: String(index), thumbnailUrl: `https://kvf.fo/${index}.jpg` }) as FeaturedProgram);
+  const onPress = jest.fn();
+  const root = render(<HeroBanner heroes={heroes} onPress={onPress} />);
+  expect(root.findAllByType(Image)).toHaveLength(3);
+  const touchable = root.findByType(TouchableOpacity);
+  act(() => touchable.props.onFocus());
+  act(() => tvHandler({ eventType: "right", eventKeyAction: 0 }));
+  expect(root.findAllByType(Image)).toHaveLength(3);
+  act(() => touchable.props.onPress());
+  expect(onPress).toHaveBeenCalledWith(heroes[1]);
+});
+
+it("does not rotate the hero artwork while the app is backgrounded", () => {
+  const heroes = [
+    { listKey: "a", slug: "a", title: "First" },
+    { listKey: "b", slug: "b", title: "Second" },
+  ] as FeaturedProgram[];
+  const onPress = jest.fn();
+  const root = render(<HeroBanner heroes={heroes} onPress={onPress} />);
+  AppState.currentState = "background";
+  act(() => jest.advanceTimersByTime(8000));
+  AppState.currentState = "active";
+  act(() => root.findByType(TouchableOpacity).props.onPress());
+  expect(onPress).toHaveBeenCalledWith(heroes[0]);
+});
+
+it("changes a program card image identity when its artwork URL changes", () => {
+  const original = { listKey: "show", slug: "show", title: "Show", thumbnailUrl: "https://kvf.fo/old.jpg" } as FeaturedProgram;
+  const onPress = jest.fn();
+  const root = render(<KvfProgramCard program={original} onPress={onPress} cardWidth={360} />);
+  const oldSource = root.findByType(Image).props.source;
+  render(<KvfProgramCard program={{ ...original, thumbnailUrl: "https://kvf.fo/new.jpg" }} onPress={onPress} cardWidth={360} />);
+  const image = root.findByType(Image).props;
+  expect(image.source.cacheKey ?? image.source.uri).not.toBe(oldSource.cacheKey ?? oldSource.uri);
+  expect(image.recyclingKey).toBe("https://kvf.fo/new.jpg");
+});
+
+it("registers schedule polling only for the lifetime of screen focus", () => {
+  const resource = { key: "schedule" } as ReturnType<typeof scheduleResource>;
+  jest.mocked(scheduleResource).mockReturnValue(resource);
+  render(<ScheduleScreen />);
+  expect(setActiveSchedule).not.toHaveBeenCalled();
+  // The first focus effect belongs to ScheduleScreen, before its child scroll view.
+  const focusEffect = jest.mocked(useFocusEffect).mock.calls[0][0];
+  const cleanup = focusEffect();
+  expect(setActiveSchedule).toHaveBeenLastCalledWith(resource);
+  if (typeof cleanup === "function") cleanup();
+  expect(setActiveSchedule).toHaveBeenLastCalledWith(null);
 });

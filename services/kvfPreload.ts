@@ -10,9 +10,9 @@
 import { AppState, type AppStateStatus } from "react-native";
 import { Image } from "expo-image";
 import { SECTION_IDS } from "@/constants/sections";
-import type { SchedulePage } from "@/types/kvf";
+import type { FrontPage, SchedulePage } from "@/types/kvf";
 import { allProgramsResource, frontPageResource } from "./kvfApi";
-import { ensure, flushIndex, hydrate, prefetch, type Resource } from "./kvfCache";
+import { cacheGet, ensure, flushIndex, hydrate, prefetch, type Resource } from "./kvfCache";
 import { logger } from "@/utils/logger";
 
 /** Posters warmed at launch, per front page — roughly the first visible rows. */
@@ -47,9 +47,8 @@ let activeSchedule: Resource<SchedulePage> | null = null;
 export async function warmOnLaunch(): Promise<void> {
   await hydrate();
 
-  await Promise.all(SECTION_IDS.map((section) => prefetch(frontPageResource(section))));
-
-  // Derived from the entries just warmed above, so this adds no network.
+  // Building the index already warms every front page. A separate pass first
+  // would repeat the entire retry budget for failed sections on offline launch.
   await prefetch(allProgramsResource());
 
   void warmImages();
@@ -86,7 +85,8 @@ async function warmImages(): Promise<void> {
     const urls: string[] = [];
 
     for (const section of IMAGE_WARM_SECTIONS) {
-      const entry = await ensure(frontPageResource(section));
+      const entry = await cacheGet<FrontPage>(frontPageResource(section).key);
+      if (!entry) continue;
       const page = entry.data;
 
       // Budgeted per section, heroes included — an unbounded hero loop would
@@ -111,7 +111,7 @@ async function warmImages(): Promise<void> {
       }
     }
 
-    if (urls.length > 0) await Image.prefetch(urls, "memory-disk");
+    if (urls.length > 0 && AppState.currentState === "active") await Image.prefetch([...new Set(urls)], "memory-disk");
   } catch (err) {
     logger.debug("kvfPreload: image warm-up skipped", { err });
   }
@@ -126,7 +126,7 @@ async function warmImages(): Promise<void> {
 export async function refreshAll(): Promise<void> {
   lastRefreshAt = Date.now();
   try {
-    await Promise.all(SECTION_IDS.map((section) => ensure(frontPageResource(section), true)));
+    await Promise.allSettled(SECTION_IDS.map((section) => ensure(frontPageResource(section), true)));
     await ensure(allProgramsResource(), true);
   } catch (err) {
     logger.debug("kvfPreload: refresh failed, keeping cached data", { err });
@@ -155,9 +155,12 @@ export function startKvfSync(): () => void {
   if (started) return stopKvfSync;
   started = true;
 
-  void warmOnLaunch().then(() => {
-    lastRefreshAt = Date.now();
-  });
+  void warmOnLaunch().then(
+    () => {
+      lastRefreshAt = Date.now();
+    },
+    (err) => logger.warn("kvfPreload: launch warm-up failed", { err }),
+  );
 
   appStateSub = AppState.addEventListener("change", onAppStateChange);
 

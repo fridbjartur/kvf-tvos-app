@@ -8,10 +8,11 @@ import { LoadingSpinner } from "@/components/loading-spinner";
 
 import { KvfProgramCard } from "@/components/kvf-program-card";
 import { RefreshIndicator } from "@/components/refresh-indicator";
+import { FocusableButton } from "@/components/FocusableButton";
 import { allProgramsResource } from "@/services/kvfApi";
 import { useKvfResource } from "@/hooks/useKvfResource";
 import type { IndexedProgram } from "@/types/kvf";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { isNativeSearchAvailable, SearchResult, TvosSearchView } from "expo-tvos-search";
 import strings from "@/constants/strings.json";
@@ -28,9 +29,9 @@ function useAllPrograms() {
   // Derived from the cached front pages — after the launch warm-up this
   // resolves from cache and the grid paints without ever showing a spinner.
   const resource = useMemo(() => allProgramsResource(), []);
-  const { data, isLoading, isRefreshing, error } = useKvfResource<IndexedProgram[]>(resource, strings.search.failedToLoad);
+  const { data, isLoading, isRefreshing, error, refresh } = useKvfResource<IndexedProgram[]>(resource, strings.search.failedToLoad);
 
-  return { programs: data ?? EMPTY_PROGRAMS, isLoading, isRefreshing, error };
+  return { programs: data ?? EMPTY_PROGRAMS, isLoading, isRefreshing, error, refresh };
 }
 
 // Stable identity — a fresh [] each render would re-run every downstream memo.
@@ -40,7 +41,7 @@ const EMPTY_PROGRAMS: IndexedProgram[] = [];
 
 function NativeSearchScreen() {
   const router = useRouter();
-  const { programs, isLoading, isRefreshing } = useAllPrograms();
+  const { programs, isLoading, isRefreshing, error, refresh } = useAllPrograms();
 
   const [query, setQuery] = useState("");
 
@@ -77,6 +78,15 @@ function NativeSearchScreen() {
     return (
       <View style={S.center}>
         <LoadingSpinner size="large" />
+      </View>
+    );
+  }
+
+  if (error && programs.length === 0) {
+    return (
+      <View style={S.center}>
+        <Text style={S.errorText}>{strings.search.failedToLoad}</Text>
+        <FocusableButton title={strings.player.retryButton} onPress={refresh} hasTVPreferredFocus />
       </View>
     );
   }
@@ -129,7 +139,7 @@ const SearchHeader = React.memo(function SearchHeader({ onChangeText, inputRef }
 function ReactNativeSearchScreen() {
   const router = useRouter();
   const inputRef = useRef<TextInput>(null);
-  const { programs, isLoading, isRefreshing, error } = useAllPrograms();
+  const { programs, isLoading, isRefreshing, error, refresh } = useAllPrograms();
   const [searchQuery, setSearchQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -164,6 +174,7 @@ function ReactNativeSearchScreen() {
           <Ionicons name="alert-circle-outline" size={64} color="#FF3B30" />
           <Text style={S.errorTitle}>{strings.search.errorTitle}</Text>
           <Text style={S.errorText}>{error}</Text>
+          <FocusableButton title={strings.player.retryButton} onPress={refresh} />
         </View>
       );
     }
@@ -183,7 +194,7 @@ function ReactNativeSearchScreen() {
         <Text style={S.emptyText}>{strings.search.emptyInitial}</Text>
       </View>
     );
-  }, [isLoading, error, searchQuery]);
+  }, [isLoading, error, searchQuery, refresh]);
 
   return (
     <View style={S.container}>

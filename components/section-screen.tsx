@@ -12,7 +12,8 @@ import { LoadingSpinner } from "@/components/loading-spinner";
 import { TVScreenScrollView } from "@/components/tv-screen-scroll-view";
 import { HeroBanner } from "@/components/HeroBanner";
 import { KvfProgramCard } from "@/components/kvf-program-card";
-import type { SectionId } from "@/constants/sections";
+import { sectionIdFromApiProgramUrl, type SectionId } from "@/constants/sections";
+import { FocusableButton } from "@/components/FocusableButton";
 import strings from "@/constants/strings.json";
 import { useKvfResource } from "@/hooks/useKvfResource";
 import { frontPageResource } from "@/services/kvfApi";
@@ -51,7 +52,7 @@ export function SectionScreen({ section }: { section: SectionId }) {
 
   // Rebuilt each render, but useKvfResource keys off `resource.key` only.
   const resource = useMemo(() => frontPageResource(section), [section]);
-  const { data: page, isLoading, isRefreshing, error } = useKvfResource<FrontPage>(resource, strings.common.failedToLoad);
+  const { data: page, isLoading, isRefreshing, error, refresh } = useKvfResource<FrontPage>(resource, strings.common.failedToLoad);
 
   const featured = useMemo(() => page?.featuredPrograms ?? [], [page]);
   const categories = useMemo(() => page?.categories ?? [], [page]);
@@ -62,7 +63,7 @@ export function SectionScreen({ section }: { section: SectionId }) {
       // its own (sometimes very slow) fetch is still running.
       router.push({
         pathname: "/program",
-        params: { section, slug: program.slug, title: program.title, thumb: program.thumbnailUrl ?? undefined },
+        params: { section: sectionIdFromApiProgramUrl(program.apiProgramUrl) ?? section, slug: program.slug, title: program.title, thumb: program.thumbnailUrl ?? undefined },
       });
     },
     [router, section],
@@ -77,6 +78,7 @@ export function SectionScreen({ section }: { section: SectionId }) {
       ) : error && !page ? (
         <View style={S.center}>
           <Text style={S.errorText}>{error}</Text>
+          <FocusableButton title={strings.player.retryButton} onPress={refresh} hasTVPreferredFocus />
         </View>
       ) : (
         <>

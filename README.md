@@ -1,197 +1,73 @@
-# Tomo TV - Jellyfin Client for Apple TV
+# KVF for Apple TV
 
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-tvOS-lightgrey.svg)](https://apps.apple.com/us/app/tomo-tv/id6755077888)
-[![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](package.json)
-[![Download on the App Store](https://img.shields.io/badge/App_Store-Download-black?logo=apple&logoColor=white)](https://apps.apple.com/us/app/tomo-tv/id6755077888)
+An Expo Router app for browsing KVF television and radio programs, playing episodes, searching the catalog, and listening to or watching live channels. Built with React Native TV and `react-native-video`.
 
-A Jellyfin client for Apple TV. Stream any video from your server, switch audio
-tracks mid-playback, and let codec handling sort itself out. Just press play.
+This is an independent client. Catalog metadata comes from a separately deployed `kvf-scraper-api`; media streams come from KVF.
 
-<p align="center">
-  <img src="assets/images/screenshots/home.webp" width="100%" alt="TomoTV home screen with Continue Watching and library shelves"/>
-</p>
+## Requirements
 
-<table>
-  <tr>
-    <td align="center">
-      <img src="assets/images/screenshots/collection.webp" width="280" alt="Collection of related titles"/><br/>
-      <sub>Collections</sub>
-    </td>
-    <td align="center">
-      <img src="assets/images/screenshots/shows.webp" width="280" alt="Shows library"/><br/>
-      <sub>Shows</sub>
-    </td>
-   <td align="center">
-      <img src="assets/images/screenshots/connected.webp" width="280" alt="Connected state"/><br/>
-      <sub>Connected</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="assets/images/screenshots/music.webp" width="280" alt="Music library"/><br/>
-      <sub>Music</sub>
-    </td>
-    <td align="center">
-      <img src="assets/images/screenshots/search.webp" width="280" alt="Native tvOS search"/><br/>
-      <sub>Native search</sub>
-    </td>
-    <td align="center">
-      <img src="assets/images/screenshots/movies.webp" width="280" alt="Movies library"/><br/>
-      <sub>Movies</sub>
-    </td>
-  </tr>
-</table>
+- Node.js compatible with `package.json` (Node 22.13 or newer in the 22.x line is supported).
+- Yarn 1.22.
+- Xcode with a tvOS SDK for native Apple TV builds.
+- A running KVF scraper API reachable from the Apple TV.
+- Appropriate local signing/provisioning for installation on a physical device.
 
-## Why TomoTV
+## Setup
 
-Built from the ground up for Apple TV with a focus on seamless playback. Switch
-audio tracks mid-video without restarting, thanks to custom HLS manifest
-generation in a native Swift module. Codec compatibility is handled
-automatically, so you spend time watching instead of troubleshooting.
-
-## Features
-
-- **Smart streaming.** Direct plays H.264 and HEVC, auto-transcodes everything else.
-- **Multi-audio tracks.** Change the audio track mid-playback without restarting, using custom multivariant HLS manifests.
-- **Subtitle support.** External (.srt) and embedded tracks through the native tvOS picker.
-- **Native search.** SwiftUI-powered, with proper tvOS focus navigation. Find by title, season, or year.
-- **Up next queue.** Auto-advances through seasons and playlists.
-- **Continue watching.** Resume from your last position.
-- **Folder browsing.** Walk your library by folders, collections, seasons, and playlists.
-- **Demo mode.** Try it instantly against Jellyfin's public demo server.
-- **Secure by default.** Credentials stored in the device Keychain.
-
-<p align="center">
-  <img src="assets/images/screenshots/help.webp" width="100%" alt="Help and setup guide"/>
-</p>
-
-## Installation
-
-### Prerequisites
-
-- **Jellyfin Server 10.8+** with transcoding enabled
-- **Node.js 18+** and Yarn
-- **Xcode 15+**
-- **Apple TV** or tvOS simulator
-
-### Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/keiver/tomotv.git
-cd tomotv
-
-# Install dependencies
-yarn install
-
-# Prebuild for tvOS
-yarn prebuild:tv
-
-# Run on tvOS simulator
-yarn ios
-
-# Or build for an Apple TV device
-yarn expo run:ios
+```sh
+yarn install --frozen-lockfile
+cp .env.example .env.local
 ```
 
-### Connect to your server
+Set `EXPO_PUBLIC_KVF_API_BASE_URL` in `.env.local` to your API address. Use an address the **Apple TV** can reach; `localhost` on a device refers to that device. The URL is embedded at build time, so changing it requires restarting Metro in development or rebuilding a Release app. The development fallback is `http://192.168.1.10:3939`.
 
-Open **Settings**, add your server by IP address (or full URL), and authorize
-with a Quick Connect code or username and password. Add as many servers as you
-like and switch between them, including Jellyfin's public demo.
+`EXPO_PUBLIC_*` values are visible in the shipped application. Never put credentials or secrets in them. `.env.local` is ignored by Git.
 
-<p align="center">
-  <img src="assets/images/screenshots/settings-servers.webp" width="100%" alt="Jellyfin server settings with multiple servers"/>
-</p>
-
-### Video quality
-
-Tomo TV supports 480p, 540p, 720p, 1080p, and 4K transcoding presets.
-Configure under **Settings → Video Quality**.
-
-### Network requirements
-
-- **All networks:** HTTP and HTTPS are allowed via `NSAllowsArbitraryLoads`.
-- **Remote servers:** HTTPS is strongly recommended. HTTP exposes credentials in plaintext.
-
-## Development
-
-```bash
-yarn start        # Start dev server
-yarn ios          # Build and run
-yarn test         # Run tests
-yarn lint         # Lint and auto-fix
-yarn prebuild:tv  # Rebuild native projects (deletes ios/ folder)
+```sh
+yarn start                # Metro development server
+yarn ios                  # Build/run on a simulator
+yarn ios:device           # Build/run on a selected device
 ```
 
-### KVF API URL
+`yarn prebuild:tv` regenerates the ignored native projects from Expo configuration and plugins. It runs with `--clean`; preserve any local native changes before using it. Native changes that must survive regeneration belong in `plugins/` or a reviewed dependency patch in `patches/`.
 
-The app reads its API base URL from `EXPO_PUBLIC_KVF_API_BASE_URL` at build
-time. If that variable is not set, it falls back to the home NAS API:
-`http://192.168.1.10:3939`. There is no in-app override.
+## Local Release build
 
-For normal development on the home network:
-
-```bash
-yarn ios
+```sh
+yarn ios:device:release --no-bundler
 ```
 
-For a real Apple TV device on the same network:
+This builds and installs locally; it does not upload to TestFlight or the App Store. Device signing still applies. Stop any Xcode debugging session and quit Xcode after testing, then launch KVF from the Apple TV Home Screen. Release playback should also be checked with the Mac disconnected.
 
-```bash
-yarn expo run:ios --device
+The app pauses playback when it enters the background and does not automatically resume on foregrounding. Resume with the native player controls. This behavior does not establish the cause of any device-level wake problem; verify sleep on the physical device.
+
+## Validation
+
+```sh
+yarn check
 ```
 
-To temporarily point at a local API on your Mac, use your Mac's LAN IP for a
-real Apple TV device. `localhost` only works in the simulator:
+This runs TypeScript, ESLint/Prettier checks, and Jest. `yarn lint` applies lint fixes. The PR workflow runs the same three checks. For a production JavaScript bundle without device signing:
 
-```bash
-EXPO_PUBLIC_KVF_API_BASE_URL=http://localhost:3000 yarn ios
-EXPO_PUBLIC_KVF_API_BASE_URL=http://192.168.1.23:3000 yarn expo run:ios --device
+```sh
+CI=1 yarn expo export --platform ios --output-dir /tmp/kvf-export
 ```
 
-**Native code:** Always edit files in the `native/` folder. The `ios/` folder
-is regenerated by prebuild, and any direct edits there are lost.
+See [production verification](docs/production-readiness.md) for device checks and the limits of automated validation.
 
-## A Note on AI
+## Structure
 
-I use Claude as a development tool for drafting code and documentation.
-Architecture and decisions are mine. Blame me for any shady code.
+- `app/`: television/radio tabs, live schedules, search, program details, player.
+- `components/`: shared UI and TV focus handling.
+- `services/kvfApi.ts`, `kvfPayload.ts`: conditional HTTP requests and payload validation.
+- `services/kvfCache.ts`, `kvfPreload.ts`: bounded persistent cache and coordinated refresh.
+- `hooks/useKvfResource.ts`, `useVideoPlayback.ts`: resource and playback lifecycles.
+- `contexts/PlayQueueContext.tsx`: broadcast-order episode queue.
 
-## Contributing
+The cache uses the tvOS cache directory, which the OS may purge. Cached catalog pages remain usable during network failures; playing media still requires access to its stream. Background refreshes preserve object identity when content is unchanged, helping retain TV focus.
 
-Contributions are welcome. Fork the repo, branch from `main`, follow the
-existing patterns, add tests for new functionality, and run `yarn test` and
-`yarn lint` before opening a PR.
-
-**Code standards:** strict TypeScript (no unjustified `any`), try-catch around
-async work, proper React cleanup, and border-only focus feedback (no scale
-animations on grid items).
-
-## Known Limitations
-
-- **Codec support:** Only H.264 and HEVC direct play. Everything else transcodes.
-- **Platform:** tvOS only. Android is not supported for now.
-- **Network:** HTTP is allowed on all networks. HTTPS is recommended for remote servers.
-- **Server:** Jellyfin only. Not compatible with Plex, Emby, or others.
+The repository originated from [TomoTV](https://github.com/keiver/tomotv). Some legacy Jellyfin services, tests, assets, and native plugins remain for now; the active KVF route tree does not provide Jellyfin authentication, transcoding, or continue-watching features. The legacy multi-audio plugin is no longer registered at KVF startup.
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
-
-## Acknowledgments
-
-- **Jellyfin Team** for the open-source media server
-- **Expo Team** for React Native TVOS support
-- **Blender Foundation** for open movie test files (Sintel, Elephants Dream, Caminandes)
-- **IETF** for Matroska test files used in development
-
-## Links
-
-- **Documentation:** [tomotv.app](https://tomotv.app/)
-- **Support:** <contact@keiver.dev>
-- **Demo server:** Jellyfin's official demo at demo.jellyfin.org
-- **expo-tvos-search:** [github.com/keiver/expo-tvos-search](https://github.com/keiver/expo-tvos-search)
-  </content>
-  </invoke>
+[MIT](LICENSE).

@@ -50,10 +50,16 @@ describe("retryWithBackoff", () => {
     expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("not retryable"), expect.any(Object));
   });
 
-  // Skip this test as it has timing issues with Jest fake timers
-  it.skip("should exhaust retries and throw last error", async () => {
-    // Test skipped due to Jest timer complications
-    // The retry logic is tested in other passing tests
+  it("should exhaust retries and throw last error", async () => {
+    const error = new Error("Network timeout");
+    const operation = jest.fn().mockRejectedValue(error);
+    // Attach the rejection assertion before advancing timers so Jest never
+    // observes an unhandled rejection between the final attempt and assertion.
+    const result = expect(retryWithBackoff(operation, { maxAttempts: 3, initialDelayMs: 100 })).rejects.toBe(error);
+    await jest.runAllTimersAsync();
+    await result;
+    expect(operation).toHaveBeenCalledTimes(3);
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("exhausted"), error, expect.any(Object));
   });
 
   it("should calculate exponential backoff delays correctly", () => {

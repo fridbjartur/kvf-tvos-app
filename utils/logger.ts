@@ -46,7 +46,20 @@ class Logger {
     let formattedMessage = `[${timestamp}] ${levelUpper} ${message}`;
 
     if (context && Object.keys(context).length > 0) {
-      formattedMessage += ` ${JSON.stringify(context)}`;
+      try {
+        const seen = new WeakSet<object>();
+        formattedMessage += ` ${JSON.stringify(context, (_key, value) => {
+          if (typeof value === "bigint") return value.toString();
+          if (typeof value === "object" && value !== null) {
+            if (seen.has(value)) return "[Circular]";
+            seen.add(value);
+          }
+          if (value instanceof Error) return { name: value.name, message: value.message };
+          return value;
+        })}`;
+      } catch {
+        formattedMessage += " [Unserializable context]";
+      }
     }
 
     return formattedMessage;

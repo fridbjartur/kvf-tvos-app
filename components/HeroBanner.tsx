@@ -5,7 +5,7 @@ import strings from "@/constants/strings.json";
  * Design ported from fridbjartur/kvf-tvos-app (HeroBanner + HeroImage).
  *
  * Architecture:
- *   • All slides are mounted simultaneously (absolute stack) so images preload.
+ *   • Only the current slide and its neighbors mount, bounding decoded image memory.
  *   • Each slide owns its opacity Animated.Value and animates on isActive change.
  *   • The entire banner is ONE TouchableOpacity — D-pad left/right changes slide,
  *     center button opens the program.
@@ -20,7 +20,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { Animated, Platform, StyleSheet, Text, TouchableOpacity, TVFocusGuideView, View, useTVEventHandler, type HWEvent } from "react-native";
+import { Animated, AppState, Platform, StyleSheet, Text, TouchableOpacity, TVFocusGuideView, View, useTVEventHandler, type HWEvent } from "react-native";
 
 const IS_TV = Platform.isTV;
 
@@ -146,7 +146,9 @@ export function HeroBanner({ heroes, onPress, hasTVPreferredFocus }: HeroBannerP
 
   useEffect(() => {
     if (!screenFocused || focused || heroes.length <= 1) return;
-    const timer = setInterval(() => changeSlide("right"), SLIDE_INTERVAL_MS);
+    const timer = setInterval(() => {
+      if (AppState.currentState === "active") changeSlide("right");
+    }, SLIDE_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [screenFocused, focused, heroes.length, changeSlide]);
 
@@ -172,9 +174,11 @@ export function HeroBanner({ heroes, onPress, hasTVPreferredFocus }: HeroBannerP
     // tabs above it and keep automatic scroll/inset coordination enabled.
     <View style={[S.frame, { height: Math.max(1, HERO_H - artworkInset) }]}>
       <View pointerEvents="none" style={[S.artwork, { top: -artworkInset }]}>
-        {heroes.map((hero, i) => (
-          <HeroSlide key={hero.listKey} hero={hero} isActive={i === activeIndex} activeIndex={activeIndex} heroesLength={heroes.length} focused={focused} />
-        ))}
+        {heroes.map((hero, i) => {
+          const distance = (i - activeIndex + heroes.length) % heroes.length;
+          if (distance > 1 && distance < heroes.length - 1) return null;
+          return <HeroSlide key={hero.listKey} hero={hero} isActive={i === activeIndex} activeIndex={activeIndex} heroesLength={heroes.length} focused={focused} />;
+        })}
       </View>
       <TVFocusGuideView autoFocus trapFocusLeft trapFocusRight style={S.focusArea}>
         <TouchableOpacity

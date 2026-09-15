@@ -20,7 +20,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { logger } from "@/utils/logger";
 
 /** Bump whenever the cached payload shape changes (e.g. edits to types/kvf.ts). */
-export const CACHE_VERSION = 3;
+export const CACHE_VERSION = 4;
 
 const CACHE_DIR = `${FileSystem.cacheDirectory}kvf-cache/`;
 const INDEX_PATH = `${CACHE_DIR}index.json`;
@@ -127,6 +127,8 @@ let namespace = "default";
 let hydration: Promise<void> | null = null;
 let indexDirty = false;
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
+let flushing: Promise<void> | null = null;
+let writes: Promise<unknown> = Promise.resolve();
 
 /**
  * Scope every entry to an API base URL. Entries recorded under a different
@@ -193,34 +195,47 @@ function scheduleFlush(): void {
 
 /** Persist the manifest now. Called on a debounce and when the app backgrounds. */
 export async function flushIndex(): Promise<void> {
+  if (flushing) {
+    await flushing;
+    return flushIndex();
+  }
   if (!indexDirty) return;
   indexDirty = false;
+  flushing = (async () => {
+    try {
+      await ensureDir();
+      const tmp = `${INDEX_PATH}${TMP_SUFFIX}`;
+      await FileSystem.writeAsStringAsync(tmp, JSON.stringify(index));
+      await FileSystem.moveAsync({ from: tmp, to: INDEX_PATH });
+    } catch (err) {
+      indexDirty = true;
+      logger.warn("kvfCache: index flush failed", { err });
+    }
+  })();
   try {
-    await ensureDir();
-    await FileSystem.writeAsStringAsync(INDEX_PATH, JSON.stringify(index));
-  } catch (err) {
-    indexDirty = true;
-    logger.warn("kvfCache: index flush failed", { err });
+    await flushing;
+  } finally {
+    flushing = null;
   }
 }
 
 /** Write payload atomically so a crash mid-write can never leave a torn file. */
-async function writePayload(key: string, data: unknown): Promise<number> {
+async function writePayload(key: string, data: unknown, hash: string): Promise<number> {
   const path = fileFor(key);
   const tmp = `${path}${TMP_SUFFIX}`;
-  const body = JSON.stringify({ v: CACHE_VERSION, key, data });
+  const body = JSON.stringify({ v: CACHE_VERSION, key, hash, data });
   await ensureDir();
   await FileSystem.writeAsStringAsync(tmp, body);
   await FileSystem.moveAsync({ from: tmp, to: path });
   return body.length;
 }
 
-async function readPayload<T>(key: string): Promise<T | null> {
+async function readPayload<T>(key: string, hash: string): Promise<T | null> {
   try {
     const raw = await FileSystem.readAsStringAsync(fileFor(key));
-    const parsed = JSON.parse(raw) as { v: number; key: string; data: T };
+    const parsed = JSON.parse(raw) as { v: number; key: string; hash: string; data: T };
     // Guard against a filename hash collision and against stale-format files.
-    if (parsed.v !== CACHE_VERSION || parsed.key !== key) return null;
+    if (parsed.v !== CACHE_VERSION || parsed.key !== key || parsed.hash !== hash) return null;
     return parsed.data;
   } catch {
     return null;
@@ -286,7 +301,7 @@ async function evict(): Promise<void> {
 // ── Reads ──────────────────────────────────────────────────────────────────────
 
 export function isStale<T>(entry: CacheEntry<T>): boolean {
-  return Date.now() > entry.fetchedAt + entry.ttl;
+  return Date.now() >= entry.fetchedAt + entry.ttl || entry.fetchedAt > Date.now();
 }
 
 function assemble<T>(key: string, record: IndexRecord, data: T): CacheEntry<T> {
@@ -325,7 +340,7 @@ export async function cacheGet<T>(key: string): Promise<CacheEntry<T> | null> {
   const mem = memData.get(key);
   if (mem !== undefined) return assemble(key, record, mem as T);
 
-  const data = await readPayload<T>(key);
+  const data = await readPayload<T>(key, record.hash);
   if (data === null) {
     // Manifest and disk disagree (OS purge, torn write) — forget the record.
     delete index.records[key];
@@ -340,24 +355,29 @@ export async function cacheGet<T>(key: string): Promise<CacheEntry<T> | null> {
 /** Write a payload to memory + disk and notify subscribers. */
 export async function cacheSet<T>(key: string, data: T, ttlMs: number, meta: CacheMeta, pinned = false): Promise<CacheEntry<T>> {
   await hydrate();
+  // Serialize payload replacement and eviction: an older eviction must never
+  // delete a newer file, and concurrent writes cannot share a temporary path.
+  const run = writes.then(async () => {
+    let bytes = index.records[key]?.bytes ?? 0;
+    try {
+      bytes = await writePayload(key, data, meta.hash);
+    } catch (err) {
+      // Disk is full or purged mid-write; memory caching still helps this session.
+      logger.warn("kvfCache: payload write failed", { key, err });
+    }
 
-  let bytes = index.records[key]?.bytes ?? 0;
-  try {
-    bytes = await writePayload(key, data);
-  } catch (err) {
-    // Disk is full or purged mid-write; memory caching still helps this session.
-    logger.warn("kvfCache: payload write failed", { key, err });
-  }
-
-  const now = Date.now();
-  index.records[key] = { ns: namespace, fetchedAt: now, ttl: ttlMs, bytes, lastAccess: now, pinned, ...meta };
-  rememberInMemory(key, data);
-  scheduleFlush();
-  void evict();
-
-  const entry = assemble(key, index.records[key], data);
-  notify(key, entry);
-  return entry;
+    const now = Date.now();
+    index.records[key] = { ns: namespace, fetchedAt: now, ttl: ttlMs, bytes, lastAccess: now, pinned, ...meta };
+    rememberInMemory(key, data);
+    scheduleFlush();
+    const entry = assemble(key, index.records[key], data);
+    notify(key, entry);
+    // An oversized entry can evict itself; return the assembled value regardless.
+    await evict();
+    return entry;
+  });
+  writes = run.catch(() => undefined);
+  return run;
 }
 
 /**
@@ -563,6 +583,8 @@ export async function prefetch<T>(resource: Resource<T>): Promise<void> {
 
 /** Drop everything. Used when the API base URL changes. */
 export async function clearAll(): Promise<void> {
+  await writes;
+  if (flushing) await flushing;
   memData.clear();
   inflight.clear();
   index = { v: CACHE_VERSION, records: {} };
@@ -577,6 +599,8 @@ export async function clearAll(): Promise<void> {
 
 /** Test seam — resets module state without touching the filesystem. */
 export function __resetForTests(): void {
+  writes = Promise.resolve();
+  flushing = null;
   memData.clear();
   subscribers.clear();
   statusSubscribers.clear();

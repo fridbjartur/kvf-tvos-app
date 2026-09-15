@@ -24,9 +24,9 @@ import type { Episode, ProgramPage } from "@/types/kvf";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Dimensions, FlatList, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AppState, Dimensions, FlatList, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { DESIGN } from "@/constants/app";
 
 const IS_TV = Platform.isTV;
@@ -145,7 +145,7 @@ function EpisodeCard({ episode, isActive, onPress, onFocus, hasTVPreferredFocus 
         </>
       }>
       {episode.thumbnailUrl ? (
-        <Image source={{ uri: episode.thumbnailUrl, cacheKey: `ep-${episode.sid}` }} style={styles.epImage} contentFit="cover" transition={0} cachePolicy="memory-disk" />
+        <Image source={{ uri: episode.thumbnailUrl }} recyclingKey={episode.thumbnailUrl} style={styles.epImage} contentFit="cover" transition={0} cachePolicy="memory-disk" />
       ) : (
         <View style={styles.epImagePlaceholder} />
       )}
@@ -164,7 +164,12 @@ function EpisodeCard({ episode, isActive, onPress, onFocus, hasTVPreferredFocus 
 export default function ProgramScreen() {
   // `title` and `thumb` are carried over from the card that was pressed, so the
   // skeleton can show the real programme rather than a placeholder for it.
-  const { section, slug, title: navTitle, thumb: navThumb } = useLocalSearchParams<{ section: string; slug: string; title?: string; thumb?: string }>();
+  const params = useLocalSearchParams<{ section: string; slug: string; title?: string; thumb?: string }>();
+  return <ProgramSession key={`${params.section}:${params.slug}`} params={params} />;
+}
+
+function ProgramSession({ params }: { params: { section: string; slug: string; title?: string; thumb?: string } }) {
+  const { section, slug, title: navTitle, thumb: navThumb } = params;
   const router = useRouter();
   const { setQueue } = usePlayQueue();
 
@@ -173,13 +178,26 @@ export default function ProgramScreen() {
   const [selectedSid, setSelectedSid] = useState<string | null>(null);
   const [isResolvingStream, setIsResolvingStream] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
+  const actionRef = useRef({ active: true, busy: false });
+
+  useFocusEffect(
+    useCallback(() => {
+      const action = { active: true, busy: false };
+      actionRef.current = action;
+      setIsResolvingStream(false);
+      setPlaybackError(null);
+      return () => {
+        action.active = false;
+      };
+    }, []),
+  );
 
   // Router params are strings; anything we don't recognise falls back to the
   // main TV section rather than being fetched as a bogus path.
   const safeSection = isSectionId(section) ? section : "sjon";
 
   const resource = useMemo(() => (slug ? programResource(safeSection, slug) : null), [safeSection, slug]);
-  const { data: programPage, isLoading, isRefreshing, error: loadError } = useKvfResource<ProgramPage>(resource, strings.program.failedToLoad);
+  const { data: programPage, isLoading, isRefreshing, error: loadError, refresh } = useKvfResource<ProgramPage>(resource, strings.program.failedToLoad);
   const error = playbackError ?? loadError;
 
   // New episodes land at the head of the list, so the placeholders go there —
@@ -206,19 +224,22 @@ export default function ProgramScreen() {
 
   const handleEpisodePress = useCallback(
     async (episode: Episode) => {
-      if (!programPage || !slug) return;
+      const action = actionRef.current;
+      if (!programPage || !slug || !action.active || action.busy) return;
+      action.busy = true;
       setIsResolvingStream(true);
       setPlaybackError(null);
 
       const { queue, startIndex } = buildPlayQueue(programPage.episodes, safeSection, episode.sid);
-      setQueue(queue, startIndex);
-
       try {
         const detail = await loadEpisode(safeSection, slug, episode.sid);
+        if (!action.active || (AppState.currentState !== null && AppState.currentState !== "active")) return;
         if (!detail.streamUrl) {
           setPlaybackError(strings.program.errorNoStream);
           return;
         }
+        setQueue(queue, startIndex);
+        action.active = false;
         router.push({
           pathname: "/player",
           params: {
@@ -230,9 +251,10 @@ export default function ProgramScreen() {
           },
         });
       } catch {
-        setPlaybackError(strings.program.errorLoadEpisode);
+        if (action.active) setPlaybackError(strings.program.errorLoadEpisode);
       } finally {
-        setIsResolvingStream(false);
+        action.busy = false;
+        if (action.active) setIsResolvingStream(false);
       }
     },
     [programPage, safeSection, slug, setQueue, router],
@@ -244,7 +266,10 @@ export default function ProgramScreen() {
     if (ep) handleEpisodePress(ep);
   }, [programPage, handleEpisodePress]);
 
-  const handleBack = useCallback(() => router.back(), [router]);
+  const handleBack = useCallback(() => {
+    actionRef.current.active = false;
+    router.back();
+  }, [router]);
 
   useScreenBack(handleBack);
 
@@ -275,6 +300,7 @@ export default function ProgramScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>{error}</Text>
+        <FocusableButton title={strings.player.retryButton} onPress={refresh} />
         <FocusableButton title={strings.program.goBack} onPress={handleBack} variant="secondary" hasTVPreferredFocus />
       </View>
     );
@@ -288,7 +314,7 @@ export default function ProgramScreen() {
       {/* Banner: fixed-height image + gradient fade at bottom */}
       <View style={styles.bannerContainer} pointerEvents="none">
         {program?.thumbnailUrl ? (
-          <Image source={{ uri: program.thumbnailUrl, cacheKey: `prog-banner-${program.slug}` }} style={styles.bannerImage} contentFit="cover" transition={300} cachePolicy="memory-disk" />
+          <Image source={{ uri: program.thumbnailUrl }} recyclingKey={program.thumbnailUrl} style={styles.bannerImage} contentFit="cover" transition={300} cachePolicy="memory-disk" />
         ) : (
           <View style={styles.bannerPlaceholder} />
         )}

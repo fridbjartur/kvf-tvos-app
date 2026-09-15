@@ -7,7 +7,7 @@ module.exports = defineConfig([
   expoConfig,
   eslintPluginPrettierRecommended,
   {
-    ignores: ["dist/*"],
+    ignores: ["dist/**", ".expo/**", "expo-env.d.ts", "coverage/**", "ios/**", "android/**"],
   },
   {
     files: ["jest.setup.js", "jest.config.js"],

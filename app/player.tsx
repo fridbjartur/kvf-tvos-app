@@ -14,12 +14,12 @@ import { usePlayQueue } from "@/contexts/PlayQueueContext";
 import { useLoading } from "@/contexts/LoadingContext";
 import { useVideoPlayback } from "@/hooks/useVideoPlayback";
 import { resolveStreamUrl } from "@/services/kvfApi";
-import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Video from "react-native-video";
 import type { OnLoadData, OnProgressData } from "react-native-video";
-import { LogBox, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { AppState, LogBox, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 LogBox.ignoreLogs(["JS object is no longer associated", "Operation requires a client callback", "Cannot Open", "Failed to load the player item"]);
 
@@ -32,11 +32,25 @@ export default function PlayerScreen() {
     episodeSid?: string;
     isLive?: string;
   }>();
+  return <PlayerSession key={`${params.streamUrl}:${params.episodeSid ?? "live"}`} params={params} />;
+}
+
+function PlayerSession({ params }: { params: { streamUrl?: string; title?: string; section?: string; programSlug?: string; episodeSid?: string; isLive?: string } }) {
   const router = useRouter();
   const { hideGlobalLoader } = useLoading();
   const { hasNext, nextEpisode, advance, clear, progress } = usePlayQueue();
 
   const isLive = params.isLive === "true";
+  const actionRef = useRef({ active: true, transitioning: false });
+  useFocusEffect(
+    useCallback(() => {
+      const action = { active: true, transitioning: false };
+      actionRef.current = action;
+      return () => {
+        action.active = false;
+      };
+    }, []),
+  );
 
   // ── Up-next state ────────────────────────────────────────────────────────────
   const [showUpNext, setShowUpNext] = useState(false);
@@ -54,7 +68,11 @@ export default function PlayerScreen() {
 
   // ── Playback end ─────────────────────────────────────────────────────────────
   const handlePlaybackEnd = useCallback(() => {
+    const action = actionRef.current;
+    if (!action.active || action.transitioning || (AppState.currentState !== null && AppState.currentState !== "active")) return;
+    action.transitioning = true;
     if (isLive) {
+      clear();
       router.back();
       return;
     }
@@ -68,6 +86,12 @@ export default function PlayerScreen() {
       }
 
       resolveStreamUrl(next.section, next.slug, next.sid).then((url) => {
+        if (!action.active) return;
+        // A lookup finishing while the TV sleeps must not start another episode.
+        if (AppState.currentState !== null && AppState.currentState !== "active") {
+          clear();
+          return;
+        }
         if (!url) {
           clear();
           router.back();
@@ -91,6 +115,7 @@ export default function PlayerScreen() {
   }, [isLive, hasNext, nextEpisode, advance, clear, router]);
 
   const { videoRef, paused, state, showLoadingOverlay, videoCallbacks, pause, retry } = useVideoPlayback({ streamUrl: params.streamUrl ?? null, onPlaybackEnd: handlePlaybackEnd });
+  const source = useMemo(() => ({ uri: params.streamUrl ?? "" }), [params.streamUrl]);
 
   useEffect(() => {
     hideGlobalLoader();
@@ -98,13 +123,13 @@ export default function PlayerScreen() {
 
   // ── Wrap callbacks to detect near-end ───────────────────────────────────────
   const wrappedCallbacks = useMemo(() => {
-    if (!hasNext) return videoCallbacks;
+    if (isLive || !hasNext) return videoCallbacks;
     return {
       ...videoCallbacks,
       onLoad: (data: OnLoadData) => {
         videoCallbacks.onLoad(data);
         videoDurationRef.current = data.duration;
-        upNextThresholdRef.current = Math.min(30, Math.floor(data.duration / 2));
+        upNextThresholdRef.current = Math.min(30, data.duration / 2);
       },
       onProgress: (data: OnProgressData) => {
         videoCallbacks.onProgress(data);
@@ -121,15 +146,18 @@ export default function PlayerScreen() {
         }
       },
     };
-  }, [videoCallbacks, hasNext]);
+  }, [videoCallbacks, hasNext, isLive]);
 
   const handleSkipToNext = useCallback(() => {
+    pause();
     setShowUpNext(false);
     showUpNextRef.current = false;
     handlePlaybackEnd();
-  }, [handlePlaybackEnd]);
+  }, [handlePlaybackEnd, pause]);
 
   const handleBack = useCallback(() => {
+    if (!actionRef.current.active) return;
+    actionRef.current.active = false;
     try {
       pause();
     } catch {
@@ -162,11 +190,13 @@ export default function PlayerScreen() {
         <Video
           key={params.streamUrl}
           ref={videoRef}
-          source={{ uri: params.streamUrl }}
+          source={source}
           style={styles.video}
           resizeMode="contain"
           controls
           paused={paused}
+          playInBackground={false}
+          playWhenInactive={false}
           allowsExternalPlayback
           {...wrappedCallbacks}
         />
@@ -178,7 +208,16 @@ export default function PlayerScreen() {
         </View>
       )}
 
-      {hasNext && nextEpisode && <UpNextOverlay nextVideoName={nextEpisode.title} progress={progress} onSkip={handleSkipToNext} visible={showUpNext} upNextProgress={upNextProgress} paused={paused} />}
+      {!isLive && hasNext && nextEpisode && (
+        <UpNextOverlay
+          nextVideoName={nextEpisode.title}
+          progress={progress}
+          onSkip={handleSkipToNext}
+          visible={showUpNext}
+          upNextProgress={upNextProgress}
+          paused={paused || state.type === "PAUSED"}
+        />
+      )}
 
       {!Platform.isTV && (
         <TouchableOpacity style={styles.iosBackButton} onPress={handleBack}>

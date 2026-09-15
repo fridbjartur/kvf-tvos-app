@@ -1,5 +1,5 @@
 import { DESIGN } from "@/constants/app";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import type { ReactNode } from "react";
 import { Platform, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { LoadingSpinner } from "./loading-spinner";

@@ -12,7 +12,7 @@ import { TVScreenScrollView } from "@/components/tv-screen-scroll-view";
 import { FocusScaleCard } from "@/components/focus-scale-card";
 import type { SectionId } from "@/constants/sections";
 import strings from "@/constants/strings.json";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef } from "react";

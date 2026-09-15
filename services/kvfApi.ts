@@ -20,6 +20,7 @@ import { CacheMeta, ConditionalFetch, contentHash, ensure, FetchOutcome, Resourc
 import { withListKeys } from "@/utils/keys";
 import { logger } from "@/utils/logger";
 import { retryWithBackoff } from "@/utils/retry";
+import { validateEpisode, validateFrontPage, validateProgramPage, validateSchedule } from "./kvfPayload";
 
 const FALLBACK_BASE_URL = "http://192.168.1.10:3939";
 
@@ -140,6 +141,7 @@ function jsonFetcher<T>(path: string, transform: (raw: never) => T, tuning: Fetc
 // normalized so all list items carry a unique `listKey` for React.
 
 function keyFrontPage(page: FrontPage): FrontPage {
+  validateFrontPage(page);
   return {
     ...page,
     featuredPrograms: withListKeys(page.featuredPrograms, (p) => p.slug),
@@ -151,10 +153,12 @@ function keyFrontPage(page: FrontPage): FrontPage {
 }
 
 function keyProgramPage(page: ProgramPage): ProgramPage {
+  validateProgramPage(page);
   return { ...page, episodes: withListKeys(page.episodes, (e) => e.sid) };
 }
 
 function keySchedulePage(page: SchedulePage): SchedulePage {
+  validateSchedule(page);
   const entries = withListKeys(page.entries, (e) => e.startTime).map((entry) => ({
     ...entry,
     music: withListKeys(entry.music, (m) => m.title),
@@ -183,7 +187,7 @@ export function programResource(section: SectionId, slug: string): Resource<Prog
   return {
     key: `kvf:${section}:program:${slug}`,
     ttlMs: TTL.PROGRAM,
-    fetcher: jsonFetcher<ProgramPage>(`/api/${SECTIONS[section].apiPath}/programs/${slug}`, keyProgramPage, {
+    fetcher: jsonFetcher<ProgramPage>(`/api/${SECTIONS[section].apiPath}/programs/${encodeURIComponent(slug)}`, keyProgramPage, {
       timeoutMs: PROGRAM_TIMEOUT_MS,
       retry: SLOW_RETRY,
     }),
@@ -192,9 +196,9 @@ export function programResource(section: SectionId, slug: string): Resource<Prog
 
 export function episodeResource(section: SectionId, slug: string, sid: string): Resource<EpisodeDetail> {
   return {
-    key: `kvf:${section}:episode:${slug}:${sid}`,
+    key: `kvf:${section}:episode:${encodeURIComponent(slug)}:${encodeURIComponent(sid)}`,
     ttlMs: TTL.EPISODE,
-    fetcher: jsonFetcher<EpisodeDetail>(`/api/${SECTIONS[section].apiPath}/episodes/${slug}/${sid}`, (d) => d),
+    fetcher: jsonFetcher<EpisodeDetail>(`/api/${SECTIONS[section].apiPath}/episodes/${encodeURIComponent(slug)}/${encodeURIComponent(sid)}`, validateEpisode),
   };
 }
 
@@ -242,6 +246,10 @@ export function allProgramsResource(): Resource<IndexedProgram[]> {
       }),
     );
 
+    if (sources.every((source) => source.entry === null)) {
+      throw new Error("Failed to load programs from any section");
+    }
+
     const hash = sources.map((s) => s.entry?.hash ?? "x").join("+");
     if (cached && cached.hash === hash) return { status: "unchanged" };
 
@@ -250,20 +258,20 @@ export function allProgramsResource(): Resource<IndexedProgram[]> {
 
     for (const { id, entry } of sources) {
       if (!entry) continue;
-      for (const cat of entry.data.categories) {
-        for (const prog of cat.programs) {
-          if (seen.has(prog.slug)) continue;
-          seen.add(prog.slug);
-          // apiProgramUrl is authoritative — a card on one front page can point
-          // at a program served by another section — but it is nullable, so
-          // fall back to the page the card came from.
-          all.push({ ...prog, sectionId: sectionIdFromApiProgramUrl(prog.apiProgramUrl) ?? id });
-        }
+      for (const prog of [...entry.data.featuredPrograms, ...entry.data.categories.flatMap((cat) => cat.programs)]) {
+        const sectionId = sectionIdFromApiProgramUrl(prog.apiProgramUrl) ?? id;
+        const identity = `${sectionId}:${prog.slug}`;
+        if (seen.has(identity)) continue;
+        seen.add(identity);
+        // apiProgramUrl is authoritative — a card on one front page can point
+        // at a program served by another section — but it is nullable, so
+        // fall back to the page the card came from.
+        all.push({ ...prog, sectionId });
       }
     }
 
     all.sort((a, b) => a.title.localeCompare(b.title));
-    return { status: "ok", data: withListKeys(all, (p) => p.slug), meta: { hash } };
+    return { status: "ok", data: withListKeys(all, (p) => `${p.sectionId}:${p.slug}`), meta: { hash } };
   };
 
   return { key: "kvf:all-programs", ttlMs: TTL.FRONT_PAGE, pinned: true, fetcher };

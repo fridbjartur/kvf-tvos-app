@@ -2,9 +2,7 @@ import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { UpNextOverlay } from "../up-next-overlay";
 
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
+jest.mock("@expo/vector-icons/Ionicons", () => "Ionicons");
 
 describe("UpNextOverlay", () => {
   const defaultProps = {

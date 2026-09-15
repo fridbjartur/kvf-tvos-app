@@ -19,8 +19,9 @@ import { useKvfResource } from "@/hooks/useKvfResource";
 import { scheduleResource } from "@/services/kvfApi";
 import { setActiveSchedule } from "@/services/kvfPreload";
 import type { SchedulePage } from "@/types/kvf";
-import { useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
+import { usePlayQueue } from "@/contexts/PlayQueueContext";
 import { Platform, StyleSheet, Text, TVFocusGuideView, View, useWindowDimensions } from "react-native";
 
 const IS_TV = Platform.isTV;
@@ -56,6 +57,7 @@ export default function ScheduleScreen() {
   const wideLayout = IS_TV && width >= 1100;
   const router = useRouter();
   const { showGlobalLoader } = useLoading();
+  const { clear } = usePlayQueue();
 
   const [channel, setChannel] = useState<Channel>("sjon");
   // null means "whatever today is" — resolved server-side in Atlantic/Faroe.
@@ -82,10 +84,12 @@ export default function ScheduleScreen() {
 
   // The schedule's five-minute TTL is shorter than the central refresh
   // interval, so kvfPreload polls whichever schedule is currently on screen.
-  useEffect(() => {
-    setActiveSchedule(resource);
-    return () => setActiveSchedule(null);
-  }, [resource]);
+  useFocusEffect(
+    useCallback(() => {
+      setActiveSchedule(resource);
+      return () => setActiveSchedule(null);
+    }, [resource]),
+  );
 
   const handleChannel = useCallback((next: Channel) => {
     // Identity-preserving: re-pressing the active tab must not re-render.
@@ -103,10 +107,11 @@ export default function ScheduleScreen() {
 
   const handleChannelPress = useCallback(
     (name: string, url: string) => {
+      clear();
       showGlobalLoader();
       router.push({ pathname: "/player", params: { streamUrl: url, title: name, isLive: "true" } });
     },
-    [router, showGlobalLoader],
+    [router, showGlobalLoader, clear],
   );
 
   const handleEntryPress = useCallback(

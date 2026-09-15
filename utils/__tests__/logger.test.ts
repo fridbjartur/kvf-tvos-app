@@ -77,3 +77,21 @@ describe("Logger", () => {
     });
   });
 });
+
+it("can log circular context and bigint without breaking error handling", () => {
+  const context: Record<string, unknown> = { count: BigInt(1) };
+  context.self = context;
+  expect(() => logger.warn("Failed request", context)).not.toThrow();
+  expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("[Circular]"));
+});
+
+it("survives context objects whose serialization throws", () => {
+  expect(() =>
+    logger.warn("Failed request", {
+      toJSON() {
+        throw new Error("bad serializer");
+      },
+    }),
+  ).not.toThrow();
+  expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("Unserializable context"));
+});

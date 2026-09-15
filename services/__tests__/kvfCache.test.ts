@@ -334,3 +334,36 @@ describe("revalidation status", () => {
     expect(seen).toEqual([]);
   });
 });
+
+it("returns oversized fetched data even when the disk budget evicts it immediately", async () => {
+  const data = "x".repeat(13 * 1024 * 1024);
+  const entry = await cacheSet("oversized", data, 1000, { hash: "large" });
+  expect(entry.data).toBe(data);
+  expect(await cacheGet("oversized")).toBeNull();
+});
+
+it("does not serve an old payload with new metadata after a failed disk write", async () => {
+  const fs = require("expo-file-system/legacy");
+  await cacheSet("k", { n: 1 }, 1000, { hash: "old" });
+  fs.moveAsync.mockRejectedValueOnce(new Error("Disk full"));
+  await cacheSet("k", { n: 2 }, 1000, { hash: "new" });
+  expect((await cacheGet<{ n: number }>("k"))?.data.n).toBe(2);
+  await flushIndex();
+  __resetForTests();
+  expect(await cacheGet("k")).toBeNull();
+});
+
+it("serializes concurrent writes to the same payload file", async () => {
+  await Promise.all(Array.from({ length: 8 }, (_, n) => cacheSet("shared", { n }, 1000, { hash: String(n) })));
+  await flushIndex();
+  __resetForTests();
+  const entry = await cacheGet<{ n: number }>("shared");
+  expect(entry?.data).toEqual({ n: 7 });
+  expect(entry?.hash).toBe("7");
+});
+
+it("expires at the TTL boundary and after the clock moves backwards", () => {
+  const now = Date.now();
+  expect(isStale({ key: "k", data: 1, hash: "h", fetchedAt: now - 1000, ttl: 1000 })).toBe(true);
+  expect(isStale({ key: "k", data: 1, hash: "h", fetchedAt: now + 10000, ttl: 1000 })).toBe(true);
+});

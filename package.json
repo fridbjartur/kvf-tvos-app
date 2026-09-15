@@ -23,7 +23,7 @@
     "home-theater"
   ],
   "engines": {
-    "node": ">=18.0.0",
+    "node": "^20.19.4 || ^22.13.0 || ^24.3.0 || >=25.0.0",
     "yarn": ">=1.22.0"
   },
   "scripts": {
@@ -35,8 +35,11 @@
     "ios:device:release": "expo run:ios --device --configuration Release",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "expo lint --fix",
+    "lint": "eslint . --fix",
     "test": "jest",
+    "typecheck": "tsc --noEmit",
+    "lint:check": "eslint .",
+    "check": "yarn typecheck && yarn lint:check && yarn test --runInBand",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "prebuild:tv": "EXPO_TV=1 expo prebuild --clean",

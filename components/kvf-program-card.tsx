@@ -32,7 +32,7 @@ function KvfProgramCardComponent<T extends ProgramCard>({ program, onPress, onFo
   const handleFocus = useCallback(() => onFocus?.(program), [onFocus, program]);
   const handlePress = useCallback(() => onPress(program), [onPress, program]);
 
-  const imageSource = program.thumbnailUrl ? { uri: program.thumbnailUrl, cacheKey: `prog-${program.slug}` } : null;
+  const imageSource = program.thumbnailUrl ? { uri: program.thumbnailUrl } : null;
 
   return (
     <FocusScaleCard
@@ -47,7 +47,15 @@ function KvfProgramCardComponent<T extends ProgramCard>({ program, onPress, onFo
       {(focused) => (
         <>
           {imageSource ? (
-            <Image source={imageSource} style={S.image} contentFit="cover" transition={0} priority={index < 6 ? "high" : "normal"} cachePolicy="memory-disk" recyclingKey={program.slug} />
+            <Image
+              source={imageSource}
+              style={S.image}
+              contentFit="cover"
+              transition={0}
+              priority={index < 6 ? "high" : "normal"}
+              cachePolicy="memory-disk"
+              recyclingKey={program.thumbnailUrl ?? program.listKey}
+            />
           ) : (
             <View style={S.placeholder}>
               <Text style={S.placeholderText} numberOfLines={2}>

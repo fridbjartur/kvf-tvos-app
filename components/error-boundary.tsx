@@ -1,5 +1,5 @@
 import { logger } from "@/utils/logger";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import React from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
 import { FocusableButton } from "./FocusableButton";

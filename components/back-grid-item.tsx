@@ -1,6 +1,6 @@
 import { LoadingSpinner } from "@/components/loading-spinner";
 import { DESIGN, slotColumns, slotRatio, type SlotOrientation } from "@/constants/app";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import React, { forwardRef, useCallback, useState } from "react";
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 

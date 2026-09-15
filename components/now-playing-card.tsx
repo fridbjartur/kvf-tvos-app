@@ -10,7 +10,7 @@
 
 import { FocusableButton } from "@/components/FocusableButton";
 import { ShimmerBlock } from "@/components/shimmer-block";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import strings from "@/constants/strings.json";
 import type { ScheduleEntry } from "@/types/kvf";
 import { Image } from "expo-image";

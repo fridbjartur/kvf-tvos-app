@@ -1,5 +1,5 @@
 import { FolderStackEntry } from "@/types/jellyfin";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Dimensions, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");

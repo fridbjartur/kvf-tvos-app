@@ -8,7 +8,6 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { LoadingProvider } from "@/contexts/LoadingContext";
 import { PlayQueueProvider } from "@/contexts/PlayQueueContext";
 import { PosterBackdropProvider } from "@/contexts/PosterBackdropContext";
-import { registerMultiAudioPlugin } from "@/services/multiAudioLoader";
 import { startKvfSync } from "@/services/kvfPreload";
 
 if (Platform.isTV) {
@@ -17,8 +16,6 @@ if (Platform.isTV) {
 
 export default function RootLayout() {
   useEffect(() => {
-    registerMultiAudioPlugin();
-
     const stop = startKvfSync();
     return stop;
   }, []);

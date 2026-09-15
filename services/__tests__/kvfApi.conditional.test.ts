@@ -214,7 +214,7 @@ describe("derived search index", () => {
   });
 
   it("deduplicates programs that appear in more than one section", async () => {
-    fetchMock.mockImplementation(async () => jsonResponse(frontPage("sjon", ["Same"])));
+    fetchMock.mockImplementation(async () => jsonResponse(frontPage("sjon", ["Same"], () => "/api/sjon/programs/same")));
     const entry = await ensure(allProgramsResource());
     expect(entry.data).toHaveLength(1);
   });
@@ -281,4 +281,56 @@ describe("derived search index", () => {
 
     expect(second.data).toBe(first.data);
   });
+});
+
+it("keeps same-slug programs from different channels distinct", async () => {
+  fetchMock.mockImplementation(serveFrontPages({ sjon: ["Same"], ljod: ["Same"] }));
+  const entry = await ensure(allProgramsResource());
+  expect(entry.data).toHaveLength(2);
+  expect(new Set(entry.data.map((p) => p.listKey)).size).toBe(2);
+});
+
+it("indexes programs that appear only in the featured carousel", async () => {
+  fetchMock.mockImplementation(async () => {
+    const page = frontPage("sjon", ["Featured"], () => "/api/sjon/programs/featured");
+    page.featuredPrograms = page.categories[0].programs.map((p) => ({ ...p, summary: null }));
+    page.categories = [];
+    return jsonResponse(page);
+  });
+  const entry = await ensure(allProgramsResource());
+  expect(entry.data.map((p) => p.title)).toEqual(["Featured"]);
+});
+
+it("reports an offline search failure and can recover without a forced refresh", async () => {
+  fetchMock.mockImplementation(serveFrontPages({}, [...API_PATHS]));
+  await expect(ensure(allProgramsResource())).rejects.toThrow("Failed to load programs");
+  fetchMock.mockImplementation(serveFrontPages({ sjon: ["Recovered"] }));
+  const entry = await ensure(allProgramsResource());
+  expect(entry.data.map((p) => p.title)).toEqual(["Recovered"]);
+});
+
+it("encodes episode path segments so parameters cannot change the endpoint", async () => {
+  fetchMock.mockResolvedValue(jsonResponse({ streamUrl: null }));
+  await ensure(episodeResource("sjon", "show/other?x=1", "id#part"));
+  expect(fetchMock.mock.calls[0][0]).toMatch(/\/episodes\/show%2Fother%3Fx%3D1\/id%23part$/);
+});
+
+it("retains usable cached data when a response contains an invalid card title", async () => {
+  fetchMock.mockResolvedValueOnce(jsonResponse(frontPage("sjon", ["Good"])));
+  const first = await ensure(frontPageResource("sjon"));
+  const malformed = frontPage("sjon", ["Bad"]);
+  (malformed.categories[0].programs[0] as unknown as { title: unknown }).title = { unexpected: true };
+  fetchMock.mockResolvedValueOnce(jsonResponse(malformed));
+  const next = await ensure(frontPageResource("sjon"), true);
+  expect(next.data).toBe(first.data);
+});
+
+it("rejects a malformed cold response instead of caching an unusable page", async () => {
+  fetchMock.mockResolvedValue(jsonResponse({ featuredPrograms: [], categories: null }));
+  await expect(ensure(frontPageResource("sjon"))).rejects.toThrow("Invalid KVF response");
+});
+
+it("rejects unsupported episode stream protocols", async () => {
+  fetchMock.mockResolvedValue(jsonResponse({ streamUrl: "file:///private/video.mp4" }));
+  await expect(ensure(episodeResource("sjon", "show", "1"))).rejects.toThrow("unsupported stream URL");
 });

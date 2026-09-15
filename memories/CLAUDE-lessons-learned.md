@@ -653,3 +653,68 @@ the payload already in `memData`, because the state seed was unconditionally
   `components/tv-screen-scroll-view.tsx`, `components/section-screen.tsx`,
   `app/program.tsx`, `app/(tabs)/schedule.tsx`, `app/(tabs)/search.tsx`,
   `constants/strings.json`
+
+---
+
+## "No script URL provided" Only When Building From Xcode (September 2026)
+
+### Problem
+
+Running on a physical Apple TV via `yarn ios` worked. Building and running the same app
+from Xcode crashed at launch with `No script URL provided ...
+unsanitizedScriptURLString = (null)`.
+
+### Root Cause
+
+Two facts compounding:
+
+1. The _Bundle React Native code and images_ build phase sets `SKIP_BUNDLING=1` for every
+   `*Debug*` configuration, so the Debug device product has no `main.jsbundle` at all.
+2. `expo run:ios` starts the Metro dev server as part of the command; Xcode's Run does
+   not — the Expo template has no "Start Packager" build phase. So an Xcode build
+   installed a JS-less app with no server to load from.
+
+The `(null)` rather than a named host is `RCTBundleURLProvider` behaviour on device: it
+reads the host from `ip.txt` baked into the `.app`, probes `http://<ip>:8081/status`, and
+returns `nil` when the probe fails — it does **not** fall back to `localhost` off-simulator.
+No jsbundle fallback either, so `bundleURL()` came back `nil`.
+
+### Solution
+
+Keep `yarn start` running before ⌘R, or use the new `yarn ios:device`. For a Mac-free
+install, `yarn ios:device:release` embeds the bundle. No app code changed — this was a
+workflow gap, and the docs now say so.
+
+### What Went Wrong
+
+- ❌ `CLAUDE.md` claimed `yarn start` "Refreshes dev IP". It never did — `start` is
+  literally `expo start`, and nothing in the repo writes a dev IP anywhere. A false line
+  in the docs sent debugging toward an IP problem that did not exist.
+- ❌ The error text ("Make sure the packager is running") is accurate but the `(null)`
+  reads like a misconfiguration, which invites native-side theories first.
+
+### What Worked
+
+- ✅ Inspecting the actual build products instead of reasoning about the config:
+  `Debug-appletvos/KVF.app` had `ip.txt` = the correct current LAN IP and **no**
+  `main.jsbundle`, while `Release-appletvos/KVF.app` had the bundle. That pinned the
+  cause to "no server", not "wrong host", in one command.
+- ✅ `curl http://<ip>:8081/status` to confirm nothing was listening, and
+  `socketfilterfw --getglobalstate` to rule out the firewall before blaming the network.
+
+### Key Takeaways
+
+1. `yarn ios` and Xcode ⌘R are **not** equivalent on this project — one starts Metro, the
+   other does not. Any "works with yarn, fails in Xcode" report starts here.
+2. On a physical device `RCTBundleURLProvider` never falls back to `localhost`. A `(null)`
+   script URL means the `ip.txt` host did not answer, not that no host was configured.
+3. A stale `ip.txt` after a DHCP change produces the identical error with Metro running.
+   Compare `ipconfig getifaddr en0` against the `ip.txt` inside the built `.app`.
+4. Check documented commands against `package.json` before trusting them. The stale
+   "refreshes dev IP" comment cost time.
+
+### Files Affected
+
+- `package.json` (added `ios:device`, `ios:device:release`)
+- `CLAUDE.md` (corrected `yarn start` description, added Xcode note to Platform Context)
+- `memories/CLAUDE-development.md` ("Running on a Physical Apple TV")

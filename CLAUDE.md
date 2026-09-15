@@ -35,6 +35,10 @@ Be aggressive with Task (Explore) for codebase questions. Don't ask permission, 
 - AVPlayer is the native video player (not web player)
 - HLS manifest rules follow Apple's implementation (not generic HLS)
 - Swift modules require rebuild via `yarn prebuild:tv`
+- **Building from Xcode does not start Metro.** Debug device builds embed no JS
+  (`SKIP_BUNDLING=1`), so pressing ⌘R in Xcode without `yarn start` running gives
+  "No script URL provided ... unsanitizedScriptURLString = (null)". Run `yarn start`
+  first, or use `yarn ios:device`. See `memories/CLAUDE-development.md`.
 
 ## Decision Thresholds
 
@@ -101,8 +105,10 @@ See `memories/CLAUDE-lessons-learned.md` for detailed case studies.
 ## Development Commands
 
 ```bash
-yarn start                        # Refreshes dev IP and starts Metro/Expo
-yarn ios                          # Build and run on iOS simulator
+yarn start                        # Starts the Metro/Expo dev server
+yarn ios                          # Build and run on the simulator (starts Metro for you)
+yarn ios:device                   # Build and run on a physical Apple TV (starts Metro for you)
+yarn ios:device:release           # Release build on device — JS bundle embedded, no Mac needed
 yarn test                         # Run all tests once
 yarn test:watch                   # Watch mode for tests
 yarn test:coverage                # Generate coverage report

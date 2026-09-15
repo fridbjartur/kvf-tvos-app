@@ -31,6 +31,8 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
+    "ios:device": "expo run:ios --device",
+    "ios:device:release": "expo run:ios --device --configuration Release",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "expo lint --fix",

@@ -6,7 +6,7 @@ import { logger } from "@/utils/logger";
 // persist on tvOS. Store it as a plain JSON file instead: no size limit.
 // Use the cache directory, not documentDirectory — tvOS denies writes to Documents
 // (NSFileWriteNoPermissionError). Cache survives app reopen but may be purged by
-// the system under storage pressure. (Credentials stay in SecureStore — small and sensitive.)
+// the system under storage pressure. Retained for future KVF resume/continue-watching UI.
 const STORAGE_FILE = FileSystem.cacheDirectory + "watch_progress.json";
 const MIN_POSITION_SECONDS = 4;
 const COMPLETION_THRESHOLD = 0.95;
@@ -22,12 +22,12 @@ export interface WatchProgressEntry {
 
 type ProgressMap = Record<string, WatchProgressEntry>;
 
-// In-memory cache — loaded lazily from SecureStore once
+// In-memory cache — loaded lazily from the filesystem once
 let cache: ProgressMap | null = null;
 let loadPromise: Promise<void> | null = null;
 
 /**
- * Lazy-load cache from SecureStore on first access.
+ * Lazy-load cache from the filesystem on first access.
  * Deduplicates concurrent calls via shared promise.
  */
 async function ensureCacheLoaded(): Promise<void> {
@@ -240,7 +240,7 @@ export async function clearProgress(videoId: string): Promise<void> {
 }
 
 /**
- * Clear all watch progress (e.g. on sign-out).
+ * Clear all watch progress (e.g. when resetting viewing history).
  */
 export async function clearAllProgress(): Promise<void> {
   cache = {};

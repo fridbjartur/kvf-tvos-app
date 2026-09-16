@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { useKvfResource, type KvfResourceState } from "../useKvfResource";
 import { cachePeek, isRevalidating, subscribe, subscribeStatus, swr, type Resource, type SwrCallbacks } from "@/services/kvfCache";

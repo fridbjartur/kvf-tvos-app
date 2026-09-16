@@ -2,7 +2,7 @@
   "expo": {
     "name": "KVF",
     "slug": "kvf",
-    "description": "Stream Sjón and VIT content from KVF on your Apple TV.",
+    "description": "Watch KVF television and listen to KVF radio on your Apple TV.",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
@@ -11,7 +11,7 @@
     "backgroundColor": "#1C1C1E",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "dev.keiver.kvf",
+      "bundleIdentifier": "dev.fridbjartur.kvf",
       "buildNumber": "1",
       "version": "1.0.0",
       "config": {
@@ -53,8 +53,6 @@
           "tvosDeploymentTarget": "16.4"
         }
       ],
-      "expo-secure-store",
-      "./plugins/withMultiAudioResourceLoader",
       "./plugins/withTVImageAssets",
       "expo-font"
     ],
@@ -63,7 +61,7 @@
       "reactCompiler": true
     },
     "android": {
-      "package": "dev.keiver.kvf"
+      "package": "dev.fridbjartur.kvf"
     }
   }
 }

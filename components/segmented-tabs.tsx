@@ -4,7 +4,7 @@
  *
  * Deliberately a plain View rather than a horizontal FlatList: nesting a second
  * scroll view is what blocks upward D-pad traversal once the outer one has
- * scrolled (see memories/CLAUDE-lessons-learned.md). A handful of tabs needs no
+ * scrolled (see docs/tv-navigation.md). A handful of tabs needs no
  * virtualisation.
  *
  * Selection happens on *press*, never on focus — selecting on focus would swap

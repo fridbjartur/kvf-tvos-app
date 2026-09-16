@@ -1,5 +1,7 @@
 # tvOS App Icons & Top Shelf Images
 
+> Current KVF setup: `plugins/withTVImageAssets.js` copies the root `Images.xcassets/` catalog into the generated iOS project. `app.json` also configures the app icon and splash image. The source artwork and flattened exports below are retained for editing and future use; the older `appleTVImages` configuration described below is historical.
+
 ## Quick Reference
 
 **Category:** Deployment

@@ -1,143 +1,19 @@
-# CLAUDE.md
+# KVF project context
 
-**TomoTV** is a Jellyfin video streaming app built with React Native TVOS and Expo, targeting Apple TV (tvOS) and iOS. It handles codec detection, automatic transcoding, and multi-audio track switching via a custom Swift native module.
+KVF is an independent Apple TV client for KVF television and radio. It uses Expo Router, React Native TV, `react-native-video`, and a separately deployed KVF scraper API.
 
-## Communication Format
+Read [AGENTS.md](AGENTS.md) for repository guidelines and [README.md](README.md) for setup and commands. See [TV navigation](docs/tv-navigation.md) and [production verification](docs/production-readiness.md) before changing playback or focus behavior.
 
-Add 10 blank lines BEFORE and AFTER response text for visual breathing room in terminal.
+## Preserve intentionally
 
-## First Message Protocol
+- `services/watchProgressService.ts` and `hooks/useWatchProgress.ts` are retained for future resume/continue-watching support. They are not currently wired into the player.
+- Native HLS playback, audio-track selection, radio streams, and episode prefetching are the playback capabilities used by KVF. There is no custom transcoding server or custom media protocol.
+- `Images.xcassets/` and the two images referenced by `app.json` are active build assets.
+- Keep all source artwork, icon layers, flattened exports, screenshots, and image documentation, including `assets/` and `_bg.psd`. These are intentionally retained even when not imported by application code.
 
-On every new task:
+## Development
 
-1. Restate it, identify affected files/systems, ask if ambiguous
-2. Check prerequisites: files to read, CLAUDE-\*.md files to load
-3. Present approach with file list, ask for confirmation
-4. Wait for confirmation, then execute
-
-## Tool Selection Matrix
-
-| Scenario                         | Tool            | Why                        |
-| -------------------------------- | --------------- | -------------------------- |
-| "Where is X implemented?"        | Task (Explore)  | Always use, be aggressive  |
-| "Read this specific file"        | Read            | Direct, no overhead        |
-| "Find all uses of function Y"    | Grep            | Exact matches, fast        |
-| "Understand how feature Z works" | Task (Explore)  | Always use, be aggressive  |
-| Need to edit multiple files      | Edit (parallel) | Batch edits in one message |
-
-Be aggressive with Task (Explore) for codebase questions. Don't ask permission, just use it.
-
-## Platform Context
-
-- **Primary Platform:** iOS/tvOS (React Native TVOS, Swift, AVPlayer, HLS)
-- State platform upfront in every technical discussion
-- Native behavior != web behavior
-- AVPlayer is the native video player (not web player)
-- HLS manifest rules follow Apple's implementation (not generic HLS)
-- Swift modules require rebuild via `yarn prebuild:tv`
-- **Building from Xcode does not start Metro.** Debug device builds embed no JS
-  (`SKIP_BUNDLING=1`), so pressing ⌘R in Xcode without `yarn start` running gives
-  "No script URL provided ... unsanitizedScriptURLString = (null)". Run `yarn start`
-  first, or use `yarn ios:device`. See `memories/CLAUDE-development.md`.
-
-## Decision Thresholds
-
-**MUST ASK:** Changes affecting >3 files, breaking API changes, new dependencies, platform-specific uncertainty, multiple valid approaches with tradeoffs.
-
-**CAN PROCEED:** Single-file bug fixes, adding tests, refactoring with identical behavior, documentation updates, obvious type errors.
-
-## Anti-Loop Protection
-
-- Track failed approaches internally
-- Never retry the same solution twice without new evidence
-- After 2-3 failed attempts: STOP, ask user for guidance
-- If context seems lost: re-read relevant CLAUDE-\*.md, ask "What was our last confirmed decision?"
-- Red flags: "Let me try X again" (if X failed), proposing solutions without reading specs/code
-
-## Memory Bank Keyword Index
-
-Load these files automatically when mentioned:
-
-**Implementation:**
-
-- "API" / "jellyfinApi" / "functions" -> `memories/CLAUDE-api-reference.md`
-- "state" / "manager" / "context" -> `memories/CLAUDE-state-management.md`
-- "audio tracks" / "multi-audio" -> `memories/CLAUDE-multi-audio.md`
-- "config" / "credentials" / "SecureStore" -> `memories/CLAUDE-configuration.md`
-- "pattern" / "how do I" / "example" -> `memories/CLAUDE-patterns.md`
-- "external" / "expo-tvos-search" / "dependencies" -> `memories/CLAUDE-external-dependencies.md`
-- "lessons" / "bug" / "debugging" -> `memories/CLAUDE-lessons-learned.md`
-
-**Testing and Components:**
-
-- "testing" / "tests" / "coverage" / "jest" -> `memories/CLAUDE-testing.md`
-- "components" / "UI" / "design system" -> `memories/CLAUDE-components.md`
-
-**Security and Performance:**
-
-- "security" / "audit" / "vulnerability" -> `memories/CLAUDE-security.md`
-- "performance" / "optimization" / "slow" -> `memories/CLAUDE-app-performance.md`
-
-**Development and Deployment:**
-
-- "setup" / "install" / "development" -> `memories/CLAUDE-development.md`
-- "icons" / "tvOS icons" / "top shelf" -> `memories/CLAUDE-tvos-icons.md`
-- "App Store" / "metadata" / "screenshots" -> `memories/CLAUDE-apple-store-metadata.md`
-- "submission" / "checklist" / "release" -> `memories/CLAUDE-apple-store-checklist.md`
-
-**Other:**
-
-- "image" / "vision" / "screenshot analysis" -> `memories/CLAUDE-image-analysis.md`
-- "Jellyfin API" / "server API" -> Official API docs at <https://api.jellyfin.org/openapi/jellyfin-openapi-stable.json>
-- "architecture" / "tech stack" / "folder structure" -> `memories/CLAUDE-patterns.md` (Architecture Reference section)
-- "color" / "palette" / "design tokens" -> `memories/CLAUDE-components.md` (Design System section)
-
-Category loading: "all implementation docs" (8 files), "deployment docs" (4 files), "all memory files" (16 files).
-
-You don't need to tell me to read these files.
-
-## Lessons Learned
-
-See `memories/CLAUDE-lessons-learned.md` for detailed case studies.
-
-**Auto-Append Policy:** After resolving a significant bug/issue, automatically append a new lesson using the template in that file. No need to ask permission.
-
-## Development Commands
-
-```bash
-yarn start                        # Starts the Metro/Expo dev server
-yarn ios                          # Build and run on the simulator (starts Metro for you)
-yarn ios:device                   # Build and run on a physical Apple TV (starts Metro for you)
-yarn ios:device:release           # Release build on device — JS bundle embedded, no Mac needed
-yarn test                         # Run all tests once
-yarn test:watch                   # Watch mode for tests
-yarn test:coverage                # Generate coverage report
-yarn lint                         # Lint and auto-fix with ESLint
-yarn prebuild                     # Clean native prebuild
-yarn prebuild:tv                  # Prebuild with Apple TV support (EXPO_TV=1)
-```
-
-## Native Code Development
-
-**CRITICAL: Always edit files in `native/` folder, NOT `ios/` or `android/` folders!**
-
-`yarn prebuild:tv` deletes and regenerates `ios/`/`android/`. Native source files are copied from `native/ios/` during prebuild. Edits to `ios/` directly will be lost.
-
-Workflow: Edit in `native/ios/MultiAudioResourceLoader/` -> `yarn prebuild:tv` -> `yarn ios`
-
-## Code Quality Standards
-
-- Type safety (no `any` without justification)
-- Error handling (try-catch around async operations)
-- No scale animations on grid items (performance rule)
-- No over-engineering, no premature abstraction
-
-## Known Issues
-
-1. Only H.264 and HEVC are direct-played; all others require server-side transcoding
-2. HTTP allowed to all networks; HTTPS recommended for public servers (HTTP exposes credentials in plaintext)
-3. Only works with Jellyfin servers (not Plex, Emby, etc.)
-
-## No Invented Fixes
-
-See `~/.claude/skills/no-invented-fixes/` for the full protocol. Never propose fixes based on assumptions. State what you know vs. what you're guessing. If uncertain, investigate or ask.
+- Start Metro with `yarn start` before launching a Debug app from Xcode, or use `yarn ios:device`.
+- A local Release install uses `yarn ios:device:release --no-bundler`; this does not publish anything.
+- Run `yarn check` before completing changes. Test remote focus, audio/video playback, and sleep behavior on Apple TV when relevant.
+- `.env.local` contains local build configuration. Never print its contents or commit secrets.

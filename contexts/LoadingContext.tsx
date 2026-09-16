@@ -1,5 +1,5 @@
 import { LoadingSpinner } from "@/components/loading-spinner";
-import React, { createContext, ReactNode, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 interface LoadingContextType {

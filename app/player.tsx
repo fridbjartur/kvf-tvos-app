@@ -16,7 +16,7 @@ import { useVideoPlayback } from "@/hooks/useVideoPlayback";
 import { resolveStreamUrl } from "@/services/kvfApi";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Video from "react-native-video";
 import type { OnLoadData, OnProgressData } from "react-native-video";
 import { AppState, LogBox, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -132,7 +132,6 @@ function PlayerSession({ params }: { params: { streamUrl?: string; title?: strin
         upNextThresholdRef.current = Math.min(30, data.duration / 2);
       },
       onProgress: (data: OnProgressData) => {
-        videoCallbacks.onProgress(data);
         if (videoDurationRef.current > 0) {
           const remaining = videoDurationRef.current - data.currentTime;
           const shouldShow = remaining <= upNextThresholdRef.current && remaining > 0;

@@ -1,13 +1,12 @@
 /**
  * KVF video playback hook — simplified for direct HLS streams.
  *
- * KVF API returns ready-to-play m3u8 URLs, so there is no transcoding,
- * codec detection, or Jellyfin session management here. Just clean HLS playback.
+ * Plays KVF's ready-to-play streams through the platform's native player.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState } from "react-native";
-import type { VideoRef, OnLoadData, OnProgressData, OnVideoErrorData, OnPlaybackStateChangedData } from "react-native-video";
+import type { VideoRef, OnLoadData, OnVideoErrorData, OnPlaybackStateChangedData } from "react-native-video";
 import strings from "@/constants/strings.json";
 import { logger } from "@/utils/logger";
 
@@ -26,14 +25,12 @@ export interface UseVideoPlaybackResult {
   showLoadingOverlay: boolean;
   videoCallbacks: {
     onLoad: (data: OnLoadData) => void;
-    onProgress: (data: OnProgressData) => void;
     onError: (error: OnVideoErrorData) => void;
     onEnd: () => void;
     onReadyForDisplay: () => void;
     onPlaybackStateChanged: (data: OnPlaybackStateChangedData) => void;
   };
   pause: () => void;
-  resume: () => void;
   retry: () => void;
 }
 
@@ -77,10 +74,6 @@ export function useVideoPlayback({ streamUrl, onPlaybackEnd }: UseVideoPlaybackO
     setState((previous) => (previous.type === "LOADING" ? { type: "READY" } : previous));
   }, []);
 
-  const onProgress = useCallback((_data: OnProgressData) => {
-    // No-op for now — extend here if you want a watch-progress indicator.
-  }, []);
-
   const onEnd = useCallback(() => {
     logger.debug("useVideoPlayback: ended");
     setPaused(true);
@@ -97,12 +90,6 @@ export function useVideoPlayback({ streamUrl, onPlaybackEnd }: UseVideoPlaybackO
   const pause = useCallback(() => {
     setPaused(true);
     setState((s) => (s.type === "PLAYING" ? { type: "PAUSED" } : s));
-  }, []);
-
-  const resume = useCallback(() => {
-    if (AppState.currentState === "background") return;
-    setPaused(false);
-    setState({ type: "PLAYING" });
   }, []);
 
   const retry = useCallback(() => {
@@ -122,10 +109,7 @@ export function useVideoPlayback({ streamUrl, onPlaybackEnd }: UseVideoPlaybackO
     });
   }, []);
 
-  const videoCallbacks = useMemo(
-    () => ({ onLoad, onProgress, onError, onEnd, onReadyForDisplay, onPlaybackStateChanged }),
-    [onLoad, onProgress, onError, onEnd, onReadyForDisplay, onPlaybackStateChanged],
-  );
+  const videoCallbacks = useMemo(() => ({ onLoad, onError, onEnd, onReadyForDisplay, onPlaybackStateChanged }), [onLoad, onError, onEnd, onReadyForDisplay, onPlaybackStateChanged]);
 
   const showLoadingOverlay = state.type === "LOADING" && !!streamUrl;
 
@@ -136,7 +120,6 @@ export function useVideoPlayback({ streamUrl, onPlaybackEnd }: UseVideoPlaybackO
     showLoadingOverlay,
     videoCallbacks,
     pause,
-    resume,
     retry,
   };
 }

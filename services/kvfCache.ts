@@ -581,22 +581,6 @@ export async function prefetch<T>(resource: Resource<T>): Promise<void> {
   }
 }
 
-/** Drop everything. Used when the API base URL changes. */
-export async function clearAll(): Promise<void> {
-  await writes;
-  if (flushing) await flushing;
-  memData.clear();
-  inflight.clear();
-  index = { v: CACHE_VERSION, records: {} };
-  indexDirty = false;
-  if (flushTimer) {
-    clearTimeout(flushTimer);
-    flushTimer = null;
-  }
-  await wipeDir();
-  await ensureDir();
-}
-
 /** Test seam — resets module state without touching the filesystem. */
 export function __resetForTests(): void {
   writes = Promise.resolve();

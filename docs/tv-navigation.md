@@ -67,7 +67,7 @@ Android TV before shipping that platform.
    scroll position should stay intact. Back/Menu should still return to the picker.
 5. Repeat the Ljóð paths with a cold cache and slow/offline API. Loading or errors
    must remain visible without letting an old request replace the active page.
-6. Enter Settings, move between input and actions, and return Up to the tabs.
+6. Enter Search, move between the search input and results, and return Up to the tabs.
 7. Confirm Back returns player → program → radio category → picker, one screen
    per press. At a tab root, Menu should retain normal system behavior.
 8. On a hero page, confirm the artwork reaches the top edge behind the navigation

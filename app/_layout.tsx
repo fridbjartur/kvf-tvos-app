@@ -7,7 +7,6 @@ import "react-native-reanimated";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { LoadingProvider } from "@/contexts/LoadingContext";
 import { PlayQueueProvider } from "@/contexts/PlayQueueContext";
-import { PosterBackdropProvider } from "@/contexts/PosterBackdropContext";
 import { startKvfSync } from "@/services/kvfPreload";
 
 if (Platform.isTV) {
@@ -24,27 +23,25 @@ export default function RootLayout() {
     <ErrorBoundary>
       <LoadingProvider>
         <PlayQueueProvider>
-          <PosterBackdropProvider>
-            <Stack screenOptions={{ contentStyle: { backgroundColor: "#141414" } }}>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="player"
-                options={{
-                  headerShown: false,
-                  presentation: "fullScreenModal",
-                  animation: "fade",
-                }}
-              />
-              <Stack.Screen
-                name="program"
-                options={{
-                  headerShown: false,
-                  animation: "slide_from_right",
-                }}
-              />
-            </Stack>
-            <StatusBar style="light" />
-          </PosterBackdropProvider>
+          <Stack screenOptions={{ contentStyle: { backgroundColor: "#141414" } }}>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="player"
+              options={{
+                headerShown: false,
+                presentation: "fullScreenModal",
+                animation: "fade",
+              }}
+            />
+            <Stack.Screen
+              name="program"
+              options={{
+                headerShown: false,
+                animation: "slide_from_right",
+              }}
+            />
+          </Stack>
+          <StatusBar style="light" />
         </PlayQueueProvider>
       </LoadingProvider>
     </ErrorBoundary>

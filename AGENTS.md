@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-Tomotv is an Expo Router TV app. Platform scaffolding lives in `android/`, `ios/`, and `Images.xcassets/`, while routed screens sit in `app/`. Shared UI primitives belong in `components/`, hooks in `hooks/`, and global state in `contexts/`. Playback and catalog clients live in `services/`; helpers and types stay in `utils/` and `types/`. Tests mirror their targets (e.g., `services/__tests__/libraryManager.test.ts`). Media assets live in `assets/`, and docs in `docs/`.
+KVF is an Expo Router app for KVF television and radio on Apple TV. Platform scaffolding lives in `android/`, `ios/`, and `Images.xcassets/`, while routed screens sit in `app/`. Shared UI primitives belong in `components/`, hooks in `hooks/`, and global state in `contexts/`. Playback and catalog clients live in `services/`; helpers and types stay in `utils/` and `types/`. Tests mirror their targets (e.g., `services/__tests__/kvfCache.test.ts`). Media assets live in `assets/`, and docs in `docs/`.
 
 ## Build, Test, and Development Commands
 
@@ -22,4 +22,8 @@ Follow the existing `type: concise summary` format (e.g., `fix: clear player que
 
 ## Security & Configuration Tips
 
-Never commit secrets; rely on secure store APIs and Expo config values. Connect to a Jellyfin server at runtime from the in-app Settings screen (server IP + Quick Connect code, or username/password); credentials are persisted in SecureStore. For TV builds, set `EXPO_TV=1` locally and verify the Apple/Android TV asset sets (`TVOS_ICONS.md`, `Images.xcassets/`) stay in sync with feature work.
+Never commit secrets; rely on secure store APIs and Expo config values. The scraper API address is configured at build time through EXPO_PUBLIC_KVF_API_BASE_URL in .env.local; public Expo environment variables must not contain secrets. For TV builds, set `EXPO_TV=1` locally and verify the Apple/Android TV asset sets (`Images.xcassets/`, `app.json`) stay in sync with feature work.
+
+## Intentionally Retained Code
+
+Keep `services/watchProgressService.ts`, `hooks/useWatchProgress.ts`, and the progress tests for future KVF resume support. They are not currently connected to a route. Preserve native HLS/audio playback and episode prefetching; see `docs/playback.md`.

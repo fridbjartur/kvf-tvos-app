@@ -29,7 +29,7 @@ yarn ios                  # Build/run on a simulator
 yarn ios:device           # Build/run on a selected device
 ```
 
-`yarn prebuild:tv` regenerates the ignored native projects from Expo configuration and plugins. It runs with `--clean`; preserve any local native changes before using it. Native changes that must survive regeneration belong in `plugins/` or a reviewed dependency patch in `patches/`.
+`yarn prebuild:tv` regenerates the ignored native projects from Expo configuration and plugins. It runs with `--clean`; preserve any local native changes before using it. Native changes that must survive regeneration belong in `plugins/` rather than in generated projects.
 
 ## Local Release build
 
@@ -38,6 +38,8 @@ yarn ios:device:release --no-bundler
 ```
 
 This builds and installs locally; it does not upload to TestFlight or the App Store. Device signing still applies. Stop any Xcode debugging session and quit Xcode after testing, then launch KVF from the Apple TV Home Screen. Release playback should also be checked with the Mac disconnected.
+
+The bundle identifier is `dev.fridbjartur.kvf`. This installs separately from the previous `dev.keiver.kvf` app and starts with its own app storage. Select your signing team in Xcode or Expo when installing on a physical device.
 
 The app pauses playback when it enters the background and does not automatically resume on foregrounding. Resume with the native player controls. This behavior does not establish the cause of any device-level wake problem; verify sleep on the physical device.
 
@@ -66,7 +68,11 @@ See [production verification](docs/production-readiness.md) for device checks an
 
 The cache uses the tvOS cache directory, which the OS may purge. Cached catalog pages remain usable during network failures; playing media still requires access to its stream. Background refreshes preserve object identity when content is unchanged, helping retain TV focus.
 
-The repository originated from [TomoTV](https://github.com/keiver/tomotv). Some legacy Jellyfin services, tests, assets, and native plugins remain for now; the active KVF route tree does not provide Jellyfin authentication, transcoding, or continue-watching features. The legacy multi-audio plugin is no longer registered at KVF startup.
+The watch-progress service and hook are intentionally retained for future resume support. See [playback capabilities](docs/playback.md) for the retained audio behavior and future integration points.
+
+## Acknowledgment
+
+This project started from the [TomoTV](https://github.com/keiver/tomotv) template. The application now uses KVF catalog and playback flows.
 
 ## License
 

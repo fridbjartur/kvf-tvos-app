@@ -1,9 +1,3 @@
-// Polyfill structuredClone for older Node versions
-// Standard Web API - proper polyfill pattern
-if (typeof global.structuredClone === "undefined") {
-  global.structuredClone = (obj) => JSON.parse(JSON.stringify(obj));
-}
-
 // WORKAROUND: Mock Expo's winter runtime globals for Jest
 // Expo 54+ uses a "winter" module system that requires these globals
 // This is a temporary hack until Expo provides official Jest support
@@ -12,13 +6,6 @@ global.__ExpoImportMetaRegistry = {};
 
 // Mock @expo/metro-runtime to prevent native runtime from loading in Node
 jest.mock("@expo/metro-runtime", () => ({}));
-
-// Mock expo-secure-store
-jest.mock("expo-secure-store", () => ({
-  getItemAsync: jest.fn(),
-  setItemAsync: jest.fn(),
-  deleteItemAsync: jest.fn(),
-}));
 
 // Mock react-native-video
 jest.mock("react-native-video", () => {
@@ -45,17 +32,6 @@ jest.mock("expo-router", () => ({
     replace: jest.fn(),
     back: jest.fn(),
   },
-}));
-
-// Mock InteractionManager - must happen before React Native imports
-jest.doMock("react-native/Libraries/Interaction/InteractionManager", () => ({
-  runAfterInteractions: jest.fn((callback) => {
-    // Execute callback immediately in tests
-    if (callback) callback();
-    return { cancel: jest.fn() };
-  }),
-  createInteractionHandle: jest.fn(),
-  clearInteractionHandle: jest.fn(),
 }));
 
 // Mock console methods to reduce noise in tests

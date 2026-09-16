@@ -25,7 +25,7 @@ import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState, Dimensions, FlatList, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { DESIGN } from "@/constants/app";
 

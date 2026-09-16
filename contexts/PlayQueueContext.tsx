@@ -5,7 +5,7 @@
  * The player reads from here to show "Up Next" and auto-advance.
  */
 
-import React, { createContext, useContext, useMemo, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, useCallback, ReactNode } from "react";
 import type { SectionId } from "@/constants/sections";
 import type { Episode, QueueEpisode } from "@/types/kvf";
 

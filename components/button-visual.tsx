@@ -1,10 +1,9 @@
 import { DESIGN } from "@/constants/app";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import type { ReactNode } from "react";
 import { Platform, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { LoadingSpinner } from "./loading-spinner";
 
-export type ButtonVariant = "primary" | "secondary" | "destructive" | "debug" | "retry";
+type ButtonVariant = "primary" | "secondary" | "retry";
 
 export interface ButtonVisualProps {
   title: string;
@@ -12,20 +11,19 @@ export interface ButtonVisualProps {
   focused?: boolean;
   disabled?: boolean;
   isLoading?: boolean;
-  icon?: ReactNode;
   iconName?: keyof typeof Ionicons.glyphMap;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
 }
 
 /** Shared appearance only: the caller owns focus and the press target. */
-export function ButtonVisual({ title, variant = "primary", focused = false, disabled = false, isLoading = false, icon, iconName, style, textStyle }: ButtonVisualProps) {
+export function ButtonVisual({ title, variant = "primary", focused = false, disabled = false, isLoading = false, iconName, style, textStyle }: ButtonVisualProps) {
   const primary = variant === "primary" || variant === "retry";
-  const color = primary ? "#141416" : variant === "destructive" ? "#FF6976" : "#F5F5F7";
+  const color = primary ? "#141416" : "#F5F5F7";
   return (
     <View style={[S.surface, primary ? S.primary : S.secondary, focused && (primary ? S.primaryFocused : S.secondaryFocused), disabled && S.disabled, style]}>
       <View style={[S.content, isLoading && S.hidden]}>
-        {icon ?? (iconName ? <Ionicons name={iconName} size={Platform.isTV ? 24 : 20} color={color} /> : null)}
+        {iconName ? <Ionicons name={iconName} size={Platform.isTV ? 24 : 20} color={color} /> : null}
         <Text style={[S.label, { color }, textStyle]}>{title}</Text>
       </View>
       {isLoading ? (

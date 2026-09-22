@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Animated, TouchableOpacity, type AccessibilityRole, type StyleProp, type ViewStyle } from "react-native";
+import { Animated, TouchableOpacity, type AccessibilityRole, type AccessibilityState, type StyleProp, type ViewStyle } from "react-native";
 
 const SPRING = { tension: 220, friction: 22, useNativeDriver: true } as const;
 
@@ -33,6 +33,12 @@ export function useFocusSpring({ scaleTo = 1.05, restBorderOpacity = 0 }: FocusS
   useEffect(() => {
     optsRef.current = { scaleTo, restBorderOpacity };
   }, [scaleTo, restBorderOpacity]);
+
+  // Selection can change while this card is blurred (e.g. another episode is
+  // selected). Keep its resting outline in sync without waiting for another blur.
+  useEffect(() => {
+    if (!focused) Animated.spring(borderOpacity, { toValue: restBorderOpacity, ...SPRING }).start();
+  }, [borderOpacity, focused, restBorderOpacity]);
 
   const onFocus = useCallback(() => {
     setFocused(true);
@@ -66,6 +72,7 @@ interface FocusScaleCardProps extends FocusSpringOptions {
   borderStyle?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
   accessibilityRole?: AccessibilityRole;
+  accessibilityState?: AccessibilityState;
   /** Card content. Pass a function to receive the current focused state. */
   children: ReactNode | ((focused: boolean) => ReactNode);
   /** Rendered inside the touchable but below/outside the scaled card. */
@@ -87,6 +94,7 @@ export function FocusScaleCard({
   borderStyle,
   accessibilityLabel,
   accessibilityRole = "button",
+  accessibilityState,
   children,
   footer,
 }: FocusScaleCardProps) {
@@ -113,6 +121,7 @@ export function FocusScaleCard({
       disabled={disabled}
       style={style}
       accessibilityLabel={accessibilityLabel}
+      accessibilityState={accessibilityState}
       accessibilityRole={accessibilityRole}>
       <Animated.View style={[cardStyle, { transform: [{ scale }] }]}>
         {typeof children === "function" ? children(focused) : children}

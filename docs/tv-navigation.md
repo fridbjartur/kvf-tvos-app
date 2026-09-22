@@ -22,8 +22,10 @@ focus.
 
 Use full-width `TVFocusGuideView autoFocus` regions when controls on neighboring
 rows do not align. Beinleiðis uses these around its selector, live banner,
-channel row, and schedule navigation. Horizontal catalog lists remain virtualized;
-the surrounding guide includes the category title. Decorative hero controls are
+channel row, and schedule navigation. The live banner is one full-card touchable
+with a decorative shared button and focus outline, so its entire rectangle is
+the focus target. Horizontal catalog lists remain virtualized; the surrounding
+guide includes the category title. Decorative hero controls are
 Views with the shared small corner radius, leaving one actual focusable action
 per banner. The hero guide traps only Left/Right; Up/Down remain native exits.
 Full-banner parallax is disabled. Slide selection survives refreshed arrays,

@@ -166,12 +166,12 @@ export default function ScheduleScreen() {
         <TVFocusGuideView autoFocus style={S.scheduleHeader}>
           <Text style={S.sectionHeading}>{strings.schedule.scheduleHeading}</Text>
           <View style={S.dayNav}>
-            <FocusableButton title={strings.schedule.previousDay} variant="secondary" onPress={goPreviousDay} disabled={!view?.previousDate} style={S.dayButton} />
+            <FocusableButton title={strings.schedule.previousDay} onPress={goPreviousDay} disabled={!view?.previousDate} style={S.dayButton} />
             <View style={S.dayLabels}>
               <Text style={S.dayLabel}>{view?.dateLabel ?? view?.date ?? ""}</Text>
               {view?.weekday ? <Text style={S.weekday}>{view.weekday}</Text> : null}
             </View>
-            <FocusableButton title={strings.schedule.nextDay} variant="secondary" onPress={goNextDay} disabled={!view?.nextDate} style={S.dayButton} />
+            <FocusableButton title={strings.schedule.nextDay} onPress={goNextDay} disabled={!view?.nextDate} style={S.dayButton} />
           </View>
         </TVFocusGuideView>
 

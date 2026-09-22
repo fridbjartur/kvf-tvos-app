@@ -176,8 +176,8 @@ function PlayerSession({ params }: { params: { streamUrl?: string; title?: strin
         <Text style={styles.errorTitle}>{strings.player.errorTitle}</Text>
         <Text style={styles.errorText}>{state.error}</Text>
         <View style={styles.buttonGroup}>
-          <FocusableButton title={strings.player.retryButton} onPress={retry} variant="retry" style={styles.button} hasTVPreferredFocus />
-          <FocusableButton title={strings.player.goBackButton} onPress={handleBack} variant="secondary" style={styles.button} />
+          <FocusableButton title={strings.player.retryButton} onPress={retry} style={styles.button} hasTVPreferredFocus />
+          <FocusableButton title={strings.player.goBackButton} onPress={handleBack} style={styles.button} />
         </View>
       </View>
     );

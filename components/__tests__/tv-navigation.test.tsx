@@ -1,7 +1,7 @@
 import React from "react";
 import { Image } from "expo-image";
 import TestRenderer, { act } from "react-test-renderer";
-import { AppState, ScrollView, TVFocusGuideView, TouchableOpacity, Pressable, View, Text, StyleSheet, Platform, type HWEvent } from "react-native";
+import { Animated, AppState, ScrollView, TVFocusGuideView, TouchableOpacity, Pressable, View, Text, StyleSheet, Platform, type HWEvent } from "react-native";
 import { KvfProgramCard } from "../kvf-program-card";
 import { setActiveSchedule } from "@/services/kvfPreload";
 import { scheduleResource } from "@/services/kvfApi";
@@ -12,6 +12,7 @@ import { HeroBanner, HERO_H } from "../HeroBanner";
 import { NowPlayingCard } from "../now-playing-card";
 import { ScheduleEntryRow } from "../schedule-entry-row";
 import { FocusableButton } from "../FocusableButton";
+import { ButtonVisual } from "../button-visual";
 import { SegmentedTabs } from "../segmented-tabs";
 import { useScreenBack } from "@/hooks/useScreenBack";
 import LjodSectionScreen from "@/app/(tabs)/ljod/[section]";
@@ -158,7 +159,7 @@ it("keeps live playback available while the schedule loads without reporting off
   const banner = root.findByType(NowPlayingCard);
   expect(banner.props.isLoading).toBe(true);
   expect(banner.findAllByType(Text).some((text) => text.props.children === strings.schedule.offAir)).toBe(false);
-  const play = banner.findByType(FocusableButton);
+  const play = banner.findByType(TouchableOpacity);
   expect(play.props.disabled).toBeFalsy();
   expect(play.props.isLoading).toBeFalsy();
   act(() => play.props.onPress());
@@ -169,12 +170,12 @@ it("updates live artwork when the program changes and keeps the play focus targe
   const entry = { title: "News", thumbnailUrl: "https://kvf.fo/news.jpg", startTime: "18:00", endTime: "18:30", startsAt: "2026-09-14T18:00:00Z", endsAt: "2026-09-14T18:30:00Z" } as ScheduleEntry;
   const props = { streamUrl: "https://kvf.fo/live.m3u8", channelName: "KVF", actionLabel: strings.schedule.watchLive, onPlay: jest.fn() };
   const root = render(<NowPlayingCard {...props} entry={entry} />);
-  const play = root.findByType(FocusableButton);
+  const play = root.findByType(TouchableOpacity);
   const next = { ...entry, title: "Next", thumbnailUrl: "https://kvf.fo/next.jpg" };
   render(<NowPlayingCard {...props} entry={next} />);
   expect(root.findByType(Image).props.source).toEqual({ uri: next.thumbnailUrl });
   expect(root.findByType(Image).props.recyclingKey).toBe(next.thumbnailUrl);
-  expect(root.findByType(FocusableButton)).toBe(play);
+  expect(root.findByType(TouchableOpacity)).toBe(play);
 });
 
 it("only offers a schedule action when both the program route and slug are valid", () => {
@@ -477,4 +478,78 @@ it("registers schedule polling only for the lifetime of screen focus", () => {
   expect(setActiveSchedule).toHaveBeenLastCalledWith(resource);
   if (typeof cleanup === "function") cleanup();
   expect(setActiveSchedule).toHaveBeenLastCalledWith(null);
+});
+
+it("gives shared buttons a white outline at rest and white fill with dark content on focus", () => {
+  const root = render(<FocusableButton title="Back" iconName="arrow-back" />);
+  const target = root.findAllByType(View).find((view) => view.props.accessibilityLabel === "Back" && view.props.onFocus)!;
+  const assertAppearance = (backgroundColor: string, color: string) => {
+    const visual = root.findByType(ButtonVisual);
+    expect(StyleSheet.flatten(visual.findAllByType(View)[0].props.style)).toMatchObject({ borderColor: "#FFFFFF", backgroundColor });
+    expect(visual.findByType("Ionicons" as React.ElementType).props.color).toBe(color);
+    expect(StyleSheet.flatten(visual.findByType(Text).props.style).color).toBe(color);
+  };
+  assertAppearance("transparent", "#FFFFFF");
+  act(() => target.props.onFocus());
+  assertAppearance("#FFFFFF", "#141416");
+  act(() => target.props.onBlur());
+  assertAppearance("transparent", "#FFFFFF");
+});
+
+it("makes the whole live card one focus target and highlights its border and shared button together", () => {
+  const props = { entry: null, streamUrl: "https://example.com/live.m3u8", channelName: "KVF", actionLabel: strings.schedule.watchLive, onPlay: jest.fn() };
+  const root = render(<NowPlayingCard {...props} />);
+  const button = root.findByType(TouchableOpacity);
+  expect(root.findAllByType(TouchableOpacity)).toHaveLength(1);
+  expect(root.findAllByType(FocusableButton)).toHaveLength(0);
+  expect(button.props).toMatchObject({ isTVSelectable: true, disabled: false, accessibilityRole: "button", tvParallaxProperties: { enabled: false } });
+  expect(StyleSheet.flatten(button.props.style)).toMatchObject({ flex: 1, minHeight: Platform.isTV ? 420 : 320 });
+  expect(button.props.accessibilityLabel).toContain(strings.schedule.watchLive);
+  const border = () => root.findAllByType(View).find((view) => view.props.pointerEvents === "none" && StyleSheet.flatten(view.props.style)?.borderWidth >= 3)!;
+  expect(StyleSheet.flatten(border().props.style).borderColor).toBe("transparent");
+  act(() => button.props.onFocus());
+  expect(root.findByType(ButtonVisual).props.focused).toBe(true);
+  expect(StyleSheet.flatten(border().props.style).borderColor).toBe("#FFFFFF");
+  render(<NowPlayingCard {...props} isLoading />);
+  expect(root.findByType(TouchableOpacity)).toBe(button);
+  expect(StyleSheet.flatten(border().props.style).borderColor).toBe("#FFFFFF");
+  act(() => button.props.onBlur());
+  expect(root.findByType(ButtonVisual).props.focused).toBe(false);
+  act(() => button.props.onPress());
+  expect(props.onPlay).toHaveBeenCalledWith(props.channelName, props.streamUrl);
+  expect(StyleSheet.flatten(border().props.style).borderColor).toBe("transparent");
+});
+
+it("clears a blurred episode's resting outline when selection moves to another card", () => {
+  const spring = jest.spyOn(Animated, "spring");
+  render(
+    <FocusScaleCard restBorderOpacity={0.5}>
+      <Text>Episode</Text>
+    </FocusScaleCard>,
+  );
+  spring.mockClear();
+  render(
+    <FocusScaleCard restBorderOpacity={0}>
+      <Text>Episode</Text>
+    </FocusScaleCard>,
+  );
+  expect(spring).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ toValue: 0 }));
+});
+
+it("keeps the live card target mounted across channel changes and skips unavailable streams", () => {
+  const props = { entry: null, streamUrl: "https://example.com/live.m3u8", channelName: "TV", actionLabel: strings.schedule.watchLive, onPlay: jest.fn() };
+  const root = render(<NowPlayingCard {...props} />);
+  const target = root.findByType(TouchableOpacity);
+  act(() => target.props.onFocus());
+  render(<NowPlayingCard {...props} channelName="Radio" streamUrl="https://example.com/radio.m3u8" actionLabel={strings.schedule.listenLive} isAudio isLoading />);
+  expect(root.findByType(TouchableOpacity)).toBe(target);
+  expect(root.findByType(ButtonVisual).props.focused).toBe(true);
+  act(() => target.props.onPress());
+  expect(props.onPlay).toHaveBeenCalledWith("Radio", "https://example.com/radio.m3u8");
+
+  render(<NowPlayingCard {...props} streamUrl={null} />);
+  expect(target.props).toMatchObject({ disabled: true, isTVSelectable: false });
+  expect(root.findAllByType(ButtonVisual)).toHaveLength(0);
+  act(() => target.props.onPress());
+  expect(props.onPlay).toHaveBeenCalledTimes(1);
 });

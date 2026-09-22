@@ -1,6 +1,7 @@
 /**
  * NowPlayingCard — the banner at the top of Beinleiðis: what is on air right
- * now on the selected channel, and the button that starts watching it.
+ * now on the selected channel. The whole card is one focusable play action;
+ * its shared button visual follows the card focus without a nested target.
  *
  * The progress bar is computed once per payload rather than from a ticking
  * clock. A 30-second timer would re-render the whole screen 120 times an hour,
@@ -8,15 +9,15 @@
  * as fresh as the five-minute refresh that feeds it, and no fresher.
  */
 
-import { FocusableButton } from "@/components/FocusableButton";
+import { ButtonVisual } from "@/components/button-visual";
 import { ShimmerBlock } from "@/components/shimmer-block";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import strings from "@/constants/strings.json";
 import type { ScheduleEntry } from "@/types/kvf";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { useCallback, useMemo } from "react";
-import { Platform, StyleSheet, Text, TVFocusGuideView, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { Platform, StyleSheet, Text, TouchableOpacity, TVFocusGuideView, View } from "react-native";
 
 const IS_TV = Platform.isTV;
 
@@ -47,6 +48,9 @@ function useAiredFraction(entry: ScheduleEntry | null): number | null {
 
 export function NowPlayingCard({ entry, streamUrl, channelName, actionLabel, onPlay, hasTVPreferredFocus, isLoading = false, isAudio = false }: NowPlayingCardProps) {
   const aired = useAiredFraction(entry);
+  const [focused, setFocused] = useState(false);
+  const handleFocus = useCallback(() => setFocused(true), []);
+  const handleBlur = useCallback(() => setFocused(false), []);
 
   const timeRange = entry ? [entry.startTime, entry.endTime].filter(Boolean).join(" – ") : null;
 
@@ -55,80 +59,106 @@ export function NowPlayingCard({ entry, streamUrl, channelName, actionLabel, onP
   }, [onPlay, channelName, streamUrl]);
 
   return (
-    <TVFocusGuideView autoFocus style={S.card}>
-      <LinearGradient colors={isAudio ? ["#30304F", "#13131C"] : ["#34323B", "#171419"]} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={StyleSheet.absoluteFill} pointerEvents="none" />
-      <View style={S.channelArt} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-        <View style={S.artRing}>
-          <Ionicons name={isAudio ? "radio-outline" : "tv-outline"} size={IS_TV ? 100 : 72} color="rgba(255,255,255,0.12)" />
+    <TVFocusGuideView autoFocus style={S.focusArea}>
+      <TouchableOpacity
+        style={S.card}
+        activeOpacity={1}
+        isTVSelectable={!!streamUrl}
+        disabled={!streamUrl}
+        hasTVPreferredFocus={hasTVPreferredFocus}
+        tvParallaxProperties={{ enabled: false }}
+        accessibilityRole="button"
+        accessibilityLabel={`${channelName}. ${entry?.title ? entry.title + ". " : ""}${actionLabel}`}
+        accessibilityState={{ disabled: !streamUrl }}
+        onPress={handlePlay}
+        onFocus={handleFocus}
+        onBlur={handleBlur}>
+        <LinearGradient colors={isAudio ? ["#30304F", "#13131C"] : ["#34323B", "#171419"]} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={StyleSheet.absoluteFill} pointerEvents="none" />
+        <View style={S.channelArt} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <View style={S.artRing}>
+            <Ionicons name={isAudio ? "radio-outline" : "tv-outline"} size={IS_TV ? 100 : 72} color="rgba(255,255,255,0.12)" />
+          </View>
         </View>
-      </View>
-      {entry?.thumbnailUrl ? (
-        <Image source={{ uri: entry.thumbnailUrl }} recyclingKey={entry.thumbnailUrl} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" priority="high" />
-      ) : null}
+        {entry?.thumbnailUrl ? (
+          <Image
+            source={{ uri: entry.thumbnailUrl }}
+            recyclingKey={entry.thumbnailUrl}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            priority="high"
+          />
+        ) : null}
 
-      <LinearGradient
-        colors={["rgba(10,10,10,0.88)", "rgba(10,10,10,0.48)", "rgba(10,10,10,0.08)"]}
-        locations={[0, 0.65, 1]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-      <LinearGradient colors={["transparent", "rgba(10,10,10,0.65)"]} style={StyleSheet.absoluteFill} pointerEvents="none" />
+        <LinearGradient
+          colors={["rgba(10,10,10,0.88)", "rgba(10,10,10,0.48)", "rgba(10,10,10,0.08)"]}
+          locations={[0, 0.65, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+        <LinearGradient colors={["transparent", "rgba(10,10,10,0.65)"]} style={StyleSheet.absoluteFill} pointerEvents="none" />
 
-      <View style={S.content}>
-        <View style={S.metaRow}>
-          <View style={S.liveBadge}>
-            <Text style={S.liveTag}>{strings.schedule.liveTag}</Text>
+        <View style={S.content} pointerEvents="none">
+          <View style={S.metaRow}>
+            <View style={S.liveBadge}>
+              <Text style={S.liveTag}>{strings.schedule.liveTag}</Text>
+            </View>
+            <Text style={S.channel}>{channelName}</Text>
           </View>
-          <Text style={S.channel}>{channelName}</Text>
+
+          {isLoading ? (
+            <View style={S.loadingCopy} accessibilityLabel={strings.program.loadingButton} accessibilityState={{ busy: true }}>
+              <ShimmerBlock style={S.skeletonTitle} />
+              <ShimmerBlock style={S.skeletonLine} delayMs={100} />
+            </View>
+          ) : (
+            <Text numberOfLines={2} style={S.title}>
+              {entry?.title ?? strings.schedule.offAir}
+            </Text>
+          )}
+
+          {entry?.subtitle ? (
+            <Text numberOfLines={1} style={S.subtitle}>
+              {entry.subtitle}
+            </Text>
+          ) : null}
+
+          {entry?.description ? (
+            <Text numberOfLines={2} style={S.description}>
+              {entry.description}
+            </Text>
+          ) : null}
+
+          {timeRange ? (
+            <View style={S.timeline}>
+              <Text style={S.time}>{timeRange}</Text>
+              {aired !== null ? (
+                <View style={S.progressTrack} accessibilityRole="progressbar" accessibilityLabel={entry?.title} accessibilityValue={{ min: 0, max: 100, now: Math.round(aired * 100) }}>
+                  <View style={[S.progressFill, { width: `${Math.round(aired * 100)}%` }]} />
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+
+          {streamUrl ? (
+            <View style={S.actions}>
+              <ButtonVisual title={actionLabel} iconName="play" focused={focused} />
+            </View>
+          ) : null}
         </View>
-
-        {isLoading ? (
-          <View style={S.loadingCopy} accessibilityLabel={strings.program.loadingButton} accessibilityState={{ busy: true }}>
-            <ShimmerBlock style={S.skeletonTitle} />
-            <ShimmerBlock style={S.skeletonLine} delayMs={100} />
-          </View>
-        ) : (
-          <Text numberOfLines={2} style={S.title}>
-            {entry?.title ?? strings.schedule.offAir}
-          </Text>
-        )}
-
-        {entry?.subtitle ? (
-          <Text numberOfLines={1} style={S.subtitle}>
-            {entry.subtitle}
-          </Text>
-        ) : null}
-
-        {entry?.description ? (
-          <Text numberOfLines={2} style={S.description}>
-            {entry.description}
-          </Text>
-        ) : null}
-
-        {timeRange ? (
-          <View style={S.timeline}>
-            <Text style={S.time}>{timeRange}</Text>
-            {aired !== null ? (
-              <View style={S.progressTrack} accessibilityRole="progressbar" accessibilityLabel={entry?.title} accessibilityValue={{ min: 0, max: 100, now: Math.round(aired * 100) }}>
-                <View style={[S.progressFill, { width: `${Math.round(aired * 100)}%` }]} />
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-
-        {streamUrl ? (
-          <View style={S.actions}>
-            <FocusableButton title={actionLabel} iconName="play" variant="primary" hasTVPreferredFocus={hasTVPreferredFocus} onPress={handlePlay} />
-          </View>
-        ) : null}
-      </View>
+        <View pointerEvents="none" style={[S.focusBorder, focused && streamUrl && S.focusBorderActive]} />
+      </TouchableOpacity>
     </TVFocusGuideView>
   );
 }
 
 const S = StyleSheet.create({
+  focusArea: { flex: 1 },
+  focusBorder: { ...StyleSheet.absoluteFill, borderRadius: IS_TV ? 16 : 12, borderWidth: IS_TV ? 4 : 3, borderColor: "transparent" },
+  focusBorderActive: { borderColor: "#FFFFFF" },
   card: {
     flex: 1,
     minHeight: IS_TV ? 420 : 320,

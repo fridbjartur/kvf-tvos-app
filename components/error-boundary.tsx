@@ -76,9 +76,9 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
               </View>
             )}
 
-            <FocusableButton title="Try Again" variant="primary" onPress={this.handleRetry} hasTVPreferredFocus={true} style={{ marginTop: Platform.isTV ? 48 : 32 }} />
+            <FocusableButton title="Try Again" onPress={this.handleRetry} hasTVPreferredFocus={true} style={{ marginTop: Platform.isTV ? 48 : 32 }} />
 
-            <FocusableButton title="Reload App" variant="secondary" onPress={this.handleReload} style={{ marginTop: Platform.isTV ? 20 : 16 }} />
+            <FocusableButton title="Reload App" onPress={this.handleReload} style={{ marginTop: Platform.isTV ? 20 : 16 }} />
           </View>
         </View>
       );

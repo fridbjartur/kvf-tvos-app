@@ -80,7 +80,7 @@ function EntryBody({ entry, isNow, isLinked, focused }: { entry: ScheduleEntry; 
         </View>
         <View style={S.affordance} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           {isLinked ? (
-            <ButtonVisual title={strings.schedule.openProgram} iconName="arrow-forward" variant="secondary" focused={focused} style={S.linkAction} textStyle={S.actionText} />
+            <ButtonVisual title={strings.schedule.openProgram} iconName="arrow-forward" focused={focused} style={S.linkAction} textStyle={S.actionText} />
           ) : (
             <Text style={S.readOnly}>{strings.schedule.scheduleOnly}</Text>
           )}

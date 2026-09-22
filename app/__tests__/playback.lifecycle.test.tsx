@@ -1,11 +1,13 @@
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import { AppState, type AppStateStatus } from "react-native";
+import { AppState, Text, TouchableOpacity, type AppStateStatus } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import PlayerScreen from "../player";
 import ProgramScreen from "../program";
 import { useScreenBack } from "@/hooks/useScreenBack";
-import { loadEpisode, resolveStreamUrl } from "@/services/kvfApi";
+import { loadEpisode, prefetchEpisode, resolveStreamUrl } from "@/services/kvfApi";
+import { FocusScaleCard } from "@/components/focus-scale-card";
+import strings from "@/constants/strings.json";
 import { useKvfResource } from "@/hooks/useKvfResource";
 import type { EpisodeDetail, ProgramPage } from "@/types/kvf";
 
@@ -26,7 +28,6 @@ jest.mock("@/contexts/LoadingContext", () => ({ useLoading: () => ({ hideGlobalL
 jest.mock("@/hooks/useKvfResource", () => ({ useKvfResource: jest.fn() }));
 jest.mock("@/services/kvfApi", () => ({ resolveStreamUrl: jest.fn(), loadEpisode: jest.fn(), prefetchEpisode: jest.fn(), programResource: jest.fn() }));
 jest.mock("@/components/FocusableButton", () => ({ FocusableButton: "Button" }));
-jest.mock("@/components/focus-scale-card", () => ({ FocusScaleCard: "Card" }));
 jest.mock("@/components/up-next-overlay", () => ({ UpNextOverlay: "UpNext" }));
 jest.mock("@/components/refresh-indicator", () => ({ RefreshIndicator: "Refresh" }));
 jest.mock("@/components/shimmer-block", () => ({ ShimmerBlock: "Shimmer" }));
@@ -203,4 +204,83 @@ it("collapses repeated program Play presses into one navigation", async () => {
   expect(loadEpisode).toHaveBeenCalledTimes(1);
   expect(mockRouter.push).toHaveBeenCalledTimes(1);
   expect(mockQueue.setQueue).toHaveBeenCalledTimes(1);
+});
+
+const selectionPage = {
+  program: { title: "Show", thumbnailUrl: "https://example.com/show.jpg" },
+  episodes: [
+    { sid: "1", slug: "show", title: "Latest episode", listKey: "1", publishDate: "22.09.2026", thumbnailUrl: "https://example.com/1.jpg" },
+    { sid: "2", slug: "show", title: "Older episode", listKey: "2", publishDate: "21.09.2026", thumbnailUrl: "https://example.com/2.jpg" },
+  ],
+  currentEpisodeSid: "1",
+} as ProgramPage;
+
+function setProgramPage(page: ProgramPage) {
+  jest.mocked(useKvfResource).mockReturnValue({ data: page, isLoading: false, isRefreshing: false, error: null, refresh: jest.fn() });
+}
+
+it("moves the episode badge, preview, artwork and Play action together when focus changes", async () => {
+  jest.mocked(useLocalSearchParams).mockReturnValue({ section: "sjon", slug: "show" });
+  jest.mocked(loadEpisode).mockResolvedValue({ streamUrl: "https://example.com/2.m3u8" } as EpisodeDetail);
+  setProgramPage(selectionPage);
+  render(<ProgramScreen />);
+  const cards = renderer.root.findAllByType(FocusScaleCard);
+  const badge = (card: TestRenderer.ReactTestInstance) => card.findAllByType(Text).filter((text) => text.props.children === "▶");
+  expect(badge(cards[0])).toHaveLength(1);
+  act(() => cards[1].findByType(TouchableOpacity).props.onFocus());
+  expect(badge(cards[0])).toHaveLength(0);
+  expect(badge(cards[1])).toHaveLength(1);
+  expect(cards.map((card) => card.props.accessibilityState.selected)).toEqual([false, true]);
+  expect(cards.every((card) => !card.props.hasTVPreferredFocus)).toBe(true);
+  expect(
+    host("Blur")
+      .findAllByType(Text)
+      .map((text) => text.props.children),
+  ).toEqual(["Older episode", "21.09.2026"]);
+  expect(renderer.root.findAllByType("Image" as React.ElementType)[0].props.source.uri).toBe("https://example.com/2.jpg");
+  expect(prefetchEpisode).toHaveBeenLastCalledWith("sjon", "show", "2");
+
+  // Moving back to Play retains the episode selection and its preview.
+  act(() => cards[1].findByType(TouchableOpacity).props.onBlur());
+  await act(async () => host("Button").props.onPress());
+  expect(loadEpisode).toHaveBeenLastCalledWith("sjon", "show", "2");
+  expect(mockRouter.push).toHaveBeenCalledWith(expect.objectContaining({ params: expect.objectContaining({ episodeSid: "2", title: "Older episode" }) }));
+});
+
+it("retains the selected episode across a refresh and falls back when it disappears", () => {
+  jest.mocked(useLocalSearchParams).mockReturnValue({ section: "sjon", slug: "show" });
+  setProgramPage(selectionPage);
+  render(<ProgramScreen />);
+  const selectedCard = renderer.root.findAllByType(FocusScaleCard)[1];
+  act(() => selectedCard.findByType(TouchableOpacity).props.onFocus());
+  const newest = { ...selectionPage.episodes[0], sid: "3", listKey: "3", title: "Newest episode" };
+  setProgramPage({ ...selectionPage, currentEpisodeSid: "3", episodes: [newest, ...selectionPage.episodes] });
+  act(() => renderer.update(<ProgramScreen />));
+  expect(renderer.root.findAllByType(FocusScaleCard)[2]).toBe(selectedCard);
+  expect(selectedCard.props.accessibilityState.selected).toBe(true);
+  expect(host("Blur").findAllByType(Text)[0].props.children).toBe("Older episode");
+
+  setProgramPage({ ...selectionPage, currentEpisodeSid: "3", episodes: [newest] });
+  act(() => renderer.update(<ProgramScreen />));
+  expect(renderer.root.findByType(FocusScaleCard).props.accessibilityState.selected).toBe(true);
+  expect(host("Blur").findAllByType(Text)[0].props.children).toBe("Newest episode");
+});
+
+it("updates the selected episode when a card is pressed without a focus event", async () => {
+  jest.mocked(useLocalSearchParams).mockReturnValue({ section: "sjon", slug: "show" });
+  jest.mocked(loadEpisode).mockResolvedValue({ streamUrl: null } as EpisodeDetail);
+  setProgramPage(selectionPage);
+  render(<ProgramScreen />);
+  await act(async () => renderer.root.findAllByType(FocusScaleCard)[1].props.onPress());
+  expect(host("Blur").findAllByType(Text)[0].props.children).toBe("Older episode");
+  expect(loadEpisode).toHaveBeenLastCalledWith("sjon", "show", "2");
+});
+
+it("uses the shared focusable Back button during the program skeleton", () => {
+  jest.mocked(useLocalSearchParams).mockReturnValue({ section: "sjon", slug: "show" });
+  jest.mocked(useKvfResource).mockReturnValue({ data: null, isLoading: true, isRefreshing: false, error: null, refresh: jest.fn() });
+  render(<ProgramScreen />);
+  expect(host("Button").props).toMatchObject({ title: strings.program.goBack, hasTVPreferredFocus: true });
+  act(() => host("Button").props.onPress());
+  expect(mockRouter.back).toHaveBeenCalledTimes(1);
 });

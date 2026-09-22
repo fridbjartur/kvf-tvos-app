@@ -41,7 +41,7 @@ const SKELETON_EPISODES = IS_TV ? [0, 1, 2, 3, 4] : [0, 1, 2];
 
 interface EpisodeCardProps {
   episode: Episode;
-  isActive: boolean;
+  isSelected: boolean;
   onPress: (episode: Episode) => void;
   onFocus: (episode: Episode) => void;
   hasTVPreferredFocus?: boolean;
@@ -75,7 +75,7 @@ function ProgramSkeleton({ title, thumbnailUrl, onBack }: { title?: string; thum
           </View>
 
           <View style={styles.actions}>
-            <FocusableButton title={strings.program.goBack} onPress={onBack} variant="secondary" hasTVPreferredFocus />
+            <FocusableButton title={strings.program.goBack} onPress={onBack} hasTVPreferredFocus />
           </View>
         </View>
 
@@ -120,7 +120,7 @@ function EpisodeSkeletons() {
   );
 }
 
-function EpisodeCard({ episode, isActive, onPress, onFocus, hasTVPreferredFocus }: EpisodeCardProps) {
+function EpisodeCard({ episode, isSelected, onPress, onFocus, hasTVPreferredFocus }: EpisodeCardProps) {
   const handleFocus = useCallback(() => onFocus(episode), [onFocus, episode]);
   const handlePress = useCallback(() => onPress(episode), [onPress, episode]);
 
@@ -131,11 +131,12 @@ function EpisodeCard({ episode, isActive, onPress, onFocus, hasTVPreferredFocus 
       hasTVPreferredFocus={hasTVPreferredFocus}
       activeOpacity={0.9}
       scaleTo={1.08}
-      restBorderOpacity={isActive ? 0.5 : 0}
+      restBorderOpacity={isSelected ? 0.5 : 0}
       style={styles.epOuter}
       cardStyle={styles.epCard}
       borderStyle={styles.epBorder}
       accessibilityLabel={episode.title}
+      accessibilityState={{ selected: isSelected }}
       footer={
         <>
           <Text style={styles.epTitle} numberOfLines={2}>
@@ -150,9 +151,9 @@ function EpisodeCard({ episode, isActive, onPress, onFocus, hasTVPreferredFocus 
         <View style={styles.epImagePlaceholder} />
       )}
 
-      {isActive && (
-        <View style={styles.nowPlayingBadge}>
-          <Text style={styles.nowPlayingText}>▶</Text>
+      {isSelected && (
+        <View style={styles.selectedBadge}>
+          <Text style={styles.selectedBadgeText}>▶</Text>
         </View>
       )}
     </FocusScaleCard>
@@ -206,7 +207,7 @@ function ProgramSession({ params }: { params: { section: string; slug: string; t
 
   // Prefer whatever the user last focused; fall back to the program's current
   // episode. Derived, so a refreshed episode list never resets the selection.
-  const focusedEpisode = useMemo<Episode | null>(() => {
+  const selectedEpisode = useMemo<Episode | null>(() => {
     if (!programPage) return null;
     const { episodes, currentEpisodeSid } = programPage;
     const chosen = selectedSid ? episodes.find((e) => e.sid === selectedSid) : undefined;
@@ -218,15 +219,16 @@ function ProgramSession({ params }: { params: { section: string; slug: string; t
 
   // Prefetch focused episode in background
   useEffect(() => {
-    if (!focusedEpisode || !slug) return;
-    prefetchEpisode(safeSection, slug, focusedEpisode.sid);
-  }, [focusedEpisode, safeSection, slug]);
+    if (!selectedEpisode || !slug) return;
+    prefetchEpisode(safeSection, slug, selectedEpisode.sid);
+  }, [selectedEpisode, safeSection, slug]);
 
   const handleEpisodePress = useCallback(
     async (episode: Episode) => {
       const action = actionRef.current;
       if (!programPage || !slug || !action.active || action.busy) return;
       action.busy = true;
+      setSelectedSid(episode.sid);
       setIsResolvingStream(true);
       setPlaybackError(null);
 
@@ -260,11 +262,9 @@ function ProgramSession({ params }: { params: { section: string; slug: string; t
     [programPage, safeSection, slug, setQueue, router],
   );
 
-  const handlePlayCurrentPress = useCallback(() => {
-    if (!programPage) return;
-    const ep = programPage.episodes.find((e) => e.sid === programPage.currentEpisodeSid) ?? programPage.episodes[0];
-    if (ep) handleEpisodePress(ep);
-  }, [programPage, handleEpisodePress]);
+  const handlePlaySelectedPress = useCallback(() => {
+    if (selectedEpisode) handleEpisodePress(selectedEpisode);
+  }, [selectedEpisode, handleEpisodePress]);
 
   const handleBack = useCallback(() => {
     actionRef.current.active = false;
@@ -273,19 +273,19 @@ function ProgramSession({ params }: { params: { section: string; slug: string; t
 
   useScreenBack(handleBack);
 
-  const activeEpSid = programPage?.currentEpisodeSid ?? programPage?.episodes[0]?.sid ?? null;
+  const selectedEpSid = selectedEpisode?.sid ?? null;
 
   const renderEpisode = useCallback(
-    ({ item, index }: { item: Episode; index: number }) => (
+    ({ item }: { item: Episode }) => (
       <EpisodeCard
         episode={item}
-        isActive={item.sid === activeEpSid}
+        isSelected={item.sid === selectedEpSid}
         onPress={handleEpisodePress}
         onFocus={handleEpisodeFocus}
-        hasTVPreferredFocus={item.sid === activeEpSid || (index === 0 && !activeEpSid)}
+        hasTVPreferredFocus={selectedSid === null && item.sid === selectedEpSid}
       />
     ),
-    [activeEpSid, handleEpisodePress, handleEpisodeFocus],
+    [selectedEpSid, selectedSid, handleEpisodePress, handleEpisodeFocus],
   );
 
   // A cold program page can take the better part of a minute — the server
@@ -301,20 +301,21 @@ function ProgramSession({ params }: { params: { section: string; slug: string; t
       <View style={styles.center}>
         <Text style={styles.errorText}>{error}</Text>
         <FocusableButton title={strings.player.retryButton} onPress={refresh} />
-        <FocusableButton title={strings.program.goBack} onPress={handleBack} variant="secondary" hasTVPreferredFocus />
+        <FocusableButton title={strings.program.goBack} onPress={handleBack} hasTVPreferredFocus />
       </View>
     );
   }
 
   const program = programPage?.program;
   const episodes = programPage?.episodes ?? [];
+  const thumbnailUrl = selectedEpisode?.thumbnailUrl ?? program?.thumbnailUrl;
 
   return (
     <View style={styles.container}>
       {/* Banner: fixed-height image + gradient fade at bottom */}
       <View style={styles.bannerContainer} pointerEvents="none">
-        {program?.thumbnailUrl ? (
-          <Image source={{ uri: program.thumbnailUrl }} recyclingKey={program.thumbnailUrl} style={styles.bannerImage} contentFit="cover" transition={300} cachePolicy="memory-disk" />
+        {thumbnailUrl ? (
+          <Image source={{ uri: thumbnailUrl }} recyclingKey={thumbnailUrl} style={styles.bannerImage} contentFit="cover" transition={300} cachePolicy="memory-disk" />
         ) : (
           <View style={styles.bannerPlaceholder} />
         )}
@@ -344,8 +345,8 @@ function ProgramSession({ params }: { params: { section: string; slug: string; t
             <FocusableButton
               title={isResolvingStream ? strings.program.loadingButton : strings.program.playButton}
               iconName="play"
-              onPress={handlePlayCurrentPress}
-              variant="primary"
+              onPress={handlePlaySelectedPress}
+              accessibilityLabel={`${strings.program.playButton}: ${selectedEpisode?.title ?? program?.title ?? ""}`}
               hasTVPreferredFocus={false}
             />
           </View>
@@ -360,6 +361,7 @@ function ProgramSession({ params }: { params: { section: string; slug: string; t
             </View>
             <FlatList
               data={episodes}
+              extraData={selectedEpSid}
               renderItem={renderEpisode}
               keyExtractor={(e) => e.listKey}
               horizontal
@@ -381,12 +383,12 @@ function ProgramSession({ params }: { params: { section: string; slug: string; t
         )}
 
         {/* Focused episode preview */}
-        {focusedEpisode && (
+        {selectedEpisode && (
           <BlurView intensity={40} tint="dark" style={styles.epInfo}>
             <Text style={styles.epInfoTitle} numberOfLines={2}>
-              {focusedEpisode.title}
+              {selectedEpisode.title}
             </Text>
-            {focusedEpisode.publishDate ? <Text style={styles.epInfoDate}>{focusedEpisode.publishDate}</Text> : null}
+            {selectedEpisode.publishDate ? <Text style={styles.epInfoDate}>{selectedEpisode.publishDate}</Text> : null}
           </BlurView>
         )}
 
@@ -509,7 +511,7 @@ const styles = StyleSheet.create({
   },
   epImage: { width: "100%", height: "100%" },
   epImagePlaceholder: { width: "100%", height: "100%", backgroundColor: "#2C2C2E" },
-  nowPlayingBadge: {
+  selectedBadge: {
     position: "absolute",
     top: 12,
     left: 12,
@@ -518,14 +520,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  nowPlayingText: { color: "#000", fontSize: IS_TV ? 13 : 10, fontWeight: "700" },
+  selectedBadgeText: { color: "#000", fontSize: IS_TV ? 13 : 10, fontWeight: "700" },
   epBorder: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    borderWidth: 1,
+    borderWidth: IS_TV ? 3 : 2,
     borderColor: "#FFFFFF",
     borderRadius: DESIGN.BORDER_RADIUS_SMALL,
   },

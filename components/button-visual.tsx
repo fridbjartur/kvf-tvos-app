@@ -3,11 +3,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Platform, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { LoadingSpinner } from "./loading-spinner";
 
-type ButtonVariant = "primary" | "secondary" | "retry";
-
 export interface ButtonVisualProps {
   title: string;
-  variant?: ButtonVariant;
   focused?: boolean;
   disabled?: boolean;
   isLoading?: boolean;
@@ -17,18 +14,17 @@ export interface ButtonVisualProps {
 }
 
 /** Shared appearance only: the caller owns focus and the press target. */
-export function ButtonVisual({ title, variant = "primary", focused = false, disabled = false, isLoading = false, iconName, style, textStyle }: ButtonVisualProps) {
-  const primary = variant === "primary" || variant === "retry";
-  const color = primary ? "#141416" : "#F5F5F7";
+export function ButtonVisual({ title, focused = false, disabled = false, isLoading = false, iconName, style, textStyle }: ButtonVisualProps) {
+  const color = focused ? "#141416" : "#FFFFFF";
   return (
-    <View style={[S.surface, primary ? S.primary : S.secondary, focused && (primary ? S.primaryFocused : S.secondaryFocused), disabled && S.disabled, style]}>
+    <View style={[S.surface, focused && S.focused, disabled && S.disabled, style]}>
       <View style={[S.content, isLoading && S.hidden]}>
         {iconName ? <Ionicons name={iconName} size={Platform.isTV ? 24 : 20} color={color} /> : null}
         <Text style={[S.label, { color }, textStyle]}>{title}</Text>
       </View>
       {isLoading ? (
         <View style={S.loading}>
-          <LoadingSpinner color={primary ? "#636366" : undefined} />
+          <LoadingSpinner color={color} />
         </View>
       ) : null}
     </View>
@@ -43,13 +39,12 @@ const S = StyleSheet.create({
     paddingVertical: Platform.isTV ? 12 : 10,
     borderRadius: DESIGN.BORDER_RADIUS_SMALL,
     borderWidth: Platform.isTV ? 3 : 2,
+    borderColor: "#FFFFFF",
+    backgroundColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
   },
-  primary: { backgroundColor: "#DCDCE0", borderColor: "transparent" },
-  primaryFocused: { backgroundColor: "#FFFFFF", borderColor: "#FFFFFF" },
-  secondary: { backgroundColor: "#242428", borderColor: "#424247" },
-  secondaryFocused: { backgroundColor: "#36363C", borderColor: "#FFFFFF" },
+  focused: { backgroundColor: "#FFFFFF" },
   content: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Platform.isTV ? 12 : 8 },
   label: { fontSize: Platform.isTV ? 24 : 16, lineHeight: Platform.isTV ? 30 : 22, fontWeight: "700", letterSpacing: -0.2, flexShrink: 1, textAlign: "center" },
   disabled: { opacity: 0.45 },

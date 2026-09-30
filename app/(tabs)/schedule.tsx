@@ -82,8 +82,8 @@ export default function ScheduleScreen() {
   }
   if (page && page !== view) setView(page);
 
-  // The schedule's five-minute TTL is shorter than the central refresh
-  // interval, so kvfPreload polls whichever schedule is currently on screen.
+  // Native tabs stay mounted. Registering on focus refreshes immediately, then
+  // kvfPreload keeps polling this schedule while it is visible.
   useFocusEffect(
     useCallback(() => {
       setActiveSchedule(resource);

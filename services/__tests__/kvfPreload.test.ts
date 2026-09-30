@@ -1,4 +1,4 @@
-import { AppState } from "react-native";
+import { AppState, type AppStateStatus } from "react-native";
 import { ensure, hydrate, prefetch } from "../kvfCache";
 import { allProgramsResource, frontPageResource } from "../kvfApi";
 import { refreshAll, setActiveSchedule, startKvfSync, stopKvfSync, warmOnLaunch } from "../kvfPreload";
@@ -15,12 +15,21 @@ jest.mock("expo-image", () => ({ Image: { prefetch: jest.fn() } }));
 jest.mock("@/utils/logger", () => ({ logger: { debug: jest.fn(), warn: jest.fn() } }));
 
 const originalState = AppState.currentState;
+let onAppStateChange: (next: AppStateStatus) => void;
+function changeAppState(next: AppStateStatus): void {
+  AppState.currentState = next;
+  onAppStateChange(next);
+}
 beforeEach(() => {
   jest.useFakeTimers();
   jest.clearAllMocks();
   AppState.currentState = "active";
   jest.mocked(ensure).mockResolvedValue({ data: { featuredPrograms: [], categories: [] } } as never);
   jest.mocked(hydrate).mockResolvedValue(undefined);
+  jest.spyOn(AppState, "addEventListener").mockImplementation((_event, handler) => {
+    onAppStateChange = handler;
+    return { remove: jest.fn() };
+  });
 });
 afterEach(() => {
   stopKvfSync();
@@ -28,6 +37,7 @@ afterEach(() => {
   AppState.currentState = originalState;
   jest.clearAllTimers();
   jest.useRealTimers();
+  jest.restoreAllMocks();
 });
 it("still rebuilds search when one cold section fails to refresh", async () => {
   jest.mocked(ensure).mockImplementation(async (resource) => {
@@ -67,4 +77,81 @@ it("warms the catalog once and does not retry missing pages just to prefetch art
   expect(prefetch).toHaveBeenCalledTimes(1);
   expect(prefetch).toHaveBeenCalledWith(allProgramsResource());
   expect(ensure).not.toHaveBeenCalled();
+});
+
+it("refreshes a still-mounted schedule immediately after hours on another tab", async () => {
+  const schedule = { key: "kvf:sjon:schedule:today" } as Resource<SchedulePage>;
+  startKvfSync();
+  setActiveSchedule(schedule);
+  await jest.advanceTimersByTimeAsync(0);
+  jest.mocked(ensure).mockClear();
+
+  // Blurring a native tab unregisters its schedule without unmounting it.
+  setActiveSchedule(null);
+  await jest.advanceTimersByTimeAsync(3 * 60 * 60 * 1000);
+  expect(ensure).not.toHaveBeenCalledWith(schedule, true);
+  jest.mocked(ensure).mockClear();
+
+  // No timer tick, remount or channel change should be needed on return.
+  setActiveSchedule(schedule);
+  expect(ensure).toHaveBeenCalledTimes(1);
+  expect(ensure).toHaveBeenCalledWith(schedule, true);
+});
+
+it("revalidates on a quick return even if the schedule cache is still fresh", () => {
+  const schedule = { key: "kvf:sjon:schedule:today" } as Resource<SchedulePage>;
+  setActiveSchedule(schedule);
+  jest.mocked(ensure).mockClear();
+  setActiveSchedule(null);
+  setActiveSchedule(schedule);
+  expect(ensure).toHaveBeenCalledWith(schedule, true);
+});
+
+it("refreshes and polls only the selected channel and date", async () => {
+  const television = { key: "kvf:sjon:schedule:today" } as Resource<SchedulePage>;
+  const radio = { key: "kvf:ljod:schedule:today" } as Resource<SchedulePage>;
+  const anotherDay = { key: "kvf:ljod:schedule:2026-09-30" } as Resource<SchedulePage>;
+  startKvfSync();
+  await jest.advanceTimersByTimeAsync(0);
+  for (const schedule of [television, radio, anotherDay]) {
+    setActiveSchedule(null);
+    jest.mocked(ensure).mockClear();
+    setActiveSchedule(schedule);
+    expect(ensure).toHaveBeenCalledTimes(1);
+    expect(ensure).toHaveBeenCalledWith(schedule, true);
+  }
+  jest.mocked(ensure).mockClear();
+  await jest.advanceTimersByTimeAsync(5 * 60 * 1000);
+  expect(ensure).toHaveBeenCalledTimes(1);
+  expect(ensure).toHaveBeenCalledWith(anotherDay, true);
+});
+
+it.each([true, false])("refreshes on app resume when schedule focus arrives before resume: %s", async (focusBeforeResume) => {
+  const schedule = { key: "kvf:sjon:schedule:today" } as Resource<SchedulePage>;
+  startKvfSync();
+  await jest.advanceTimersByTimeAsync(0);
+  changeAppState("background");
+  jest.mocked(ensure).mockClear();
+
+  if (focusBeforeResume) setActiveSchedule(schedule);
+  expect(ensure).not.toHaveBeenCalled();
+  changeAppState("active");
+  if (!focusBeforeResume) setActiveSchedule(schedule);
+
+  expect(ensure).toHaveBeenCalledTimes(1);
+  expect(ensure).toHaveBeenCalledWith(schedule, true);
+});
+
+it("keeps polling after an immediate refresh fails", async () => {
+  const schedule = { key: "kvf:sjon:schedule:today" } as Resource<SchedulePage>;
+  startKvfSync();
+  await jest.advanceTimersByTimeAsync(0);
+  jest.mocked(ensure).mockRejectedValueOnce(new Error("Offline"));
+  setActiveSchedule(schedule);
+  await jest.advanceTimersByTimeAsync(0);
+  expect(logger.debug).toHaveBeenCalledWith("kvfPreload: schedule refresh failed, keeping cached data", expect.anything());
+
+  jest.mocked(ensure).mockClear();
+  await jest.advanceTimersByTimeAsync(5 * 60 * 1000);
+  expect(ensure).toHaveBeenCalledWith(schedule, true);
 });

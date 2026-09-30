@@ -56,12 +56,15 @@ export async function warmOnLaunch(): Promise<void> {
 
 /**
  * Register the schedule currently on screen so it can be polled at its own
- * cadence. The screen says *what* is visible; refresh timing stays here, since
+ * cadence and revalidate immediately when it becomes visible again. Native
+ * tabs stay mounted, so returning to one does not rerun its initial cache read.
+ * The screen says *what* is visible; refresh timing stays here, since
  * the native tab bar keeps every screen mounted and per-screen timers would
  * fan out.
  */
 export function setActiveSchedule(resource: Resource<SchedulePage> | null): void {
   activeSchedule = resource;
+  if (AppState.currentState === "active") void refreshActiveSchedule();
 }
 
 async function refreshActiveSchedule(): Promise<void> {

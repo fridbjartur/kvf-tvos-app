@@ -97,7 +97,7 @@ it("advances only once when end and skip arrive together", async () => {
   render(<PlayerScreen />);
   act(() => {
     host("Video").props.onEnd();
-    host("UpNext").props.onSkip();
+    host("UpNext").props.onSelect();
     host("Video").props.onEnd();
   });
   expect(mockQueue.advance).toHaveBeenCalledTimes(1);
@@ -162,9 +162,48 @@ it("resets the up-next overlay when the route changes episodes", () => {
     host("Video").props.onProgress({ currentTime: 90 });
   });
   expect(host("UpNext").props.visible).toBe(true);
+  expect(host("UpNext").props.secondsRemaining).toBe(10);
   jest.mocked(useLocalSearchParams).mockReturnValue({ streamUrl: "https://example.com/2.m3u8", episodeSid: "2" });
   act(() => renderer.update(<PlayerScreen />));
   expect(host("UpNext").props.visible).toBe(false);
+});
+
+it("hides up next again after seeking back out of the countdown", () => {
+  render(<PlayerScreen />);
+  act(() => {
+    host("Video").props.onLoad({ duration: 100 });
+    host("Video").props.onProgress({ currentTime: 85 });
+  });
+  expect(host("UpNext").props.visible).toBe(true);
+  act(() => host("Video").props.onProgress({ currentTime: 40 }));
+  expect(host("UpNext").props.visible).toBe(false);
+});
+
+it("keeps up next on screen at the very end until the next episode starts", () => {
+  render(<PlayerScreen />);
+  act(() => {
+    host("Video").props.onLoad({ duration: 100 });
+    host("Video").props.onProgress({ currentTime: 100 });
+  });
+  expect(host("UpNext").props.visible).toBe(true);
+  expect(host("UpNext").props.secondsRemaining).toBe(0);
+});
+
+it("plays the next episode when up next is selected", async () => {
+  render(<PlayerScreen />);
+  act(() => {
+    host("Video").props.onLoad({ duration: 100 });
+    host("Video").props.onProgress({ currentTime: 90 });
+  });
+  await act(async () => {
+    host("UpNext").props.onSelect();
+  });
+  expect(host("Video").props.paused).toBe(true);
+  expect(host("UpNext").props.visible).toBe(false);
+  act(() => host("Video").props.onProgress({ currentTime: 91 }));
+  expect(host("UpNext").props.visible).toBe(false);
+  expect(mockQueue.advance).toHaveBeenCalledTimes(1);
+  expect(mockRouter.replace).toHaveBeenCalledWith(expect.objectContaining({ params: expect.objectContaining({ episodeSid: "2", streamUrl: "https://example.com/2.m3u8" }) }));
 });
 
 function renderProgram() {

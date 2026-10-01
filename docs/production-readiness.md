@@ -26,6 +26,7 @@ Use a locally signed Release installation and open it from the Home Screen after
 - Browse all television and radio sections. Confirm remote focus returns correctly after opening and closing a program, changing tabs, and navigating the radio stack.
 - Search for television, radio, and featured-only programs. Open a program linked from a different section.
 - Play a normal episode, pause/resume with native controls, seek near the end, and confirm exactly one next episode starts in broadcast order.
+- Seek to about 25 seconds before the end of an episode that has a next episode. The Up Next card should appear bottom right, above the controls, with artwork, title, and countdown, without taking focus. Bring up the controls: **Næsta sending** should be in the row above the scrubber, and up/down must move between it and the scrubber. Selecting it starts the next episode once. Also let the countdown run out, and seek back out of the window (the card and button disappear).
 - Press Back while an episode lookup is slow. The player must not reopen when the request completes.
 - Play each live television/radio channel. A live stream must not show an unrelated Up Next queue. Confirm audio-only playback, including the HTTP radio stream.
 - Background the app while playing, then return. Playback must remain paused until resumed using player controls.

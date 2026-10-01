@@ -21,6 +21,9 @@ import Video from "react-native-video";
 import type { OnLoadData, OnProgressData } from "react-native-video";
 import { AppState, LogBox, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
+/** How long before the end of an episode Up Next appears (at most half the episode). */
+const UP_NEXT_LEAD_SECONDS = 20;
+
 LogBox.ignoreLogs(["JS object is no longer associated", "Operation requires a client callback", "Cannot Open", "Failed to load the player item"]);
 
 export default function PlayerScreen() {
@@ -38,7 +41,7 @@ export default function PlayerScreen() {
 function PlayerSession({ params }: { params: { streamUrl?: string; title?: string; section?: string; programSlug?: string; episodeSid?: string; isLive?: string } }) {
   const router = useRouter();
   const { hideGlobalLoader } = useLoading();
-  const { hasNext, nextEpisode, advance, clear, progress } = usePlayQueue();
+  const { hasNext, nextEpisode, advance, clear } = usePlayQueue();
 
   const isLive = params.isLive === "true";
   const actionRef = useRef({ active: true, transitioning: false });
@@ -53,11 +56,12 @@ function PlayerSession({ params }: { params: { streamUrl?: string; title?: strin
   );
 
   // ── Up-next state ────────────────────────────────────────────────────────────
-  const [showUpNext, setShowUpNext] = useState(false);
-  const showUpNextRef = useRef(false);
+  // Seconds left in the episode while Up Next is showing, otherwise null.
+  const [upNextSeconds, setUpNextSeconds] = useState<number | null>(null);
+  const upNextSecondsRef = useRef<number | null>(null);
   const videoDurationRef = useRef(0);
-  const [upNextProgress, setUpNextProgress] = useState(1);
-  const upNextThresholdRef = useRef(30);
+  const [upNextLead, setUpNextLead] = useState(UP_NEXT_LEAD_SECONDS);
+  const showUpNext = upNextSeconds !== null;
 
   // Pre-fetch next episode stream URL when up-next becomes visible.
   useEffect(() => {
@@ -129,19 +133,19 @@ function PlayerSession({ params }: { params: { streamUrl?: string; title?: strin
       onLoad: (data: OnLoadData) => {
         videoCallbacks.onLoad(data);
         videoDurationRef.current = data.duration;
-        upNextThresholdRef.current = Math.min(30, data.duration / 2);
+        setUpNextLead(Math.min(UP_NEXT_LEAD_SECONDS, data.duration / 2));
       },
       onProgress: (data: OnProgressData) => {
-        if (videoDurationRef.current > 0) {
-          const remaining = videoDurationRef.current - data.currentTime;
-          const shouldShow = remaining <= upNextThresholdRef.current && remaining > 0;
-          if (shouldShow !== showUpNextRef.current) {
-            showUpNextRef.current = shouldShow;
-            setShowUpNext(shouldShow);
-          }
-          if (showUpNextRef.current) {
-            setUpNextProgress(Math.max(0, remaining / upNextThresholdRef.current));
-          }
+        const duration = videoDurationRef.current;
+        // Once the next episode is loading, stray progress events must not re-show it.
+        if (duration <= 0 || actionRef.current.transitioning) return;
+        const remaining = duration - data.currentTime;
+        // Seeking back out of the window hides Up Next again.
+        // It stays up at 0 until onEnd starts the next episode.
+        const seconds = remaining <= Math.min(UP_NEXT_LEAD_SECONDS, duration / 2) ? Math.max(0, Math.ceil(remaining)) : null;
+        if (seconds !== upNextSecondsRef.current) {
+          upNextSecondsRef.current = seconds;
+          setUpNextSeconds(seconds);
         }
       },
     };
@@ -149,8 +153,8 @@ function PlayerSession({ params }: { params: { streamUrl?: string; title?: strin
 
   const handleSkipToNext = useCallback(() => {
     pause();
-    setShowUpNext(false);
-    showUpNextRef.current = false;
+    upNextSecondsRef.current = null;
+    setUpNextSeconds(null);
     handlePlaybackEnd();
   }, [handlePlaybackEnd, pause]);
 
@@ -209,12 +213,12 @@ function PlayerSession({ params }: { params: { streamUrl?: string; title?: strin
 
       {!isLive && hasNext && nextEpisode && (
         <UpNextOverlay
-          nextVideoName={nextEpisode.title}
-          progress={progress}
-          onSkip={handleSkipToNext}
           visible={showUpNext}
-          upNextProgress={upNextProgress}
-          paused={paused || state.type === "PAUSED"}
+          title={nextEpisode.title}
+          imageUrl={nextEpisode.thumbnailUrl}
+          secondsRemaining={upNextSeconds ?? upNextLead}
+          leadSeconds={upNextLead}
+          onSelect={handleSkipToNext}
         />
       )}
 

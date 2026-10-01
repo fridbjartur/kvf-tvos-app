@@ -52,7 +52,10 @@
   "player": {
     "errorTitle": "Villa í avspælingini",
     "retryButton": "Royn aftur",
-    "goBackButton": "Aftur"
+    "goBackButton": "Aftur",
+    "upNextHeading": "Næsta sending",
+    "upNextAction": "Spæl nú",
+    "upNextCountdown": "Byrjar um {seconds} sek."
   },
   "schedule": {
     "channelsHeading": "Rásir",

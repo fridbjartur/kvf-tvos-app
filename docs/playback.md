@@ -12,6 +12,18 @@ KVF passes the API's stream URL directly to `react-native-video`, which uses AVP
 
 The removed custom audio loader was specific to Jellyfin: it added a `jellyfin-multi://` URL scheme, fetched one transcoding session per audio track using server credentials, and combined their manifests. KVF supplies playable stream URLs and no equivalent transcoding API, so that implementation provided no benefit to this app. Its Swift bridge, Expo plugin, JavaScript adapter, and dependency patch were removed together. Standard native audio support remains.
 
+## Up Next
+
+On tvOS the native `AVPlayerViewController` owns remote focus, so React views drawn over it can never take focus. `modules/kvf-up-next` (a local Expo module, autolinked on prebuild) therefore adds a **Næsta sending** button to the player's own transport bar via `transportBarCustomMenuItems`. It sits in the row above the scrubber, next to the audio and subtitle buttons. It appears with the native controls, and up/down move between it and the scrubber as usual. Other transport bar items are kept.
+
+- In the last 20 seconds (at most half the episode), `components/up-next-overlay.tsx` shows a passive card (artwork, title, countdown) in the bottom right, above the transport bar. It never takes focus.
+- When the episode ends, the next one starts automatically. The card stays up at 0 seconds until it does. Seeking back out of the window hides it.
+- If no native player controller is found, or on iOS and Android, the card shows its own **Spæl nú** button instead.
+
+Rejected on tvOS: a floating contextual action (`contextualActions`) appears on Apple's schedule and takes over the remote while focused. Hiding the native controls for a takeover screen removes scrubbing. `contextualActionsInfoView` and `contextualActionsPreviewImage` are iOS-only.
+
+After changing the module's native code, regenerate the native project with `yarn prebuild:tv`.
+
 ## Watch progress — retained for later
 
 `services/watchProgressService.ts`, `hooks/useWatchProgress.ts`, and the service tests remain in the project deliberately. They are independent of server authentication and are not currently imported by any route.

@@ -16,7 +16,7 @@
 
 import { SECTION_IDS, SECTIONS, sectionIdFromApiProgramUrl, type Channel, type SectionId } from "@/constants/sections";
 import type { EpisodeDetail, FrontPage, IndexedProgram, ProgramPage, SchedulePage } from "@/types/kvf";
-import { CacheMeta, ConditionalFetch, contentHash, ensure, FetchOutcome, Resource, setNamespace, TTL } from "./kvfCache";
+import { CacheMeta, cacheGet, ConditionalFetch, contentHash, ensure, FetchOutcome, Resource, setNamespace, TTL } from "./kvfCache";
 import { withListKeys } from "@/utils/keys";
 import { logger } from "@/utils/logger";
 import { retryWithBackoff } from "@/utils/retry";
@@ -294,6 +294,22 @@ export async function prefetchEpisode(section: SectionId, slug: string, sid: str
     await ensure(episodeResource(section, slug, sid));
   } catch (err) {
     logger.debug("kvfApi: episode prefetch failed", { section, slug, sid, err });
+  }
+}
+
+/**
+ * A program page from the cache only, however stale — never a request.
+ *
+ * Resuming from Continue Watching uses it to build the Up Next queue: a cold
+ * program page can take most of a minute to scrape, far too long to hold up
+ * playback, so without a cached page the episode simply plays on its own.
+ */
+export async function peekProgram(section: SectionId, slug: string): Promise<ProgramPage | null> {
+  try {
+    return (await cacheGet<ProgramPage>(programResource(section, slug).key))?.data ?? null;
+  } catch (err) {
+    logger.debug("kvfApi: program cache read failed", { section, slug, err });
+    return null;
   }
 }
 

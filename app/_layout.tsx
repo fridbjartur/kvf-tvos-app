@@ -8,6 +8,7 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { LoadingProvider } from "@/contexts/LoadingContext";
 import { PlayQueueProvider } from "@/contexts/PlayQueueContext";
 import { startKvfSync } from "@/services/kvfPreload";
+import { startWatchProgressSync } from "@/services/watchProgressService";
 
 if (Platform.isTV) {
   LogBox.ignoreAllLogs(true);
@@ -15,8 +16,12 @@ if (Platform.isTV) {
 
 export default function RootLayout() {
   useEffect(() => {
-    const stop = startKvfSync();
-    return stop;
+    const stopKvfSync = startKvfSync();
+    const stopWatchProgressSync = startWatchProgressSync();
+    return () => {
+      stopKvfSync();
+      stopWatchProgressSync();
+    };
   }, []);
 
   return (

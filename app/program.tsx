@@ -7,19 +7,28 @@ import strings from "@/constants/strings.json";
  *   • Scrollable content below: title, description, play button, episode row
  *
  * No full-screen backdrop — just banner + dark bg.
- * Episode cards have Animated.spring scale on focus.
+ * Episode cards have Animated.spring scale on focus, and show watch progress
+ * (a bar while part-watched, a Watched badge once finished).
+ *
+ * With an episode to continue — the one this program's Continue Watching card
+ * points at — that episode is preselected and focus starts on the primary
+ * button, as on Netflix and Disney+. The button reads Resume while the episode
+ * is part-watched, with Start Over beside it.
  */
 
 import { useScreenBack } from "@/hooks/useScreenBack";
 import { FocusableButton } from "@/components/FocusableButton";
 import { FocusScaleCard } from "@/components/focus-scale-card";
+import { EpisodeProgressOverlay, formatMinutesLeft } from "@/components/episodeProgressOverlay";
 import { RefreshIndicator } from "@/components/refresh-indicator";
 import { ShimmerBlock } from "@/components/shimmer-block";
 import { buildPlayQueue, usePlayQueue } from "@/contexts/PlayQueueContext";
 import { loadEpisode, prefetchEpisode, programResource } from "@/services/kvfApi";
+import { isInProgress } from "@/services/watchProgressService";
 import { useDelayedFlag } from "@/hooks/useDelayedFlag";
 import { useKvfResource } from "@/hooks/useKvfResource";
-import { isSectionId } from "@/constants/sections";
+import { useContinueWatchingEntry, useEpisodeProgress } from "@/hooks/useWatchHistory";
+import { isSectionId, type SectionId } from "@/constants/sections";
 import type { Episode, ProgramPage } from "@/types/kvf";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
@@ -41,6 +50,8 @@ const SKELETON_EPISODES = IS_TV ? [0, 1, 2, 3, 4] : [0, 1, 2];
 
 interface EpisodeCardProps {
   episode: Episode;
+  section: SectionId;
+  programSlug: string;
   isSelected: boolean;
   onPress: (episode: Episode) => void;
   onFocus: (episode: Episode) => void;
@@ -120,7 +131,9 @@ function EpisodeSkeletons() {
   );
 }
 
-function EpisodeCard({ episode, isSelected, onPress, onFocus, hasTVPreferredFocus }: EpisodeCardProps) {
+function EpisodeCard({ episode, section, programSlug, isSelected, onPress, onFocus, hasTVPreferredFocus }: EpisodeCardProps) {
+  // Subscribed per card, so recording one episode re-renders only its own card.
+  const progress = useEpisodeProgress(section, programSlug, episode.sid);
   const handleFocus = useCallback(() => onFocus(episode), [onFocus, episode]);
   const handlePress = useCallback(() => onPress(episode), [onPress, episode]);
 
@@ -135,7 +148,7 @@ function EpisodeCard({ episode, isSelected, onPress, onFocus, hasTVPreferredFocu
       style={styles.epOuter}
       cardStyle={styles.epCard}
       borderStyle={styles.epBorder}
-      accessibilityLabel={episode.title}
+      accessibilityLabel={[episode.title, progress?.completed ? strings.watch_progress.watched_badge : isInProgress(progress) ? formatMinutesLeft(progress) : null].filter(Boolean).join(", ")}
       accessibilityState={{ selected: isSelected }}
       footer={
         <>
@@ -156,6 +169,8 @@ function EpisodeCard({ episode, isSelected, onPress, onFocus, hasTVPreferredFocu
           <Text style={styles.selectedBadgeText}>▶</Text>
         </View>
       )}
+
+      <EpisodeProgressOverlay progress={progress} />
     </FocusScaleCard>
   );
 }
@@ -205,15 +220,32 @@ function ProgramSession({ params }: { params: { section: string; slug: string; t
   // the row visibly reserves the space that a refresh may be about to fill.
   const showEpisodeSkeletons = useDelayedFlag(isRefreshing);
 
-  // Prefer whatever the user last focused; fall back to the program's current
-  // episode. Derived, so a refreshed episode list never resets the selection.
+  // The episode this program's Continue Watching card points at, if the list has it.
+  const continueEntry = useContinueWatchingEntry(safeSection, slug);
+  const continueSid = useMemo(() => {
+    if (!programPage || !continueEntry) return null;
+    return programPage.episodes.some((e) => e.sid === continueEntry.sid) ? continueEntry.sid : null;
+  }, [programPage, continueEntry]);
+
+  // Prefer whatever the user last focused; then the episode to continue; then
+  // the program's current episode. Derived, so a refreshed episode list never
+  // resets the selection.
   const selectedEpisode = useMemo<Episode | null>(() => {
     if (!programPage) return null;
     const { episodes, currentEpisodeSid } = programPage;
     const chosen = selectedSid ? episodes.find((e) => e.sid === selectedSid) : undefined;
     if (chosen) return chosen;
-    return (currentEpisodeSid ? episodes.find((e) => e.sid === currentEpisodeSid) : undefined) ?? episodes[0] ?? null;
-  }, [programPage, selectedSid]);
+    const fallbackSid = continueSid ?? currentEpisodeSid;
+    return (fallbackSid ? episodes.find((e) => e.sid === fallbackSid) : undefined) ?? episodes[0] ?? null;
+  }, [programPage, selectedSid, continueSid]);
+
+  const selectedProgress = useEpisodeProgress(safeSection, slug, selectedEpisode?.sid);
+  const canResume = isInProgress(selectedProgress);
+  const minutesLeft = isInProgress(selectedProgress) ? formatMinutesLeft(selectedProgress) : null;
+
+  // The episode to continue may sit far down a long row, beyond what the list
+  // has rendered, so focus starts on the primary button instead of its card.
+  const focusPrimaryAction = selectedSid === null && continueSid !== null;
 
   const handleEpisodeFocus = useCallback((episode: Episode) => setSelectedSid(episode.sid), []);
 
@@ -224,7 +256,7 @@ function ProgramSession({ params }: { params: { section: string; slug: string; t
   }, [selectedEpisode, safeSection, slug]);
 
   const handleEpisodePress = useCallback(
-    async (episode: Episode) => {
+    async (episode: Episode, fromStart = false) => {
       const action = actionRef.current;
       if (!programPage || !slug || !action.active || action.busy) return;
       action.busy = true;
@@ -250,6 +282,10 @@ function ProgramSession({ params }: { params: { section: string; slug: string; t
             section: safeSection,
             programSlug: slug,
             episodeSid: episode.sid,
+            programTitle: programPage.program.title,
+            thumb: episode.thumbnailUrl ?? undefined,
+            programThumb: programPage.program.thumbnailUrl ?? undefined,
+            fromStart: fromStart ? "true" : undefined,
           },
         });
       } catch {
@@ -266,6 +302,10 @@ function ProgramSession({ params }: { params: { section: string; slug: string; t
     if (selectedEpisode) handleEpisodePress(selectedEpisode);
   }, [selectedEpisode, handleEpisodePress]);
 
+  const handleRestartSelectedPress = useCallback(() => {
+    if (selectedEpisode) handleEpisodePress(selectedEpisode, true);
+  }, [selectedEpisode, handleEpisodePress]);
+
   const handleBack = useCallback(() => {
     actionRef.current.active = false;
     router.back();
@@ -279,13 +319,15 @@ function ProgramSession({ params }: { params: { section: string; slug: string; t
     ({ item }: { item: Episode }) => (
       <EpisodeCard
         episode={item}
+        section={safeSection}
+        programSlug={slug}
         isSelected={item.sid === selectedEpSid}
         onPress={handleEpisodePress}
         onFocus={handleEpisodeFocus}
-        hasTVPreferredFocus={selectedSid === null && item.sid === selectedEpSid}
+        hasTVPreferredFocus={!focusPrimaryAction && selectedSid === null && item.sid === selectedEpSid}
       />
     ),
-    [selectedEpSid, selectedSid, handleEpisodePress, handleEpisodeFocus],
+    [safeSection, slug, selectedEpSid, selectedSid, focusPrimaryAction, handleEpisodePress, handleEpisodeFocus],
   );
 
   // A cold program page can take the better part of a minute — the server
@@ -343,12 +385,20 @@ function ProgramSession({ params }: { params: { section: string; slug: string; t
                 disables the button, and a disabled button drops the tvOS focus
                 it was holding — mid-press, which is the worst possible moment. */}
             <FocusableButton
-              title={isResolvingStream ? strings.program.loadingButton : strings.program.playButton}
+              title={isResolvingStream ? strings.program.loadingButton : canResume ? strings.watch_progress.resume_button : strings.program.playButton}
               iconName="play"
               onPress={handlePlaySelectedPress}
-              accessibilityLabel={`${strings.program.playButton}: ${selectedEpisode?.title ?? program?.title ?? ""}`}
-              hasTVPreferredFocus={false}
+              accessibilityLabel={`${canResume ? strings.watch_progress.resume_button : strings.program.playButton}: ${selectedEpisode?.title ?? program?.title ?? ""}`}
+              hasTVPreferredFocus={focusPrimaryAction}
             />
+            {canResume ? (
+              <FocusableButton
+                title={strings.watch_progress.restart_button}
+                iconName="refresh"
+                onPress={handleRestartSelectedPress}
+                accessibilityLabel={`${strings.watch_progress.restart_button}: ${selectedEpisode?.title ?? ""}`}
+              />
+            ) : null}
           </View>
         </View>
 
@@ -389,6 +439,7 @@ function ProgramSession({ params }: { params: { section: string; slug: string; t
               {selectedEpisode.title}
             </Text>
             {selectedEpisode.publishDate ? <Text style={styles.epInfoDate}>{selectedEpisode.publishDate}</Text> : null}
+            {minutesLeft ? <Text style={styles.epInfoDate}>{minutesLeft}</Text> : null}
           </BlurView>
         )}
 

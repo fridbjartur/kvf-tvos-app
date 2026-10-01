@@ -41,6 +41,7 @@ jest.mock("@/hooks/useScreenBack", () => ({ useScreenBack: jest.fn() }));
 jest.mock("@/hooks/useKvfResource", () => ({ useKvfResource: jest.fn() }));
 jest.mock("@/services/kvfApi", () => ({ frontPageResource: jest.fn(), scheduleResource: jest.fn() }));
 jest.mock("@/services/kvfPreload", () => ({ setActiveSchedule: jest.fn() }));
+jest.mock("@/services/watchProgressStorage", () => ({ watchProgressStorage: { load: () => null, save: async () => {}, clear: async () => {} } }));
 jest.mock("@/contexts/LoadingContext", () => ({ useLoading: () => ({ showGlobalLoader: jest.fn() }) }));
 jest.mock("@/contexts/PlayQueueContext", () => ({ usePlayQueue: () => ({ clear: jest.fn() }) }));
 jest.mock("@expo/vector-icons/Ionicons", () => "Ionicons");

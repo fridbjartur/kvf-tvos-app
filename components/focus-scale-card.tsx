@@ -57,6 +57,8 @@ export function useFocusSpring({ scaleTo = 1.05, restBorderOpacity = 0 }: FocusS
 
 interface FocusScaleCardProps extends FocusSpringOptions {
   onPress?: () => void;
+  /** Holding Select on the remote. */
+  onLongPress?: () => void;
   /** Called when the card gains focus (after the animation is kicked off). */
   onFocus?: () => void;
   onBlur?: () => void;
@@ -81,6 +83,7 @@ interface FocusScaleCardProps extends FocusSpringOptions {
 
 export function FocusScaleCard({
   onPress,
+  onLongPress,
   onFocus,
   onBlur,
   hasTVPreferredFocus,
@@ -113,6 +116,7 @@ export function FocusScaleCard({
   return (
     <TouchableOpacity
       onPress={onPress}
+      onLongPress={onLongPress}
       onFocus={handleFocus}
       onBlur={handleBlur}
       activeOpacity={activeOpacity}

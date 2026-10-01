@@ -8,7 +8,7 @@
 - Guard playback navigation against late requests and duplicate actions.
 - Pause playback when the app enters the background.
 - Remove unused template authentication, library navigation, custom transcoding, and tests.
-- Retain watch-progress persistence and its hook for future integration.
+- Resume episodes where they were left, show progress bars and Watched badges on episode cards, and add a Continue Watching row to the home screen. History is stored on the device in NSUserDefaults.
 - Use `dev.fridbjartur.kvf` as the application identifier.
 
 Earlier template history remains available in Git.

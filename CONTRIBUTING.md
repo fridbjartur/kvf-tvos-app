@@ -12,4 +12,4 @@ Follow [README.md](README.md) for local setup and [AGENTS.md](AGENTS.md) for rep
 
 Use Expo config plugins for persistent native configuration. The `ios/` and `android/` projects are generated; `yarn prebuild:tv` recreates them. Never commit `.env.local`, signing credentials, or generated build outputs.
 
-Keep the watch-progress service and hook: they are intentionally reserved for future KVF viewing history. See [retained playback capabilities](docs/playback.md).
+Watch progress and Continue Watching are stored on the device only. See [watch progress](docs/playback.md#watch-progress-and-continue-watching) before changing player routes or the stored format; bump `SCHEMA_VERSION` in `services/watchProgressService.ts` when the stored shape changes.

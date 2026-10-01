@@ -65,10 +65,11 @@ See [production verification](docs/production-readiness.md) for device checks an
 - `services/kvfCache.ts`, `kvfPreload.ts`: bounded persistent cache and coordinated refresh.
 - `hooks/useKvfResource.ts`, `useVideoPlayback.ts`: resource and playback lifecycles.
 - `contexts/PlayQueueContext.tsx`: broadcast-order episode queue.
+- `services/watchProgressService.ts`, `hooks/useWatchProgress.ts`: resume, episode progress, and Continue Watching.
 
 The cache uses the tvOS cache directory, which the OS may purge. Cached catalog pages remain usable during network failures; playing media still requires access to its stream. Background refreshes preserve object identity when content is unchanged, helping retain TV focus.
 
-The watch-progress service and hook are intentionally retained for future resume support. See [playback capabilities](docs/playback.md) for the retained audio behavior and future integration points.
+Watch history is stored in NSUserDefaults, which tvOS does not purge. See [playback capabilities](docs/playback.md#watch-progress-and-continue-watching).
 
 ## Acknowledgment
 

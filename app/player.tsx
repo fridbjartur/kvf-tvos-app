@@ -5,20 +5,25 @@ import strings from "@/constants/strings.json";
  *
  * Accepts a direct HLS streamUrl param (already resolved by the program screen).
  * Uses the play queue from PlayQueueContext to handle "Up Next" and auto-advance.
+ * Episodes (not live streams) resume where they were left and record progress
+ * for Continue Watching; see hooks/useWatchProgress.
  */
 
 import { useScreenBack } from "@/hooks/useScreenBack";
 import { FocusableButton } from "@/components/FocusableButton";
 import { UpNextOverlay } from "@/components/up-next-overlay";
+import { isSectionId } from "@/constants/sections";
 import { usePlayQueue } from "@/contexts/PlayQueueContext";
 import { useLoading } from "@/contexts/LoadingContext";
 import { useVideoPlayback } from "@/hooks/useVideoPlayback";
+import { useWatchProgress } from "@/hooks/useWatchProgress";
 import { resolveStreamUrl } from "@/services/kvfApi";
+import type { WatchTarget } from "@/services/watchProgressService";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Video from "react-native-video";
-import type { OnLoadData, OnProgressData } from "react-native-video";
+import type { OnLoadData, OnPlaybackStateChangedData, OnProgressData } from "react-native-video";
 import { AppState, LogBox, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 /** How long before the end of an episode Up Next appears (at most half the episode). */
@@ -26,24 +31,52 @@ const UP_NEXT_LEAD_SECONDS = 20;
 
 LogBox.ignoreLogs(["JS object is no longer associated", "Operation requires a client callback", "Cannot Open", "Failed to load the player item"]);
 
+// A type alias rather than an interface: route params must satisfy expo-router's
+// Record<string, string> constraint, which interfaces (no index signature) fail.
+type PlayerParams = {
+  streamUrl?: string;
+  /** Episode title (or channel name for live). */
+  title?: string;
+  section?: string;
+  programSlug?: string;
+  episodeSid?: string;
+  isLive?: string;
+  /** Program title and artwork, carried so Continue Watching can draw the card offline. */
+  programTitle?: string;
+  /** Episode artwork. */
+  thumb?: string;
+  /** Program artwork, the fallback for episodes without their own. */
+  programThumb?: string;
+  /** "true" to ignore saved progress and start from the beginning. */
+  fromStart?: string;
+};
+
 export default function PlayerScreen() {
-  const params = useLocalSearchParams<{
-    streamUrl: string;
-    title: string;
-    section?: string;
-    programSlug?: string;
-    episodeSid?: string;
-    isLive?: string;
-  }>();
+  const params = useLocalSearchParams<PlayerParams & { streamUrl: string; title: string }>();
   return <PlayerSession key={`${params.streamUrl}:${params.episodeSid ?? "live"}`} params={params} />;
 }
 
-function PlayerSession({ params }: { params: { streamUrl?: string; title?: string; section?: string; programSlug?: string; episodeSid?: string; isLive?: string } }) {
+function PlayerSession({ params }: { params: PlayerParams }) {
   const router = useRouter();
   const { hideGlobalLoader } = useLoading();
   const { hasNext, nextEpisode, advance, clear } = usePlayQueue();
 
   const isLive = params.isLive === "true";
+
+  // ── Watch progress ───────────────────────────────────────────────────────────
+  // Only an episode with a full identity is tracked; live streams never are.
+  const { section, programSlug, episodeSid, title, programTitle, thumb, programThumb } = params;
+  const watchTarget = useMemo<WatchTarget | null>(() => {
+    if (isLive || !episodeSid || programSlug === undefined || !isSectionId(section)) return null;
+    return { section, slug: programSlug, sid: episodeSid, programTitle: programTitle ?? "", episodeTitle: title ?? "", thumbnailUrl: thumb || programThumb || null };
+  }, [isLive, section, programSlug, episodeSid, title, programTitle, thumb, programThumb]);
+
+  // Up Next's episode, under this program's identity, so finishing this one moves the card on.
+  const nextTarget = useMemo<WatchTarget | null>(() => {
+    if (!watchTarget || !nextEpisode) return null;
+    return { ...watchTarget, sid: nextEpisode.sid, episodeTitle: nextEpisode.title, thumbnailUrl: nextEpisode.thumbnailUrl || programThumb || null };
+  }, [watchTarget, nextEpisode, programThumb]);
+
   const actionRef = useRef({ active: true, transitioning: false });
   useFocusEffect(
     useCallback(() => {
@@ -107,8 +140,13 @@ function PlayerSession({ params }: { params: { streamUrl?: string; title?: strin
             streamUrl: url,
             title: next.title,
             section: next.section,
-            programSlug: next.slug,
+            // The queue only ever holds this program's episodes; keep its slug so
+            // progress for the whole series lands on one Continue Watching card.
+            programSlug: programSlug ?? next.slug,
             episodeSid: next.sid,
+            programTitle,
+            thumb: next.thumbnailUrl ?? undefined,
+            programThumb,
           },
         });
       });
@@ -116,26 +154,34 @@ function PlayerSession({ params }: { params: { streamUrl?: string; title?: strin
       clear();
       router.back();
     }
-  }, [isLive, hasNext, nextEpisode, advance, clear, router]);
+  }, [isLive, hasNext, nextEpisode, advance, clear, router, programSlug, programTitle, programThumb]);
 
   const { videoRef, paused, state, showLoadingOverlay, videoCallbacks, pause, retry } = useVideoPlayback({ streamUrl: params.streamUrl ?? null, onPlaybackEnd: handlePlaybackEnd });
+  // `holdPlayback` keeps a resumed episode paused, behind the loader, until it has seeked.
+  const { callbacks: watchProgress, holdPlayback } = useWatchProgress({ target: watchTarget, next: nextTarget, fromStart: params.fromStart === "true", videoRef });
   const source = useMemo(() => ({ uri: params.streamUrl ?? "" }), [params.streamUrl]);
 
   useEffect(() => {
     hideGlobalLoader();
   }, [hideGlobalLoader]);
 
-  // ── Wrap callbacks to detect near-end ───────────────────────────────────────
+  // ── Wrap callbacks for watch progress and to detect near-end ────────────────
+  const showsUpNext = !isLive && hasNext;
+  const tracksProgress = watchTarget !== null;
   const wrappedCallbacks = useMemo(() => {
-    if (isLive || !hasNext) return videoCallbacks;
+    if (!showsUpNext && !tracksProgress) return videoCallbacks;
     return {
       ...videoCallbacks,
       onLoad: (data: OnLoadData) => {
         videoCallbacks.onLoad(data);
+        watchProgress.onLoad(data);
+        if (!showsUpNext) return;
         videoDurationRef.current = data.duration;
         setUpNextLead(Math.min(UP_NEXT_LEAD_SECONDS, data.duration / 2));
       },
       onProgress: (data: OnProgressData) => {
+        watchProgress.onProgress(data);
+        if (!showsUpNext) return;
         const duration = videoDurationRef.current;
         // Once the next episode is loading, stray progress events must not re-show it.
         if (duration <= 0 || actionRef.current.transitioning) return;
@@ -148,15 +194,26 @@ function PlayerSession({ params }: { params: { streamUrl?: string; title?: strin
           setUpNextSeconds(seconds);
         }
       },
+      onSeek: watchProgress.onSeek,
+      onPlaybackStateChanged: (data: OnPlaybackStateChangedData) => {
+        videoCallbacks.onPlaybackStateChanged(data);
+        watchProgress.onPlaybackStateChanged(data);
+      },
+      onEnd: () => {
+        // Recorded before onEnd may navigate to the next episode.
+        watchProgress.onEnd();
+        videoCallbacks.onEnd();
+      },
     };
-  }, [videoCallbacks, hasNext, isLive]);
+  }, [videoCallbacks, watchProgress, showsUpNext, tracksProgress]);
 
   const handleSkipToNext = useCallback(() => {
     pause();
     upNextSecondsRef.current = null;
     setUpNextSeconds(null);
+    watchProgress.markWatched();
     handlePlaybackEnd();
-  }, [handlePlaybackEnd, pause]);
+  }, [handlePlaybackEnd, pause, watchProgress]);
 
   const handleBack = useCallback(() => {
     if (!actionRef.current.active) return;
@@ -197,7 +254,7 @@ function PlayerSession({ params }: { params: { streamUrl?: string; title?: strin
           style={styles.video}
           resizeMode="contain"
           controls
-          paused={paused}
+          paused={paused || holdPlayback}
           playInBackground={false}
           playWhenInactive={false}
           allowsExternalPlayback
@@ -205,7 +262,7 @@ function PlayerSession({ params }: { params: { streamUrl?: string; title?: strin
         />
       )}
 
-      {showLoadingOverlay && (
+      {(showLoadingOverlay || holdPlayback) && (
         <View style={styles.loadingOverlay}>
           <LoadingSpinner size="large" />
         </View>

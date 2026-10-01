@@ -24,6 +24,6 @@ Follow the existing `type: concise summary` format (e.g., `fix: clear player que
 
 Never commit secrets; rely on secure store APIs and Expo config values. The scraper API address is configured at build time through EXPO_PUBLIC_KVF_API_BASE_URL in .env.local; public Expo environment variables must not contain secrets. For TV builds, set `EXPO_TV=1` locally and verify the Apple/Android TV asset sets (`Images.xcassets/`, `app.json`) stay in sync with feature work.
 
-## Intentionally Retained Code
+## Watch Progress
 
-Keep `services/watchProgressService.ts`, `hooks/useWatchProgress.ts`, and the progress tests for future KVF resume support. They are not currently connected to a route. Preserve native HLS/audio playback and episode prefetching; see `docs/playback.md`.
+Resume, episode progress, and the home Continue Watching row are built on `services/watchProgressService.ts`, `services/watchProgressStorage.ts`, `hooks/useWatchProgress.ts`, and `hooks/useWatchHistory.ts`. History lives in NSUserDefaults on tvOS, because the cache directory can be purged. Preserve native HLS/audio playback and episode prefetching; see `docs/playback.md`.

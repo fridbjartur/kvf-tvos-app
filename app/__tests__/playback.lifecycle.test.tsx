@@ -10,6 +10,10 @@ import { FocusScaleCard } from "@/components/focus-scale-card";
 import strings from "@/constants/strings.json";
 import { useKvfResource } from "@/hooks/useKvfResource";
 import type { EpisodeDetail, ProgramPage } from "@/types/kvf";
+import { EpisodeProgressOverlay } from "@/components/episodeProgressOverlay";
+import { _resetForTesting, getContinueWatchingEntry, getEpisodeProgress, markCompleted, recordProgress } from "@/services/watchProgressService";
+
+jest.mock("@/services/watchProgressStorage", () => ({ watchProgressStorage: { load: () => null, save: async () => {}, clear: async () => {} } }));
 
 const mockRouter = { push: jest.fn(), replace: jest.fn(), back: jest.fn() };
 const mockNext = { section: "sjon", slug: "show", sid: "2", title: "Next" };
@@ -62,6 +66,7 @@ function deferred<T>() {
 }
 beforeEach(() => {
   jest.clearAllMocks();
+  _resetForTesting();
   AppState.currentState = "active";
   remove = jest.fn();
   jest.spyOn(AppState, "addEventListener").mockImplementation((_event, callback) => {
@@ -75,6 +80,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => renderer?.unmount());
   jest.restoreAllMocks();
+  _resetForTesting();
   AppState.currentState = originalState;
 });
 
@@ -313,6 +319,131 @@ it("updates the selected episode when a card is pressed without a focus event", 
   await act(async () => renderer.root.findAllByType(FocusScaleCard)[1].props.onPress());
   expect(host("Blur").findAllByType(Text)[0].props.children).toBe("Older episode");
   expect(loadEpisode).toHaveBeenLastCalledWith("sjon", "show", "2");
+});
+
+// ── Watch progress ─────────────────────────────────────────────────────────────
+
+const trackedParams = {
+  streamUrl: "https://example.com/1.m3u8",
+  title: "Episode",
+  section: "sjon",
+  programSlug: "show",
+  episodeSid: "1",
+  programTitle: "Show",
+  programThumb: "https://example.com/show.jpg",
+};
+
+it("records a tracked episode and moves Continue Watching on when it ends", async () => {
+  jest.mocked(useLocalSearchParams).mockReturnValue(trackedParams);
+  render(<PlayerScreen />);
+  act(() => {
+    host("Video").props.onLoad({ duration: 100 });
+    host("Video").props.onProgress({ currentTime: 30 });
+  });
+  expect(getEpisodeProgress("sjon", "show", "1")).toMatchObject({ position: 30, duration: 100, completed: false });
+  expect(getContinueWatchingEntry("sjon", "show")).toMatchObject({ sid: "1", programTitle: "Show", thumbnailUrl: "https://example.com/show.jpg" });
+
+  await act(async () => host("Video").props.onEnd());
+  expect(getEpisodeProgress("sjon", "show", "1")?.completed).toBe(true);
+  expect(getContinueWatchingEntry("sjon", "show")).toMatchObject({ sid: "2", episodeTitle: "Next" });
+  // The next session keeps the program's identity and artwork.
+  expect(mockRouter.replace).toHaveBeenCalledTimes(1);
+  expect(mockRouter.replace.mock.calls[0][0].params).toMatchObject({ programSlug: "show", programTitle: "Show", programThumb: "https://example.com/show.jpg" });
+});
+
+it("plays a resumed episode as soon as its seek lands, keeping the start covered until then", () => {
+  recordProgress({ section: "sjon", slug: "show", sid: "1", programTitle: "Show", episodeTitle: "Episode", thumbnailUrl: null }, 600, 1800);
+  jest.mocked(useLocalSearchParams).mockReturnValue(trackedParams);
+  render(<PlayerScreen />);
+  const loader = () => renderer.root.findAllByType("Loading" as React.ElementType);
+
+  act(() => host("Video").props.onLoad({ duration: 1800 }));
+  expect(host("Video").props.paused).toBe(true);
+  expect(loader()).toHaveLength(1);
+
+  act(() => host("Video").props.onSeek({ currentTime: 597, seekTime: 597 }));
+  // A false prop after true is what makes the native player start.
+  expect(host("Video").props.paused).toBe(false);
+  expect(loader()).toHaveLength(0);
+});
+
+it("gives the episode Up Next started its own progress and Continue Watching card", async () => {
+  jest.mocked(useLocalSearchParams).mockReturnValue(trackedParams);
+  render(<PlayerScreen />);
+  act(() => {
+    host("Video").props.onLoad({ duration: 100 });
+    host("Video").props.onProgress({ currentTime: 30 });
+  });
+  await act(async () => host("Video").props.onEnd());
+
+  // Mount the session the auto-advance navigated to.
+  jest.mocked(useLocalSearchParams).mockReturnValue(mockRouter.replace.mock.calls[0][0].params);
+  act(() => renderer.update(<PlayerScreen />));
+  expect(host("Video").props.paused).toBe(false);
+  act(() => {
+    host("Video").props.onLoad({ duration: 200 });
+    host("Video").props.onProgress({ currentTime: 12 });
+  });
+  act(() => renderer.unmount());
+
+  expect(getEpisodeProgress("sjon", "show", "2")).toMatchObject({ position: 12, duration: 200, completed: false });
+  expect(getContinueWatchingEntry("sjon", "show")).toMatchObject({ sid: "2", episodeTitle: "Next" });
+});
+
+it("marks an episode watched when the viewer skips to the next one", async () => {
+  jest.mocked(useLocalSearchParams).mockReturnValue(trackedParams);
+  render(<PlayerScreen />);
+  act(() => {
+    host("Video").props.onLoad({ duration: 100 });
+    host("Video").props.onProgress({ currentTime: 85 });
+  });
+  await act(async () => host("UpNext").props.onSelect());
+  expect(getEpisodeProgress("sjon", "show", "1")?.completed).toBe(true);
+});
+
+it("never records live playback", () => {
+  jest.mocked(useLocalSearchParams).mockReturnValue({ ...trackedParams, isLive: "true" });
+  render(<PlayerScreen />);
+  // Live playback keeps the plain callbacks: no per-tick progress handler at all.
+  expect(host("Video").props.onProgress).toBeUndefined();
+  act(() => host("Video").props.onLoad({ duration: 100 }));
+  act(() => renderer.unmount());
+  expect(getEpisodeProgress("sjon", "show", "1")).toBeUndefined();
+  expect(getContinueWatchingEntry("sjon", "show")).toBeUndefined();
+});
+
+const showTarget = { section: "sjon" as const, slug: "show", programTitle: "Show", thumbnailUrl: null };
+
+it("preselects the episode to continue, focuses Resume and offers Start Over", async () => {
+  jest.mocked(useLocalSearchParams).mockReturnValue({ section: "sjon", slug: "show" });
+  jest.mocked(loadEpisode).mockResolvedValue({ streamUrl: "https://example.com/2.m3u8" } as EpisodeDetail);
+  recordProgress({ ...showTarget, sid: "2", episodeTitle: "Older episode" }, 600, 1800);
+  setProgramPage(selectionPage);
+  render(<ProgramScreen />);
+
+  const [resume, restart] = renderer.root.findAllByType("Button" as React.ElementType);
+  expect(resume.props).toMatchObject({ title: strings.watch_progress.resume_button, hasTVPreferredFocus: true });
+  expect(restart.props.title).toBe(strings.watch_progress.restart_button);
+  expect(renderer.root.findAllByType(FocusScaleCard).every((card) => !card.props.hasTVPreferredFocus)).toBe(true);
+  expect(host("Blur").findAllByType(Text)[0].props.children).toBe("Older episode");
+
+  await act(async () => restart.props.onPress());
+  expect(mockRouter.push).toHaveBeenCalledWith(expect.objectContaining({ params: expect.objectContaining({ episodeSid: "2", fromStart: "true", programTitle: "Show" }) }));
+});
+
+it("shows progress on part-watched episode cards and a badge on finished ones", () => {
+  jest.mocked(useLocalSearchParams).mockReturnValue({ section: "sjon", slug: "show" });
+  markCompleted({ ...showTarget, sid: "1", episodeTitle: "Latest episode" }, 1800);
+  setProgramPage(selectionPage);
+  render(<ProgramScreen />);
+  const cards = renderer.root.findAllByType(FocusScaleCard);
+  const badgeTexts = (index: number) => cards[index].findAllByType(Text).map((text) => text.props.children);
+  expect(badgeTexts(0)).toContain(strings.watch_progress.watched_badge);
+  expect(badgeTexts(1)).not.toContain(strings.watch_progress.watched_badge);
+
+  act(() => recordProgress({ ...showTarget, sid: "2", episodeTitle: "Older episode" }, 900, 1800));
+  expect(cards[1].findByType(EpisodeProgressOverlay).props.progress).toMatchObject({ position: 900, duration: 1800 });
+  expect(cards[1].props.accessibilityLabel).toContain("15");
 });
 
 it("uses the shared focusable Back button during the program skeleton", () => {

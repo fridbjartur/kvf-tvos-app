@@ -57,6 +57,13 @@
     "upNextAction": "Spæl nú",
     "upNextCountdown": "Byrjar um {seconds} sek."
   },
+  "watch_progress": {
+    "continue_watching_heading": "Halt á fram at hyggja",
+    "resume_button": "Halt á fram",
+    "restart_button": "Frá byrjan",
+    "minutes_left": "{minutes} min. eftir",
+    "watched_badge": "Sæð"
+  },
   "schedule": {
     "channelsHeading": "Rásir",
     "scheduleHeading": "Skrá",

@@ -6,7 +6,7 @@ Read [AGENTS.md](AGENTS.md) for repository guidelines and [README.md](README.md)
 
 ## Preserve intentionally
 
-- `services/watchProgressService.ts` and `hooks/useWatchProgress.ts` are retained for future resume/continue-watching support. They are not currently wired into the player.
+- Watch progress and Continue Watching are live: `services/watchProgressService.ts` (store), `services/watchProgressStorage.ts` (NSUserDefaults on tvOS, not the purgeable cache directory), `hooks/useWatchProgress.ts` (player), and `hooks/useWatchHistory.ts` (UI bindings). See [playback](docs/playback.md#watch-progress-and-continue-watching). Player routes for episodes must keep passing `section`, `programSlug`, `episodeSid`, `programTitle`, `thumb` and `programThumb`.
 - Native HLS playback, audio-track selection, radio streams, and episode prefetching are the playback capabilities used by KVF. There is no custom transcoding server or custom media protocol.
 - `Images.xcassets/` and the two images referenced by `app.json` are active build assets.
 - Keep all source artwork, icon layers, flattened exports, screenshots, and image documentation, including `assets/` and `_bg.psd`. These are intentionally retained even when not imported by application code.

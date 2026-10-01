@@ -10,6 +10,7 @@ import { LoadingSpinner } from "@/components/loading-spinner";
  */
 
 import { TVScreenScrollView } from "@/components/tv-screen-scroll-view";
+import { ContinueWatchingRow } from "@/components/continueWatchingRow";
 import { HeroBanner } from "@/components/HeroBanner";
 import { KvfProgramCard } from "@/components/kvf-program-card";
 import { sectionIdFromApiProgramUrl, type SectionId } from "@/constants/sections";
@@ -47,7 +48,8 @@ function CategoryRow({ category, onPress }: { category: Category; onPress: (p: P
   );
 }
 
-export function SectionScreen({ section }: { section: SectionId }) {
+/** `showContinueWatching` adds the viewer's Continue Watching row under the hero (home only). */
+export function SectionScreen({ section, showContinueWatching = false }: { section: SectionId; showContinueWatching?: boolean }) {
   const router = useRouter();
 
   // Rebuilt each render, but useKvfResource keys off `resource.key` only.
@@ -84,6 +86,7 @@ export function SectionScreen({ section }: { section: SectionId }) {
         <>
           {featured.length > 0 && <HeroBanner heroes={featured} onPress={handleProgramPress} />}
           <View style={S.categories}>
+            {showContinueWatching && <ContinueWatchingRow />}
             {categories.map((cat) => (
               <CategoryRow key={cat.listKey} category={cat} onPress={handleProgramPress} />
             ))}

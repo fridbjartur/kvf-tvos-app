@@ -1,0 +1,150 @@
+diff --git a/node_modules/expo-tvos-search/build/index.d.ts b/node_modules/expo-tvos-search/build/index.d.ts
+index f1d35ce..6191e9a 100644
+--- a/node_modules/expo-tvos-search/build/index.d.ts
++++ b/node_modules/expo-tvos-search/build/index.d.ts
+@@ -90,7 +90,14 @@ export interface SearchResult {
+  * />
+  * ```
+  */
++export interface TvosSearchViewRef {
++  /** Scroll results to the top without replacing the native search view. */
++  scrollToTop(): Promise<void>;
++}
++
+ export interface TvosSearchViewProps {
++  ref?: React.Ref<TvosSearchViewRef>;
++
+     /**
+      * Array of search results to display in the grid.
+      * Each result should have a unique `id`.
+diff --git a/node_modules/expo-tvos-search/ios/ExpoTvosSearchModule.swift b/node_modules/expo-tvos-search/ios/ExpoTvosSearchModule.swift
+index e5491ba..7c9f508 100644
+--- a/node_modules/expo-tvos-search/ios/ExpoTvosSearchModule.swift
++++ b/node_modules/expo-tvos-search/ios/ExpoTvosSearchModule.swift
+@@ -29,6 +29,10 @@ public class ExpoTvosSearchModule: Module {
+         Name("ExpoTvosSearch")
+ 
+         View(ExpoTvosSearchView.self) {
++            AsyncFunction("scrollToTop") { (view: ExpoTvosSearchView) in
++                view.scrollToTop()
++            }
++
+             Events("onSearch", "onSelectItem", "onError", "onValidationWarning", "onSearchFieldFocused", "onSearchFieldBlurred")
+ 
+             Prop("results") { (view: ExpoTvosSearchView, results: [[String: Any]]) in
+diff --git a/node_modules/expo-tvos-search/ios/ExpoTvosSearchView.swift b/node_modules/expo-tvos-search/ios/ExpoTvosSearchView.swift
+index f4817d4..148f5c5 100644
+--- a/node_modules/expo-tvos-search/ios/ExpoTvosSearchView.swift
++++ b/node_modules/expo-tvos-search/ios/ExpoTvosSearchView.swift
+@@ -12,6 +12,7 @@ private let RCTTVEnableGestureHandlersCancelTouchesNotification = Notification.N
+ /// This allows updating properties without recreating the entire view hierarchy.
+ class SearchViewModel: ObservableObject {
+     @Published var results: [SearchResultItem] = []
++    @Published var scrollToTopRequest: Int = 0
+     @Published var isLoading: Bool = false
+     @Published var searchText: String = ""
+ 
+@@ -70,6 +71,10 @@ class ExpoTvosSearchView: ExpoView {
+     // Store references to disabled gesture recognizers so we can re-enable them
+     private var disabledGestureRecognizers: [UIGestureRecognizer] = []
+ 
++    func scrollToTop() {
++        viewModel.scrollToTopRequest &+= 1
++    }
++
+     // Validation is handled by ExpoTvosSearchModule
+     var columns: Int = 5 {
+         didSet {
+@@ -662,6 +667,10 @@ class ExpoTvosSearchView: ExpoView {
+         ])
+     }
+ 
++    func scrollToTop() {
++        // No-op on non-tvOS
++    }
++
+     func updateResults(_ results: [[String: Any]]) {
+         // No-op on non-tvOS
+     }
+diff --git a/node_modules/expo-tvos-search/ios/TvosSearchContentView.swift b/node_modules/expo-tvos-search/ios/TvosSearchContentView.swift
+index 0307eaf..819f6f0 100644
+--- a/node_modules/expo-tvos-search/ios/TvosSearchContentView.swift
++++ b/node_modules/expo-tvos-search/ios/TvosSearchContentView.swift
+@@ -94,30 +94,36 @@ struct TvosSearchContentView: View {
+     }
+ 
+     private var resultsGridView: some View {
+-        ScrollView {
+-            LazyVGrid(columns: gridColumns, spacing: viewModel.cardMargin) {
+-                ForEach(viewModel.results) { item in
+-                    SearchResultCard(
+-                        item: item,
+-                        showTitle: viewModel.showTitle,
+-                        showSubtitle: viewModel.showSubtitle,
+-                        showFocusBorder: viewModel.showFocusBorder,
+-                        showTitleOverlay: viewModel.showTitleOverlay,
+-                        enableMarquee: viewModel.enableMarquee,
+-                        marqueeDelay: viewModel.marqueeDelay,
+-                        textColor: viewModel.textColor,
+-                        accentColor: viewModel.accentColor,
+-                        cardWidth: viewModel.cardWidth,
+-                        cardHeight: viewModel.cardHeight,
+-                        imageContentMode: viewModel.imageContentMode,
+-                        cardPadding: viewModel.cardPadding,
+-                        overlayTitleSize: viewModel.overlayTitleSize,
+-                        onSelect: { viewModel.onSelectItem?(item.id) }
+-                    )
++        ScrollViewReader { proxy in
++            ScrollView {
++                LazyVGrid(columns: gridColumns, spacing: viewModel.cardMargin) {
++                    ForEach(viewModel.results) { item in
++                        SearchResultCard(
++                            item: item,
++                            showTitle: viewModel.showTitle,
++                            showSubtitle: viewModel.showSubtitle,
++                            showFocusBorder: viewModel.showFocusBorder,
++                            showTitleOverlay: viewModel.showTitleOverlay,
++                            enableMarquee: viewModel.enableMarquee,
++                            marqueeDelay: viewModel.marqueeDelay,
++                            textColor: viewModel.textColor,
++                            accentColor: viewModel.accentColor,
++                            cardWidth: viewModel.cardWidth,
++                            cardHeight: viewModel.cardHeight,
++                            imageContentMode: viewModel.imageContentMode,
++                            cardPadding: viewModel.cardPadding,
++                            overlayTitleSize: viewModel.overlayTitleSize,
++                            onSelect: { viewModel.onSelectItem?(item.id) }
++                        )
++                    }
+                 }
++                .padding(.horizontal, 60)
++                .padding(.vertical, 40)
++                .id("search-results-top")
++            }
++            .onChange(of: viewModel.scrollToTopRequest) { _ in
++                proxy.scrollTo("search-results-top", anchor: .top)
+             }
+-            .padding(.horizontal, 60)
+-            .padding(.vertical, 40)
+         }
+     }
+ }
+diff --git a/node_modules/expo-tvos-search/src/index.tsx b/node_modules/expo-tvos-search/src/index.tsx
+index f3c9d73..d7bec3b 100644
+--- a/node_modules/expo-tvos-search/src/index.tsx
++++ b/node_modules/expo-tvos-search/src/index.tsx
+@@ -103,7 +103,14 @@ export interface SearchResult {
+  * />
+  * ```
+  */
++export interface TvosSearchViewRef {
++  /** Scroll results to the top without replacing the native search view. */
++  scrollToTop(): Promise<void>;
++}
++
+ export interface TvosSearchViewProps {
++  ref?: React.Ref<TvosSearchViewRef>;
++
+   /**
+    * Array of search results to display in the grid.
+    * Each result should have a unique `id`.

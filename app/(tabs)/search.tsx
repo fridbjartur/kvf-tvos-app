@@ -13,8 +13,8 @@ import { allProgramsResource } from "@/services/kvfApi";
 import { useKvfResource } from "@/hooks/useKvfResource";
 import type { IndexedProgram } from "@/types/kvf";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useRouter } from "expo-router";
-import { isNativeSearchAvailable, SearchResult, TvosSearchView } from "expo-tvos-search";
+import { useFocusEffect, useRouter } from "expo-router";
+import { isNativeSearchAvailable, SearchResult, TvosSearchView, type TvosSearchViewRef } from "expo-tvos-search";
 import strings from "@/constants/strings.json";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { FlatList, Platform, StyleSheet, Text, TextInput, View } from "react-native";
@@ -41,6 +41,15 @@ const EMPTY_PROGRAMS: IndexedProgram[] = [];
 
 function NativeSearchScreen() {
   const router = useRouter();
+  const searchRef = useRef<TvosSearchViewRef>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      searchRef.current?.scrollToTop().catch((error: unknown) => {
+        console.warn("Could not reset search scroll position", error);
+      });
+    }, []),
+  );
   const { programs, isLoading, isRefreshing, error, refresh } = useAllPrograms();
 
   const [query, setQuery] = useState("");
@@ -92,19 +101,23 @@ function NativeSearchScreen() {
   }
 
   return (
-    <TvosSearchView
-      results={results}
-      columns={5}
-      placeholder={strings.search.placeholder}
-      emptyStateText={strings.search.emptyNative}
-      isLoading={isRefreshing}
-      topInset={140}
-      colorScheme="dark"
-      overlayTitleSize={30}
-      onSearch={handleSearch}
-      onSelectItem={handleSelectItem}
-      style={S.nativeSearch}
-    />
+    // Reserve space in the native view's frame, before SwiftUI lays out search.
+    <View style={S.nativeContainer}>
+      <TvosSearchView
+        ref={searchRef}
+        results={results}
+        columns={5}
+        placeholder={strings.search.placeholder}
+        emptyStateText={strings.search.emptyNative}
+        isLoading={isRefreshing}
+        topInset={0}
+        colorScheme="dark"
+        overlayTitleSize={30}
+        onSearch={handleSearch}
+        onSelectItem={handleSelectItem}
+        style={S.nativeSearch}
+      />
+    </View>
   );
 }
 
@@ -139,6 +152,13 @@ const SearchHeader = React.memo(function SearchHeader({ onChangeText, inputRef }
 function ReactNativeSearchScreen() {
   const router = useRouter();
   const inputRef = useRef<TextInput>(null);
+  const listRef = useRef<FlatList<IndexedProgram>>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    }, []),
+  );
   const { programs, isLoading, isRefreshing, error, refresh } = useAllPrograms();
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -201,6 +221,7 @@ function ReactNativeSearchScreen() {
       <SearchHeader onChangeText={setSearchQuery} inputRef={inputRef} />
       {filtered.length > 0 ? (
         <FlatList
+          ref={listRef}
           data={filtered}
           renderItem={renderItem}
           keyExtractor={(p) => p.listKey}
@@ -241,6 +262,7 @@ export default function SearchScreen() {
 // Named "S" not "styles" — prevents editor auto-import from shadowing the local definition.
 const S = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0a0a0a" },
+  nativeContainer: { flex: 1, paddingTop: 140, backgroundColor: "#141414" },
   nativeSearch: { flex: 1, backgroundColor: "#141414" },
   emptyContainer: { flex: 1 },
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0a0a0a" },

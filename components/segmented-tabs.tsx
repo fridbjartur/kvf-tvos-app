@@ -1,3 +1,4 @@
+import { tvSize } from "@/utils/tvLayout";
 /**
  * SegmentedTabs — an in-screen tab strip, meant to be rendered inside the same
  * ScrollView as the content it switches.
@@ -80,16 +81,16 @@ const S = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: IS_TV ? 12 : 6,
+    gap: IS_TV ? tvSize(12) : 6,
   },
   tab: {
     alignItems: "center",
-    gap: IS_TV ? 10 : 6,
+    gap: IS_TV ? tvSize(10) : 6,
   },
   labelWrap: {
-    paddingHorizontal: IS_TV ? 30 : 14,
-    paddingVertical: IS_TV ? 10 : 6,
-    borderRadius: IS_TV ? 12 : 8,
+    paddingHorizontal: IS_TV ? tvSize(30) : 14,
+    paddingVertical: IS_TV ? tvSize(10) : 6,
+    borderRadius: IS_TV ? tvSize(12) : 8,
     backgroundColor: "transparent",
   },
   labelWrapFocused: {
@@ -97,7 +98,7 @@ const S = StyleSheet.create({
   },
   label: {
     color: "rgba(255,255,255,0.5)",
-    fontSize: IS_TV ? 30 : 16,
+    fontSize: IS_TV ? tvSize(30) : 16,
     fontWeight: "600",
     letterSpacing: -0.4,
   },
@@ -111,7 +112,7 @@ const S = StyleSheet.create({
     color: "#FFFFFF",
   },
   indicator: {
-    height: IS_TV ? 4 : 3,
+    height: IS_TV ? tvSize(4) : 3,
     width: "70%",
     borderRadius: 2,
     backgroundColor: "transparent",

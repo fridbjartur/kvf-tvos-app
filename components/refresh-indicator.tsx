@@ -1,3 +1,4 @@
+import { tvSize } from "@/utils/tvLayout";
 import { LoadingSpinner } from "@/components/loading-spinner";
 /**
  * Passive "checking for new content" affordance.
@@ -62,14 +63,14 @@ const S = StyleSheet.create({
   // Inset past the tvOS title-safe margin so it is never clipped by overscan.
   overlay: {
     position: "absolute",
-    top: IS_TV ? 48 : 12,
-    right: IS_TV ? 64 : 16,
+    top: IS_TV ? tvSize(48) : 12,
+    right: IS_TV ? tvSize(64) : 16,
     flexDirection: "row",
     alignItems: "center",
-    gap: IS_TV ? 12 : 8,
-    paddingHorizontal: IS_TV ? 20 : 12,
-    paddingVertical: IS_TV ? 10 : 6,
-    borderRadius: IS_TV ? 22 : 14,
+    gap: IS_TV ? tvSize(12) : 8,
+    paddingHorizontal: IS_TV ? tvSize(20) : 12,
+    paddingVertical: IS_TV ? tvSize(10) : 6,
+    borderRadius: IS_TV ? tvSize(22) : 14,
     backgroundColor: "rgba(20,20,22,0.82)",
   },
   inline: {
@@ -79,7 +80,7 @@ const S = StyleSheet.create({
   },
   label: {
     color: "#8E8E93",
-    fontSize: IS_TV ? 16 : 12,
+    fontSize: IS_TV ? tvSize(16) : 12,
     fontWeight: "600",
     letterSpacing: 0.3,
   },

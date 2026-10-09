@@ -1,3 +1,8 @@
+import { tvSize } from "@/utils/tvLayout";
+import { ANDROID_TV_NAV_HEIGHT } from "@/contexts/AndroidTVNavigationContext";
+import { tvSnap } from "@/utils/tvScroll";
+import { isRemotePress } from "@/utils/tvRemote";
+import { useTVFocusMemory } from "@/contexts/TVFocusMemoryContext";
 import strings from "@/constants/strings.json";
 /**
  * HeroBanner — full-width hero slider.
@@ -24,13 +29,14 @@ import { Animated, AppState, Platform, StyleSheet, Text, TouchableOpacity, TVFoc
 
 const IS_TV = Platform.isTV;
 
-export const HERO_H = IS_TV ? 780 : 460;
+export const HERO_H = IS_TV ? tvSize(780) : 460;
 const SLIDE_INTERVAL_MS = 8000;
 const FADE_MS = 180;
 
 type HeroBannerProps = {
   heroes: FeaturedProgram[];
   onPress: (hero: FeaturedProgram) => void;
+  /** Focus the banner when it mounts, until it first receives focus. */
   hasTVPreferredFocus?: boolean;
 };
 
@@ -109,6 +115,8 @@ export function HeroBanner({ heroes, onPress, hasTVPreferredFocus }: HeroBannerP
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [focused, setFocused] = useState(false);
   const focusedRef = useRef(false);
+  // One-shot: returning to this screen must not pull focus back to the banner.
+  const [preferFocus, setPreferFocus] = useState(hasTVPreferredFocus ?? false);
 
   // Preserve the selected program when a refresh replaces or reorders the
   // array. If it disappeared, fall back to the first slide without remounting
@@ -119,14 +127,20 @@ export function HeroBanner({ heroes, onPress, hasTVPreferredFocus }: HeroBannerP
   );
   const activeHero = heroes[activeIndex];
 
+  // Android TV: lets the screen refocus the banner when a program it opened closes.
+  const focusMemory = useTVFocusMemory();
+  const touchableRef = useRef<View>(null);
   const handleFocus = useCallback(() => {
     focusedRef.current = true;
     setFocused(true);
-  }, []);
+    setPreferFocus(false);
+    if (touchableRef.current) focusMemory?.focused(touchableRef.current);
+  }, [focusMemory]);
   const handleBlur = useCallback(() => {
     focusedRef.current = false;
     setFocused(false);
-  }, []);
+    if (touchableRef.current) focusMemory?.blurred(touchableRef.current);
+  }, [focusMemory]);
   useFocusEffect(useCallback(() => handleBlur, [handleBlur]));
 
   const changeSlide = useCallback(
@@ -156,11 +170,8 @@ export function HeroBanner({ heroes, onPress, hasTVPreferredFocus }: HeroBannerP
     useCallback(
       (event: HWEvent) => {
         if (!screenFocused || !focusedRef.current) return;
-        // tvOS tap recognizers emit a single Ended (1) event. Android emits
-        // down/up pairs; ignore the release only on Android.
-        if (Platform.OS === "android" && event.eventKeyAction === 1) return;
-        if (event.eventType === "left") changeSlide("left");
-        else if (event.eventType === "right") changeSlide("right");
+        if (isRemotePress(event, "left")) changeSlide("left");
+        else if (isRemotePress(event, "right")) changeSlide("right");
       },
       [screenFocused, changeSlide],
     ),
@@ -172,7 +183,7 @@ export function HeroBanner({ heroes, onPress, hasTVPreferredFocus }: HeroBannerP
     // Artwork extends into the scroll view's top safe-area inset, but the
     // focusable rectangle starts below the tab bar. UIKit can then find the
     // tabs above it and keep automatic scroll/inset coordination enabled.
-    <View style={[S.frame, { height: Math.max(1, HERO_H - artworkInset) }]}>
+    <View {...tvSnap()} style={[S.frame, { height: Math.max(1, HERO_H - artworkInset) }]}>
       <View pointerEvents="none" style={[S.artwork, { top: -artworkInset }]}>
         {heroes.map((hero, i) => {
           const distance = (i - activeIndex + heroes.length) % heroes.length;
@@ -180,13 +191,14 @@ export function HeroBanner({ heroes, onPress, hasTVPreferredFocus }: HeroBannerP
           return <HeroSlide key={hero.listKey} hero={hero} isActive={i === activeIndex} activeIndex={activeIndex} heroesLength={heroes.length} focused={focused} />;
         })}
       </View>
-      <TVFocusGuideView autoFocus trapFocusLeft trapFocusRight style={S.focusArea}>
+      <TVFocusGuideView autoFocus trapFocusLeft trapFocusRight style={[S.focusArea, Platform.OS === "android" && IS_TV && { marginTop: tvSize(ANDROID_TV_NAV_HEIGHT) }]}>
         <TouchableOpacity
+          ref={touchableRef}
           activeOpacity={1}
           isTVSelectable={screenFocused}
           disabled={!screenFocused}
           tvParallaxProperties={{ enabled: false }}
-          hasTVPreferredFocus={screenFocused && hasTVPreferredFocus}
+          hasTVPreferredFocus={screenFocused && preferFocus}
           onFocus={handleFocus}
           onBlur={handleBlur}
           accessibilityRole="button"
@@ -226,43 +238,43 @@ const S = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: "flex-end",
-    paddingHorizontal: IS_TV ? 80 : 20,
-    paddingBottom: IS_TV ? 48 : 20,
-    gap: IS_TV ? 10 : 6,
+    paddingHorizontal: IS_TV ? tvSize(80) : 20,
+    paddingBottom: IS_TV ? tvSize(48) : 20,
+    gap: IS_TV ? tvSize(10) : 6,
   },
   title: {
     color: "#FFFFFF",
-    fontSize: IS_TV ? 52 : 22,
+    fontSize: IS_TV ? tvSize(52) : 22,
     fontWeight: "700",
     maxWidth: IS_TV ? "52%" : "80%",
-    lineHeight: IS_TV ? 62 : 28,
+    lineHeight: IS_TV ? tvSize(62) : 28,
     letterSpacing: -0.5,
   },
   summary: {
     color: "rgba(255,255,255,0.68)",
-    fontSize: IS_TV ? 20 : 13,
+    fontSize: IS_TV ? tvSize(20) : 13,
     maxWidth: IS_TV ? "34%" : "75%",
-    lineHeight: IS_TV ? 30 : 19,
+    lineHeight: IS_TV ? tvSize(30) : 19,
   },
   ctaRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: IS_TV ? 16 : 8,
+    marginTop: IS_TV ? tvSize(16) : 8,
   },
   dots: {
     flexDirection: "row",
     alignItems: "center",
-    gap: IS_TV ? 8 : 5,
+    gap: IS_TV ? tvSize(8) : 5,
   },
   dot: {
-    width: IS_TV ? 12 : 6,
-    height: IS_TV ? 12 : 6,
-    borderRadius: IS_TV ? 6 : 3,
+    width: IS_TV ? tvSize(12) : 6,
+    height: IS_TV ? tvSize(12) : 6,
+    borderRadius: IS_TV ? tvSize(6) : 3,
     backgroundColor: "rgba(255,255,255,0.30)",
   },
   dotActive: {
     backgroundColor: "#FFFFFF",
-    width: IS_TV ? 28 : 14,
+    width: IS_TV ? tvSize(28) : 14,
   },
 });

@@ -1,3 +1,5 @@
+import { tvSize } from "@/utils/tvLayout";
+import { tvSnap } from "@/utils/tvScroll";
 /**
  * Ljóð — the sub-section picker, and the Ljóð tab's root screen.
  *
@@ -62,7 +64,7 @@ function ChoiceCard({ choice, onPress }: { choice: Choice; onPress: (section: Se
             </View>
           </View>
           <View style={S.iconBadge}>
-            <Ionicons name={choice.icon} size={IS_TV ? 36 : 26} color="#FFFFFF" />
+            <Ionicons name={choice.icon} size={IS_TV ? tvSize(36) : 26} color="#FFFFFF" />
           </View>
           <View style={S.cardBottom}>
             <View style={S.cardText}>
@@ -70,7 +72,7 @@ function ChoiceCard({ choice, onPress }: { choice: Choice; onPress: (section: Se
               <Text style={S.cardSubtitle}>{choice.subtitle}</Text>
             </View>
             <View style={[S.arrow, focused && S.arrowFocused]}>
-              <Ionicons name="arrow-forward" size={IS_TV ? 26 : 20} color={focused ? "#141414" : "#FFFFFF"} />
+              <Ionicons name="arrow-forward" size={IS_TV ? tvSize(26) : 20} color={focused ? "#141414" : "#FFFFFF"} />
             </View>
           </View>
         </LinearGradient>
@@ -111,7 +113,7 @@ export default function LjodPickerScreen() {
           <Text style={S.subheading}>{strings.ljodPicker.subheading}</Text>
         </View>
 
-        <View style={S.grid}>
+        <View style={S.grid} {...tvSnap("end")}>
           {CHOICES.map((choice) => (
             <ChoiceCard key={choice.section} choice={choice} onPress={handleSelect} />
           ))}
@@ -123,61 +125,61 @@ export default function LjodPickerScreen() {
 
 // Named "S" not "styles" — prevents editor auto-import from shadowing the local definition.
 const S = StyleSheet.create({
-  container: { paddingTop: IS_TV ? 56 : 32, paddingBottom: IS_TV ? 96 : 40, paddingHorizontal: IS_TV ? 80 : 24 },
-  centered: { width: "100%", maxWidth: 1600, alignSelf: "center", gap: IS_TV ? 36 : 28 },
-  header: { gap: IS_TV ? 12 : 8 },
+  container: { paddingTop: IS_TV ? tvSize(56) : 32, paddingBottom: IS_TV ? tvSize(96) : 40, paddingHorizontal: IS_TV ? tvSize(80) : 24 },
+  centered: { width: "100%", maxWidth: tvSize(1600), alignSelf: "center", gap: IS_TV ? tvSize(36) : 28 },
+  header: { gap: IS_TV ? tvSize(12) : 8 },
   heading: {
     color: "#FFFFFF",
-    fontSize: IS_TV ? 56 : 30,
-    lineHeight: IS_TV ? 64 : 38,
+    fontSize: IS_TV ? tvSize(56) : 30,
+    lineHeight: IS_TV ? tvSize(64) : 38,
     fontWeight: "800",
     letterSpacing: -1,
   },
   subheading: {
     color: "#A9A9B3",
-    fontSize: IS_TV ? 22 : 14,
+    fontSize: IS_TV ? tvSize(22) : 14,
     fontWeight: "500",
   },
   grid: {
     flexDirection: IS_TV ? "row" : "column",
-    gap: IS_TV ? 32 : 20,
+    gap: IS_TV ? tvSize(32) : 20,
   },
   cardSlot: { flex: IS_TV ? 1 : undefined, minWidth: 0 },
 
   // No overflow:hidden on the card itself — the border must not be clipped as it scales.
   card: {
     width: "100%",
-    height: IS_TV ? 380 : 224,
-    borderRadius: IS_TV ? 18 : 14,
+    height: IS_TV ? tvSize(380) : 224,
+    borderRadius: IS_TV ? tvSize(18) : 14,
   },
   cardFill: {
     flex: 1,
-    borderRadius: IS_TV ? 18 : 14,
+    borderRadius: IS_TV ? tvSize(18) : 14,
     overflow: "hidden",
     justifyContent: "space-between",
-    padding: IS_TV ? 36 : 24,
+    padding: IS_TV ? tvSize(36) : 24,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.12)",
   },
   artwork: { ...StyleSheet.absoluteFill, overflow: "hidden" },
   orbitOuter: {
     position: "absolute",
-    width: IS_TV ? 440 : 280,
-    height: IS_TV ? 440 : 280,
+    width: IS_TV ? tvSize(440) : 280,
+    height: IS_TV ? tvSize(440) : 280,
     borderRadius: 300,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
-    top: IS_TV ? -180 : -120,
+    top: IS_TV ? tvSize(-180) : -120,
     right: -40,
   },
   orbitInner: {
     position: "absolute",
-    width: IS_TV ? 320 : 200,
-    height: IS_TV ? 320 : 200,
+    width: IS_TV ? tvSize(320) : 200,
+    height: IS_TV ? tvSize(320) : 200,
     borderRadius: 200,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
-    top: IS_TV ? -120 : -80,
+    top: IS_TV ? tvSize(-120) : -80,
     right: 20,
   },
   waveform: {
@@ -191,11 +193,11 @@ const S = StyleSheet.create({
     justifyContent: "space-between",
     transform: [{ rotate: "-12deg" }],
   },
-  waveBar: { width: IS_TV ? 10 : 6, borderRadius: 6, backgroundColor: "#FFFFFF" },
+  waveBar: { width: IS_TV ? tvSize(10) : 6, borderRadius: 6, backgroundColor: "#FFFFFF" },
   iconBadge: {
-    width: IS_TV ? 72 : 52,
-    height: IS_TV ? 72 : 52,
-    borderRadius: IS_TV ? 20 : 16,
+    width: IS_TV ? tvSize(72) : 52,
+    height: IS_TV ? tvSize(72) : 52,
+    borderRadius: IS_TV ? tvSize(20) : 16,
     backgroundColor: "rgba(255,255,255,0.09)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.12)",
@@ -203,21 +205,30 @@ const S = StyleSheet.create({
     justifyContent: "center",
   },
   cardBottom: { flexDirection: "row", alignItems: "flex-end", gap: 16 },
-  cardText: { flex: 1, gap: IS_TV ? 8 : 6 },
+  cardText: { flex: 1, gap: IS_TV ? tvSize(8) : 6 },
   cardTitle: {
     color: "#FFFFFF",
-    fontSize: IS_TV ? 48 : 30,
-    lineHeight: IS_TV ? 56 : 36,
+    fontSize: IS_TV ? tvSize(48) : 30,
+    lineHeight: IS_TV ? tvSize(56) : 36,
     fontWeight: "800",
     letterSpacing: -1,
   },
   cardSubtitle: {
     color: "rgba(255,255,255,0.75)",
-    fontSize: IS_TV ? 21 : 14,
+    fontSize: IS_TV ? tvSize(21) : 14,
     fontWeight: "500",
-    lineHeight: IS_TV ? 28 : 20,
+    lineHeight: IS_TV ? tvSize(28) : 20,
   },
-  arrow: { width: IS_TV ? 52 : 40, height: IS_TV ? 52 : 40, borderRadius: 30, borderWidth: 1, borderColor: "rgba(255,255,255,0.3)", alignItems: "center", justifyContent: "center", marginBottom: 2 },
+  arrow: {
+    width: IS_TV ? tvSize(52) : 40,
+    height: IS_TV ? tvSize(52) : 40,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 2,
+  },
   arrowFocused: { backgroundColor: "#FFFFFF", borderColor: "#FFFFFF" },
   cardBorder: {
     position: "absolute",
@@ -225,8 +236,8 @@ const S = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderWidth: IS_TV ? 3 : 2,
+    borderWidth: IS_TV ? tvSize(3) : 2,
     borderColor: "#FFFFFF",
-    borderRadius: IS_TV ? 18 : 14,
+    borderRadius: IS_TV ? tvSize(18) : 14,
   },
 });

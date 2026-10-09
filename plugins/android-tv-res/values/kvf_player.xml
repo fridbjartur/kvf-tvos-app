@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sizes and styles for KVF's Android TV playback controls (layout/exo_player_control_view.xml). -->
+<resources>
+  <dimen name="kvf_player_side_margin">48dp</dimen>
+  <dimen name="kvf_player_bottom_margin">24dp</dimen>
+  <dimen name="kvf_player_button_gap">24dp</dimen>
+  <dimen name="kvf_player_play_button_size">72dp</dimen>
+  <dimen name="kvf_player_play_button_padding">18dp</dimen>
+  <dimen name="kvf_player_seek_button_size">56dp</dimen>
+  <dimen name="kvf_player_bar_button_size">48dp</dimen>
+
+  <!-- Media3 dimensions used by its layout manager and time bar. -->
+  <dimen name="exo_styled_bottom_bar_height">48dp</dimen>
+  <dimen name="exo_styled_progress_layout_height">40dp</dimen>
+  <!-- Centers the time bar's touch target just above the bottom bar. -->
+  <dimen name="exo_styled_progress_margin_bottom">64dp</dimen>
+  <dimen name="exo_styled_progress_bar_height">4dp</dimen>
+  <dimen name="exo_styled_progress_enabled_thumb_size">12dp</dimen>
+  <!-- Also the focused size: the enlarged thumb is the scrubber's focus state. -->
+  <dimen name="exo_styled_progress_dragged_thumb_size">24dp</dimen>
+  <dimen name="exo_icon_text_size">11dp</dimen>
+  <dimen name="exo_icon_padding_bottom">20dp</dimen>
+
+  <!-- Plain glyphs read better than Media3's filled circles on a focus highlight. -->
+  <drawable name="exo_styled_controls_play">@drawable/exo_icon_play</drawable>
+  <drawable name="exo_styled_controls_pause">@drawable/exo_icon_pause</drawable>
+
+  <color name="kvf_player_secondary_text">#B3FFFFFF</color>
+
+  <string name="kvf_player_time_separator" translatable="false">" / "</string>
+
+  <style name="KvfPlayer"/>
+
+  <style name="KvfPlayer.TimeText">
+    <item name="android:layout_width">wrap_content</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:textColor">#FFFFFFFF</item>
+    <item name="android:textSize">16sp</item>
+    <item name="android:fontFeatureSettings">tnum</item>
+    <item name="android:includeFontPadding">false</item>
+  </style>
+
+  <style name="KvfPlayer.BarButton">
+    <item name="android:layout_width">@dimen/kvf_player_bar_button_size</item>
+    <item name="android:layout_height">@dimen/kvf_player_bar_button_size</item>
+    <item name="android:layout_marginStart">8dp</item>
+    <item name="android:padding">12dp</item>
+    <item name="android:scaleType">fitCenter</item>
+    <item name="android:background">@drawable/kvf_player_button_background</item>
+    <item name="android:tint">@color/kvf_player_button_tint</item>
+  </style>
+
+  <!-- Media3 draws the seek amount as the button's text over its icon. -->
+  <style name="KvfPlayer.SeekButton" parent="ExoStyledControls.Button.Center.RewWithAmount">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">match_parent</item>
+    <item name="android:layout_margin">0dp</item>
+    <item name="android:background">@android:color/transparent</item>
+    <item name="android:foregroundTint">@color/kvf_player_button_tint</item>
+    <item name="android:textColor">@color/kvf_player_button_tint</item>
+    <item name="android:singleLine">false</item>
+    <item name="android:minWidth">0dp</item>
+    <item name="android:minHeight">0dp</item>
+  </style>
+</resources>

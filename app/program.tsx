@@ -1,3 +1,5 @@
+import { tvSize } from "@/utils/tvLayout";
+import { tvRowScrollProps, tvScreenScrollProps, tvSnap } from "@/utils/tvScroll";
 import strings from "@/constants/strings.json";
 /**
  * Program detail screen.
@@ -41,7 +43,9 @@ import { DESIGN } from "@/constants/app";
 const IS_TV = Platform.isTV;
 const { height: SCREEN_H } = Dimensions.get("window");
 const BANNER_H = IS_TV ? Math.round(SCREEN_H * 0.58) : Math.round(SCREEN_H * 0.42);
-const EPISODE_CARD_W = IS_TV ? 320 : 200;
+const EPISODE_CARD_W = IS_TV ? tvSize(320) : 200;
+/** Space kept below the episode preview when Android TV scrolls it into view. */
+const BOTTOM_INSET = tvSize(40);
 
 /** Enough placeholder cards to fill the row on a TV without overflowing phones. */
 const SKELETON_EPISODES = IS_TV ? [0, 1, 2, 3, 4] : [0, 1, 2];
@@ -245,7 +249,7 @@ function ProgramSession({ params }: { params: { section: string; slug: string; t
 
   // The episode to continue may sit far down a long row, beyond what the list
   // has rendered, so focus starts on the primary button instead of its card.
-  const focusPrimaryAction = selectedSid === null && continueSid !== null;
+  const focusPrimaryAction = selectedSid === null && (continueSid !== null || (Platform.isTV && Platform.OS === "android"));
 
   const handleEpisodeFocus = useCallback((episode: Episode) => setSelectedSid(episode.sid), []);
 
@@ -368,12 +372,12 @@ function ProgramSession({ params }: { params: { section: string; slug: string; t
       </View>
 
       {/* Scrollable content overlapping the banner from below */}
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} {...tvScreenScrollProps(BOTTOM_INSET)}>
         {/* Spacer: pushes content below the opaque portion of the banner */}
         <View style={styles.bannerSpacer} />
 
         {/* Program info */}
-        <View style={styles.info}>
+        <View style={styles.info} {...tvSnap("end")}>
           <Text style={styles.programTitle}>{program?.title ?? ""}</Text>
           {program?.description ? (
             <Text style={styles.programDescription} numberOfLines={IS_TV ? 3 : 4}>
@@ -402,46 +406,49 @@ function ProgramSession({ params }: { params: { section: string; slug: string; t
           </View>
         </View>
 
-        {/* Episodes */}
-        {episodes.length > 0 && (
-          <View style={styles.episodesSection}>
-            <View style={styles.episodesHeadingRow}>
-              <Text style={styles.episodesHeading}>{strings.program.episodesHeading}</Text>
-              <RefreshIndicator active={isRefreshing} variant="inline" />
+        {/* Episodes and the focused episode's preview scroll into view together. */}
+        <View {...tvSnap("end")}>
+          {episodes.length > 0 && (
+            <View style={styles.episodesSection}>
+              <View style={styles.episodesHeadingRow}>
+                <Text style={styles.episodesHeading}>{strings.program.episodesHeading}</Text>
+                <RefreshIndicator active={isRefreshing} variant="inline" />
+              </View>
+              <FlatList
+                data={episodes}
+                extraData={selectedEpSid}
+                renderItem={renderEpisode}
+                keyExtractor={(e) => e.listKey}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.episodesRow}
+                removeClippedSubviews={false}
+                {...tvRowScrollProps()}
+                initialNumToRender={8}
+                // A long-running series can return ~1000 episodes. Without a
+                // budget FlatList keeps mounting batches to fill the default
+                // 21-viewport window, and nothing ever unmounts because
+                // removeClippedSubviews stays off for tvOS focus. Render far
+                // enough ahead that focus never outruns the list, no further.
+                windowSize={7}
+                maxToRenderPerBatch={6}
+                updateCellsBatchingPeriod={50}
+                ListHeaderComponent={showEpisodeSkeletons ? EpisodeSkeletons : null}
+              />
             </View>
-            <FlatList
-              data={episodes}
-              extraData={selectedEpSid}
-              renderItem={renderEpisode}
-              keyExtractor={(e) => e.listKey}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.episodesRow}
-              removeClippedSubviews={false}
-              initialNumToRender={8}
-              // A long-running series can return ~1000 episodes. Without a
-              // budget FlatList keeps mounting batches to fill the default
-              // 21-viewport window, and nothing ever unmounts because
-              // removeClippedSubviews stays off for tvOS focus. Render far
-              // enough ahead that focus never outruns the list, no further.
-              windowSize={7}
-              maxToRenderPerBatch={6}
-              updateCellsBatchingPeriod={50}
-              ListHeaderComponent={showEpisodeSkeletons ? EpisodeSkeletons : null}
-            />
-          </View>
-        )}
+          )}
 
-        {/* Focused episode preview */}
-        {selectedEpisode && (
-          <BlurView intensity={40} tint="dark" style={styles.epInfo}>
-            <Text style={styles.epInfoTitle} numberOfLines={2}>
-              {selectedEpisode.title}
-            </Text>
-            {selectedEpisode.publishDate ? <Text style={styles.epInfoDate}>{selectedEpisode.publishDate}</Text> : null}
-            {minutesLeft ? <Text style={styles.epInfoDate}>{minutesLeft}</Text> : null}
-          </BlurView>
-        )}
+          {/* Focused episode preview */}
+          {selectedEpisode && (
+            <BlurView intensity={40} tint="dark" style={styles.epInfo}>
+              <Text style={styles.epInfoTitle} numberOfLines={2}>
+                {selectedEpisode.title}
+              </Text>
+              {selectedEpisode.publishDate ? <Text style={styles.epInfoDate}>{selectedEpisode.publishDate}</Text> : null}
+              {minutesLeft ? <Text style={styles.epInfoDate}>{minutesLeft}</Text> : null}
+            </BlurView>
+          )}
+        </View>
 
         <View style={styles.bottomPad} />
       </ScrollView>
@@ -452,7 +459,7 @@ function ProgramSession({ params }: { params: { section: string; slug: string; t
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0a0a0a" },
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 20, backgroundColor: "#0a0a0a" },
-  errorText: { color: "#FF3B30", fontSize: IS_TV ? 20 : 15, textAlign: "center", padding: 32 },
+  errorText: { color: "#FF3B30", fontSize: IS_TV ? tvSize(20) : 15, textAlign: "center", padding: 32 },
 
   // Banner
   bannerContainer: {
@@ -475,18 +482,18 @@ const styles = StyleSheet.create({
   // Scrollable content
   scroll: { flex: 1 },
   scrollContent: {},
-  bannerSpacer: { height: BANNER_H - (IS_TV ? 180 : 100) },
+  bannerSpacer: { height: BANNER_H - (IS_TV ? tvSize(180) : 100) },
   info: {
-    paddingHorizontal: IS_TV ? 80 : 24,
-    paddingBottom: IS_TV ? 24 : 20,
-    maxWidth: IS_TV ? 820 : undefined,
+    paddingHorizontal: IS_TV ? tvSize(80) : 24,
+    paddingBottom: IS_TV ? tvSize(24) : 20,
+    maxWidth: IS_TV ? tvSize(820) : undefined,
   },
   programTitle: {
     color: "#FFFFFF",
-    fontSize: IS_TV ? 48 : 26,
-    lineHeight: IS_TV ? 56 : 32,
+    fontSize: IS_TV ? tvSize(48) : 26,
+    lineHeight: IS_TV ? tvSize(56) : 32,
     fontWeight: "800",
-    marginBottom: IS_TV ? 12 : 8,
+    marginBottom: IS_TV ? tvSize(12) : 8,
     letterSpacing: -0.5,
     textShadowColor: "rgba(0,0,0,0.6)",
     textShadowOffset: { width: 0, height: 2 },
@@ -494,69 +501,69 @@ const styles = StyleSheet.create({
   },
   programDescription: {
     color: "rgba(255,255,255,0.78)",
-    fontSize: IS_TV ? 18 : 13,
-    lineHeight: IS_TV ? 27 : 19,
-    marginBottom: IS_TV ? 20 : 16,
-    maxWidth: IS_TV ? 700 : undefined,
+    fontSize: IS_TV ? tvSize(18) : 13,
+    lineHeight: IS_TV ? tvSize(27) : 19,
+    marginBottom: IS_TV ? tvSize(20) : 16,
+    maxWidth: IS_TV ? tvSize(700) : undefined,
   },
-  actions: { flexDirection: "row", gap: IS_TV ? 20 : 12 },
+  actions: { flexDirection: "row", gap: IS_TV ? tvSize(20) : 12 },
 
   // Episodes
-  episodesSection: { marginBottom: IS_TV ? 24 : 14 },
+  episodesSection: { marginBottom: IS_TV ? tvSize(24) : 14 },
   episodesHeadingRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: IS_TV ? 12 : 10,
-    paddingHorizontal: IS_TV ? 80 : 24,
+    gap: IS_TV ? tvSize(12) : 10,
+    paddingHorizontal: IS_TV ? tvSize(80) : 24,
   },
   episodesHeading: {
     color: "#FFFFFF",
-    fontSize: IS_TV ? 24 : 16,
+    fontSize: IS_TV ? tvSize(24) : 16,
     fontWeight: "700",
-    lineHeight: IS_TV ? 32 : 24,
+    lineHeight: IS_TV ? tvSize(32) : 24,
     letterSpacing: -0.2,
   },
-  episodesRow: { paddingHorizontal: IS_TV ? 64 : 12 },
+  episodesRow: { paddingHorizontal: IS_TV ? tvSize(64) : 12 },
 
   // Episode placeholders — mirror epOuter/epCard metrics so the real cards do
   // not shift horizontally when the placeholders are swapped out for content.
   epSkeletonRow: { flexDirection: "row" },
   skelTitle: {
     width: "78%",
-    height: IS_TV ? 56 : 32,
+    height: IS_TV ? tvSize(56) : 32,
     borderRadius: 6,
-    marginBottom: IS_TV ? 12 : 8,
+    marginBottom: IS_TV ? tvSize(12) : 8,
   },
-  skelDescription: { gap: IS_TV ? 9 : 7, marginBottom: IS_TV ? 20 : 16, paddingVertical: IS_TV ? 4 : 3 },
+  skelDescription: { gap: IS_TV ? tvSize(9) : 7, marginBottom: IS_TV ? tvSize(20) : 16, paddingVertical: IS_TV ? tvSize(4) : 3 },
   skelLine: {
     width: "90%",
-    height: IS_TV ? 18 : 12,
+    height: IS_TV ? tvSize(18) : 12,
     borderRadius: 4,
   },
   skelLineShort: { width: "62%" },
   epSkeletonTitle: {
     width: "70%",
-    height: IS_TV ? 16 : 11,
+    height: IS_TV ? tvSize(16) : 11,
     borderRadius: 4,
     marginBottom: 6,
   },
   epSkeletonDate: {
     width: "40%",
-    height: IS_TV ? 14 : 10,
+    height: IS_TV ? tvSize(14) : 10,
     borderRadius: 4,
   },
 
   // Episode card
   epOuter: {
-    width: EPISODE_CARD_W + (IS_TV ? 32 : 20),
-    paddingHorizontal: IS_TV ? 16 : 10,
-    paddingVertical: IS_TV ? 18 : 12,
+    width: EPISODE_CARD_W + (IS_TV ? tvSize(32) : 20),
+    paddingHorizontal: IS_TV ? tvSize(16) : 10,
+    paddingVertical: IS_TV ? tvSize(18) : 12,
   },
   epCard: {
     width: EPISODE_CARD_W,
     aspectRatio: 16 / 9,
     backgroundColor: "#2C2C2E",
-    marginBottom: IS_TV ? 14 : 6,
+    marginBottom: IS_TV ? tvSize(14) : 6,
     borderRadius: DESIGN.BORDER_RADIUS_SMALL,
     overflow: "hidden",
   },
@@ -571,34 +578,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  selectedBadgeText: { color: "#000", fontSize: IS_TV ? 13 : 10, fontWeight: "700" },
+  selectedBadgeText: { color: "#000", fontSize: IS_TV ? tvSize(13) : 10, fontWeight: "700" },
   epBorder: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    borderWidth: IS_TV ? 3 : 2,
+    borderWidth: IS_TV ? tvSize(3) : 2,
     borderColor: "#FFFFFF",
     borderRadius: DESIGN.BORDER_RADIUS_SMALL,
   },
   epTitle: {
     color: "#FFFFFF",
-    fontSize: IS_TV ? 16 : 11,
+    fontSize: IS_TV ? tvSize(16) : 11,
     fontWeight: "600",
-    lineHeight: IS_TV ? 22 : 15,
+    lineHeight: IS_TV ? tvSize(22) : 15,
   },
-  epDate: { color: "#98989D", fontSize: IS_TV ? 14 : 10, marginTop: 2 },
+  epDate: { color: "#98989D", fontSize: IS_TV ? tvSize(14) : 10, marginTop: 2 },
 
   // Focused episode info bar
   epInfo: {
-    marginHorizontal: IS_TV ? 80 : 24,
-    marginTop: IS_TV ? 4 : 2,
-    padding: IS_TV ? 16 : 10,
+    marginHorizontal: IS_TV ? tvSize(80) : 24,
+    marginTop: IS_TV ? tvSize(4) : 2,
+    padding: IS_TV ? tvSize(16) : 10,
     overflow: "hidden",
   },
-  epInfoTitle: { color: "#FFFFFF", fontSize: IS_TV ? 20 : 14, fontWeight: "600" },
-  epInfoDate: { color: "#98989D", fontSize: IS_TV ? 15 : 11, marginTop: 4 },
+  epInfoTitle: { color: "#FFFFFF", fontSize: IS_TV ? tvSize(20) : 14, fontWeight: "600" },
+  epInfoDate: { color: "#98989D", fontSize: IS_TV ? tvSize(15) : 11, marginTop: 4 },
 
-  bottomPad: { height: IS_TV ? 240 : 80 },
+  bottomPad: { height: IS_TV ? tvSize(240) : 80 },
 });

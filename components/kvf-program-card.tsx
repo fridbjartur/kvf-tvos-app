@@ -1,3 +1,4 @@
+import { tvSize } from "@/utils/tvLayout";
 /**
  * Landscape (16:9) program card.
  *
@@ -33,6 +34,7 @@ function KvfProgramCardComponent<T extends ProgramCard>({ program, onPress, onFo
   const handlePress = useCallback(() => onPress(program), [onPress, program]);
 
   const imageSource = program.thumbnailUrl ? { uri: program.thumbnailUrl } : null;
+  const TitleBar = Platform.OS === "android" ? View : BlurView;
 
   return (
     <FocusScaleCard
@@ -40,7 +42,7 @@ function KvfProgramCardComponent<T extends ProgramCard>({ program, onPress, onFo
       onFocus={handleFocus}
       hasTVPreferredFocus={hasTVPreferredFocus}
       scaleTo={SCALE_FOCUSED}
-      style={[S.outer, { width: cardWidth + (IS_TV ? 32 : 20) }]}
+      style={[S.outer, { width: cardWidth + (IS_TV ? tvSize(32) : 20) }]}
       cardStyle={[S.card, { width: cardWidth }]}
       borderStyle={S.border}
       accessibilityLabel={program.title}>
@@ -65,11 +67,11 @@ function KvfProgramCardComponent<T extends ProgramCard>({ program, onPress, onFo
           )}
 
           {/* Title bar */}
-          <BlurView intensity={60} style={S.titleBar}>
+          <TitleBar {...(Platform.OS !== "android" ? { intensity: 60 } : {})} style={S.titleBar}>
             <MarqueeText active={focused} style={S.titleText}>
               {program.title}
             </MarqueeText>
-          </BlurView>
+          </TitleBar>
         </>
       )}
     </FocusScaleCard>
@@ -81,8 +83,8 @@ export const KvfProgramCard = KvfProgramCardComponent;
 // Named "S" (not "styles") to prevent editor auto-import from shadowing this with an external module.
 const S = StyleSheet.create({
   outer: {
-    paddingHorizontal: IS_TV ? 16 : 10,
-    paddingVertical: IS_TV ? 18 : 12,
+    paddingHorizontal: IS_TV ? tvSize(16) : 10,
+    paddingVertical: IS_TV ? tvSize(18) : 12,
   },
   card: {
     aspectRatio: ASPECT_RATIO,
@@ -100,24 +102,25 @@ const S = StyleSheet.create({
   },
   placeholderText: {
     color: "#636366",
-    fontSize: IS_TV ? 18 : 13,
+    fontSize: IS_TV ? tvSize(18) : 13,
     fontWeight: "600",
     textAlign: "center",
   },
   titleBar: {
+    backgroundColor: Platform.OS === "android" ? "rgba(20,20,22,0.85)" : undefined,
     position: "absolute",
     bottom: 0,
     left: 0,
     width: "100%",
-    paddingVertical: IS_TV ? 9 : 5,
-    paddingHorizontal: IS_TV ? 14 : 9,
+    paddingVertical: IS_TV ? tvSize(9) : 5,
+    paddingHorizontal: IS_TV ? tvSize(14) : 9,
     overflow: "hidden",
   },
   titleText: {
     color: "#FFFFFF",
-    fontSize: IS_TV ? 19 : 12,
+    fontSize: IS_TV ? tvSize(19) : 12,
     fontWeight: "600",
-    opacity: 0.75,
+    opacity: Platform.OS === "android" ? 1 : 0.75,
     textAlign: "left",
   },
   border: {

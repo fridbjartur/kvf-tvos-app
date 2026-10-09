@@ -1,3 +1,4 @@
+import { tvSize } from "@/utils/tvLayout";
 /**
  * NowPlayingCard — the banner at the top of Beinleiðis: what is on air right
  * now on the selected channel. The whole card is one focusable play action;
@@ -76,7 +77,7 @@ export function NowPlayingCard({ entry, streamUrl, channelName, actionLabel, onP
         <LinearGradient colors={isAudio ? ["#30304F", "#13131C"] : ["#34323B", "#171419"]} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={StyleSheet.absoluteFill} pointerEvents="none" />
         <View style={S.channelArt} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           <View style={S.artRing}>
-            <Ionicons name={isAudio ? "radio-outline" : "tv-outline"} size={IS_TV ? 100 : 72} color="rgba(255,255,255,0.12)" />
+            <Ionicons name={isAudio ? "radio-outline" : "tv-outline"} size={IS_TV ? tvSize(100) : 72} color="rgba(255,255,255,0.12)" />
           </View>
         </View>
         {entry?.thumbnailUrl ? (
@@ -157,12 +158,12 @@ export function NowPlayingCard({ entry, streamUrl, channelName, actionLabel, onP
 
 const S = StyleSheet.create({
   focusArea: { flex: 1 },
-  focusBorder: { ...StyleSheet.absoluteFill, borderRadius: IS_TV ? 16 : 12, borderWidth: IS_TV ? 4 : 3, borderColor: "transparent" },
+  focusBorder: { ...StyleSheet.absoluteFill, borderRadius: IS_TV ? tvSize(16) : 12, borderWidth: IS_TV ? tvSize(4) : 3, borderColor: "transparent" },
   focusBorderActive: { borderColor: "#FFFFFF" },
   card: {
     flex: 1,
-    minHeight: IS_TV ? 420 : 320,
-    borderRadius: IS_TV ? 16 : 12,
+    minHeight: IS_TV ? tvSize(420) : 320,
+    borderRadius: IS_TV ? tvSize(16) : 12,
     overflow: "hidden",
     backgroundColor: "#1a1a1a",
     justifyContent: "flex-end",
@@ -170,62 +171,70 @@ const S = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.1)",
   },
   channelArt: { position: "absolute", top: -32, right: -24 },
-  artRing: { width: IS_TV ? 340 : 240, height: IS_TV ? 340 : 240, borderRadius: 200, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center" },
+  artRing: {
+    width: IS_TV ? tvSize(340) : 240,
+    height: IS_TV ? tvSize(340) : 240,
+    borderRadius: 200,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   content: {
-    padding: IS_TV ? 36 : 24,
-    gap: IS_TV ? 12 : 8,
+    padding: IS_TV ? tvSize(36) : 24,
+    gap: IS_TV ? tvSize(12) : 8,
   },
   metaRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: IS_TV ? 14 : 10,
+    gap: IS_TV ? tvSize(14) : 10,
     flexWrap: "wrap",
   },
-  liveBadge: { backgroundColor: "#CF1830", borderRadius: 4, paddingHorizontal: IS_TV ? 10 : 8, paddingVertical: 5 },
+  liveBadge: { backgroundColor: "#CF1830", borderRadius: 4, paddingHorizontal: IS_TV ? tvSize(10) : 8, paddingVertical: 5 },
   liveTag: {
     color: "#FFFFFF",
-    fontSize: IS_TV ? 12 : 10,
+    fontSize: IS_TV ? tvSize(12) : 10,
     fontWeight: "800",
     letterSpacing: 1.2,
   },
   channel: {
     color: "rgba(255,255,255,0.9)",
-    fontSize: IS_TV ? 17 : 11,
+    fontSize: IS_TV ? tvSize(17) : 11,
     fontWeight: "700",
     letterSpacing: 0.4,
   },
   time: {
     color: "#BEBEC6",
-    fontSize: IS_TV ? 17 : 11,
+    fontSize: IS_TV ? tvSize(17) : 11,
     fontWeight: "500",
     fontVariant: ["tabular-nums"],
   },
   title: {
     color: "#FFFFFF",
-    fontSize: IS_TV ? 42 : 28,
-    lineHeight: IS_TV ? 50 : 34,
+    fontSize: IS_TV ? tvSize(42) : 28,
+    lineHeight: IS_TV ? tvSize(50) : 34,
     fontWeight: "800",
     letterSpacing: -1,
   },
   subtitle: {
     color: "rgba(255,255,255,0.72)",
-    fontSize: IS_TV ? 21 : 13,
+    fontSize: IS_TV ? tvSize(21) : 13,
     fontWeight: "500",
   },
   description: {
     color: "#BEBEC6",
-    fontSize: IS_TV ? 19 : 12,
-    lineHeight: IS_TV ? 27 : 17,
-    maxWidth: IS_TV ? 680 : "100%",
+    fontSize: IS_TV ? tvSize(19) : 12,
+    lineHeight: IS_TV ? tvSize(27) : 17,
+    maxWidth: IS_TV ? tvSize(680) : "100%",
   },
   actions: {
     flexDirection: "row",
-    marginTop: IS_TV ? 8 : 8,
+    marginTop: IS_TV ? tvSize(8) : 8,
   },
-  timeline: { gap: 10, marginTop: 4, maxWidth: IS_TV ? 480 : 300 },
+  timeline: { gap: 10, marginTop: 4, maxWidth: IS_TV ? tvSize(480) : 300 },
   loadingCopy: { gap: 12, paddingVertical: 8 },
-  skeletonTitle: { width: "76%", height: IS_TV ? 40 : 30, borderRadius: 4 },
-  skeletonLine: { width: "48%", height: IS_TV ? 20 : 14, borderRadius: 4 },
+  skeletonTitle: { width: "76%", height: IS_TV ? tvSize(40) : 30, borderRadius: 4 },
+  skeletonLine: { width: "48%", height: IS_TV ? tvSize(20) : 14, borderRadius: 4 },
   progressTrack: {
     height: 3,
     borderRadius: 2,

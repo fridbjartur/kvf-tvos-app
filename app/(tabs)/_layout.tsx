@@ -1,10 +1,35 @@
 import { Platform } from "react-native";
 import strings from "@/constants/strings.json";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
+import { Tabs } from "expo-router";
+import { AndroidTVTabBar } from "@/components/android-tv-tab-bar";
+import { AndroidTVNavigationContext, createAndroidTVNavigation } from "@/contexts/AndroidTVNavigationContext";
+import { useState } from "react";
 
 const { Icon, Label } = NativeTabs.Trigger;
 
+/**
+ * Tabs never form a history: Back from content returns to the tab bar, and Back
+ * at the tab bar leaves the app, as Menu does at tvOS's tab bar.
+ */
+function AndroidTVTabs() {
+  const [navigation] = useState(createAndroidTVNavigation);
+  return (
+    <AndroidTVNavigationContext value={navigation}>
+      <Tabs backBehavior="none" detachInactiveScreens screenOptions={{ headerShown: false, tabBarPosition: "top", animation: "fade" }} tabBar={(props) => <AndroidTVTabBar {...props} />}>
+        <Tabs.Screen name="index" />
+        <Tabs.Screen name="vit" />
+        <Tabs.Screen name="miks" />
+        <Tabs.Screen name="ljod" />
+        <Tabs.Screen name="schedule" />
+        <Tabs.Screen name="search" />
+      </Tabs>
+    </AndroidTVNavigationContext>
+  );
+}
+
 export default function TabLayout() {
+  if (Platform.OS === "android" && Platform.isTV) return <AndroidTVTabs />;
   return (
     <NativeTabs blurEffect="systemChromeMaterial">
       <NativeTabs.Trigger name="index">

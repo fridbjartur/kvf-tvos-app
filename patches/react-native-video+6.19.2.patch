@@ -1,0 +1,14 @@
+diff --git a/node_modules/react-native-video/android/src/main/java/com/brentvatne/exoplayer/ReactExoplayerView.java b/node_modules/react-native-video/android/src/main/java/com/brentvatne/exoplayer/ReactExoplayerView.java
+index e16ac96..dd91641 100644
+--- a/node_modules/react-native-video/android/src/main/java/com/brentvatne/exoplayer/ReactExoplayerView.java
++++ b/node_modules/react-native-video/android/src/main/java/com/brentvatne/exoplayer/ReactExoplayerView.java
+@@ -755,6 +755,9 @@ public class ReactExoplayerView extends FrameLayout implements
+                 .setBandwidthMeter(bandwidthMeter)
+                 .setLoadControl(loadControl)
+                 .setMediaSourceFactory(mediaSourceFactory)
++                // Apply controlsStyles.seekIncrementMS to the controller's rewind/fast-forward.
++                .setSeekBackIncrementMs(controlsConfig.getSeekIncrementMS())
++                .setSeekForwardIncrementMs(controlsConfig.getSeekIncrementMS())
+                 .build();
+         ReactNativeVideoManager.Companion.getInstance().onInstanceCreated(instanceId, player);
+         refreshDebugState();

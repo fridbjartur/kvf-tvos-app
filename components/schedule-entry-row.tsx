@@ -1,3 +1,4 @@
+import { tvSize } from "@/utils/tvLayout";
 /**
  * ScheduleEntryRow — one row of the daily skrá.
  *
@@ -118,9 +119,9 @@ export function ScheduleEntryRow({ entry, isNow, onPress }: ScheduleEntryRowProp
 
 const S = StyleSheet.create({
   row: {
-    paddingVertical: IS_TV ? 22 : 16,
-    paddingHorizontal: IS_TV ? 24 : 16,
-    borderRadius: IS_TV ? 12 : 8,
+    paddingVertical: IS_TV ? tvSize(22) : 16,
+    paddingHorizontal: IS_TV ? tvSize(24) : 16,
+    borderRadius: IS_TV ? tvSize(12) : 8,
     backgroundColor: "#141416",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.04)",
@@ -135,26 +136,26 @@ const S = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderWidth: IS_TV ? 3 : 2,
+    borderWidth: IS_TV ? tvSize(3) : 2,
     borderColor: "#FFFFFF",
-    borderRadius: IS_TV ? 12 : 8,
+    borderRadius: IS_TV ? tvSize(12) : 8,
   },
   body: {
     flexDirection: "row",
     alignItems: "flex-start",
   },
-  details: { flex: 1, flexDirection: IS_TV ? "row" : "column", gap: IS_TV ? 24 : 12 },
-  affordance: { width: IS_TV ? 196 : undefined, alignSelf: IS_TV ? "center" : "flex-start", alignItems: "flex-end" },
-  linkAction: { minWidth: 0, minHeight: IS_TV ? 48 : 40, paddingHorizontal: IS_TV ? 16 : 12, paddingVertical: 6 },
-  actionText: { fontSize: IS_TV ? 17 : 13, lineHeight: IS_TV ? 24 : 18 },
-  readOnly: { color: "#98989D", fontSize: IS_TV ? 16 : 12, lineHeight: IS_TV ? 24 : 18, paddingHorizontal: IS_TV ? 18 : 0 },
-  readOnlyBorder: { borderColor: "#686870", borderWidth: IS_TV ? 2 : 1 },
+  details: { flex: 1, flexDirection: IS_TV ? "row" : "column", gap: IS_TV ? tvSize(24) : 12 },
+  affordance: { width: IS_TV ? tvSize(196) : undefined, alignSelf: IS_TV ? "center" : "flex-start", alignItems: "flex-end" },
+  linkAction: { minWidth: 0, minHeight: IS_TV ? tvSize(48) : 40, paddingHorizontal: IS_TV ? tvSize(16) : 12, paddingVertical: 6 },
+  actionText: { fontSize: IS_TV ? tvSize(17) : 13, lineHeight: IS_TV ? tvSize(24) : 18 },
+  readOnly: { color: "#98989D", fontSize: IS_TV ? tvSize(16) : 12, lineHeight: IS_TV ? tvSize(24) : 18, paddingHorizontal: IS_TV ? tvSize(18) : 0 },
+  readOnlyBorder: { borderColor: "#686870", borderWidth: IS_TV ? tvSize(2) : 1 },
   rail: {
-    width: IS_TV ? 96 : 52,
+    width: IS_TV ? tvSize(96) : 52,
   },
   startTime: {
     color: "rgba(255,255,255,0.9)",
-    fontSize: IS_TV ? 25 : 14,
+    fontSize: IS_TV ? tvSize(25) : 14,
     fontWeight: "700",
     letterSpacing: -0.3,
     fontVariant: ["tabular-nums"],
@@ -162,41 +163,41 @@ const S = StyleSheet.create({
   startTimeNow: { color: "#FF5365" },
   endTime: {
     color: "#98989D",
-    fontSize: IS_TV ? 15 : 10,
+    fontSize: IS_TV ? tvSize(15) : 10,
     fontWeight: "500",
     marginTop: 2,
     fontVariant: ["tabular-nums"],
   },
   // A thin spine down the listing, with a dot on the row that is on air.
   marker: {
-    width: IS_TV ? 3 : 2,
+    width: IS_TV ? tvSize(3) : 2,
     alignSelf: "stretch",
-    minHeight: IS_TV ? 34 : 20,
+    minHeight: IS_TV ? tvSize(34) : 20,
     borderRadius: 2,
     backgroundColor: "rgba(255,255,255,0.12)",
-    marginRight: IS_TV ? 26 : 14,
+    marginRight: IS_TV ? tvSize(26) : 14,
     alignItems: "center",
   },
   markerNow: { backgroundColor: "#E8001C" },
   markerDot: {
-    width: IS_TV ? 13 : 8,
-    height: IS_TV ? 13 : 8,
-    borderRadius: IS_TV ? 7 : 4,
+    width: IS_TV ? tvSize(13) : 8,
+    height: IS_TV ? tvSize(13) : 8,
+    borderRadius: IS_TV ? tvSize(7) : 4,
     backgroundColor: "#E8001C",
-    marginTop: IS_TV ? 6 : 4,
+    marginTop: IS_TV ? tvSize(6) : 4,
   },
   textColumn: {
     flex: 1,
-    gap: IS_TV ? 6 : 4,
+    gap: IS_TV ? tvSize(6) : 4,
   },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: IS_TV ? 12 : 7,
+    gap: IS_TV ? tvSize(12) : 7,
   },
   title: {
     color: "rgba(255,255,255,0.92)",
-    fontSize: IS_TV ? 25 : 14,
+    fontSize: IS_TV ? tvSize(25) : 14,
     fontWeight: "600",
     letterSpacing: -0.3,
     flexShrink: 1,
@@ -207,27 +208,27 @@ const S = StyleSheet.create({
   },
   liveTag: {
     color: "#FF5365",
-    fontSize: IS_TV ? 12 : 9,
+    fontSize: IS_TV ? tvSize(12) : 9,
     fontWeight: "800",
     letterSpacing: 1.5,
   },
   subtitle: {
     color: "rgba(255,255,255,0.6)",
-    fontSize: IS_TV ? 18 : 12,
+    fontSize: IS_TV ? tvSize(18) : 12,
   },
   description: {
     color: "#98989D",
-    fontSize: IS_TV ? 17 : 11,
-    lineHeight: IS_TV ? 24 : 16,
+    fontSize: IS_TV ? tvSize(17) : 11,
+    lineHeight: IS_TV ? tvSize(24) : 16,
   },
   music: {
     color: "#636366",
-    fontSize: IS_TV ? 15 : 10,
+    fontSize: IS_TV ? tvSize(15) : 10,
     fontStyle: "italic",
   },
   geoTag: {
     color: "#636366",
-    fontSize: IS_TV ? 14 : 10,
+    fontSize: IS_TV ? tvSize(14) : 10,
     fontWeight: "600",
   },
 });

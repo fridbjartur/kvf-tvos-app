@@ -23,6 +23,9 @@ import { useKvfResource } from "@/hooks/useKvfResource";
 import { DESIGN } from "@/constants/app";
 import TabLayout from "@/app/(tabs)/_layout";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
+import { AndroidTVNavigationContext, ANDROID_TV_NAV_HEIGHT, createAndroidTVNavigation } from "@/contexts/AndroidTVNavigationContext";
+import { StackActions } from "expo-router/react-navigation";
+import { tvSize } from "@/utils/tvLayout";
 import type { FeaturedProgram, ScheduleEntry } from "@/types/kvf";
 import strings from "@/constants/strings.json";
 
@@ -36,7 +39,15 @@ jest.mock("expo-router/unstable-native-tabs", () => {
 
 let mockFocused = true;
 let tvHandler: (event: HWEvent) => void;
-jest.mock("expo-router", () => ({ useIsFocused: () => mockFocused, useFocusEffect: jest.fn(), useRouter: jest.fn(), useLocalSearchParams: () => ({ section: "ljod" }) }));
+const mockNavigation = { dispatch: jest.fn() };
+jest.mock("expo-router", () => ({
+  Tabs: Object.assign((props: object) => require("react").createElement("Tabs", props), { Screen: "TabScreen" }),
+  useIsFocused: () => mockFocused,
+  useFocusEffect: jest.fn(),
+  useRouter: jest.fn(),
+  useNavigation: () => mockNavigation,
+  useLocalSearchParams: () => ({ section: "ljod" }),
+}));
 jest.mock("@/hooks/useScreenBack", () => ({ useScreenBack: jest.fn() }));
 jest.mock("@/hooks/useKvfResource", () => ({ useKvfResource: jest.fn() }));
 jest.mock("@/services/kvfApi", () => ({ frontPageResource: jest.fn(), scheduleResource: jest.fn() }));
@@ -107,6 +118,94 @@ it("keeps the scroll view first and excludes inactive retained screens from nati
   expect(root.findByType(TVFocusGuideView).props.focusable).toBe(true);
 });
 
+/** Runs `body` as Android TV. Platform-dependent helpers read Platform when called. */
+function asAndroidTV(body: () => void) {
+  const os = Object.getOwnPropertyDescriptor(Platform, "OS")!;
+  const tv = Object.getOwnPropertyDescriptor(Platform, "isTV")!;
+  Object.defineProperty(Platform, "OS", { configurable: true, value: "android" });
+  Object.defineProperty(Platform, "isTV", { configurable: true, value: true });
+  try {
+    body();
+  } finally {
+    Object.defineProperty(Platform, "OS", os);
+    Object.defineProperty(Platform, "isTV", tv);
+  }
+}
+
+it("snaps Android TV sections smoothly below floating tabs, without applying the inset to hero artwork", () => {
+  asAndroidTV(() => {
+    const navigation = createAndroidTVNavigation();
+    const root = render(
+      <AndroidTVNavigationContext value={navigation}>
+        <TVScreenScrollView contentContainerStyle={{ paddingTop: 10 }}>
+          <Pressable />
+        </TVScreenScrollView>
+      </AndroidTVNavigationContext>,
+    );
+    // One native animation per focus change: user scrolling (and Android's competing
+    // arrowScroll) is off, and focus snaps sections to the navigation inset.
+    // Props are checked one by one: a failed object match would print Animated internals.
+    const scroll = root.findByType(ScrollView).props;
+    expect(scroll.scrollEnabled).toBe(false);
+    expect(scroll.snapToAlignment).toBe("item");
+    expect(scroll.snapToItemPadding).toBe(tvSize(ANDROID_TV_NAV_HEIGHT));
+    expect(scroll.scrollAnimationEnabled).toBeUndefined();
+    expect(root.findByType(TVFocusGuideView).props.autoFocus).toBe(false);
+    expect(StyleSheet.flatten(root.findByType(TVFocusGuideView).props.style).paddingTop).toBe(tvSize(ANDROID_TV_NAV_HEIGHT));
+    expect(StyleSheet.flatten(scroll.contentContainerStyle).paddingTop).toBe(10);
+    render(
+      <AndroidTVNavigationContext value={navigation}>
+        <TVScreenScrollView underNavigation>
+          <Pressable />
+        </TVScreenScrollView>
+      </AndroidTVNavigationContext>,
+    );
+    expect(StyleSheet.flatten(root.findByType(TVFocusGuideView).props.style).paddingTop).toBeUndefined();
+  });
+});
+
+it("registers the focused Android TV screen so the tab bar can return it to the top", () => {
+  asAndroidTV(() => {
+    const navigation = createAndroidTVNavigation();
+    const root = render(
+      <AndroidTVNavigationContext value={navigation}>
+        <TVScreenScrollView>
+          <Pressable />
+        </TVScreenScrollView>
+      </AndroidTVNavigationContext>,
+    );
+    const scrollTo = jest.fn();
+    (root.findByType(ScrollView).instance as unknown as { scrollTo: typeof scrollTo }).scrollTo = scrollTo;
+    let cleanup: (() => void) | void;
+    act(() => {
+      cleanup = jest.mocked(useFocusEffect).mock.calls.at(-1)![0]();
+    });
+    act(() => navigation.scrollToTop());
+    expect(scrollTo).toHaveBeenCalledWith({ y: 0, animated: true });
+    act(() => cleanup?.());
+    scrollTo.mockClear();
+    act(() => navigation.scrollToTop());
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+});
+
+it("snaps shelves and scrolls them natively on Android TV, leaving tvOS shelves unmarked", () => {
+  const category = { listKey: "c", title: "Nýtt", programs: [{ listKey: "p", slug: "p", title: "P", thumbnailUrl: null, apiProgramUrl: "" }] };
+  jest.mocked(useKvfResource).mockReturnValue({ data: { featuredPrograms: [], categories: [category] }, isLoading: false, isRefreshing: false, error: null, refresh: jest.fn() } as never);
+  const shelf = () => root.findAll((node) => node.type === TVFocusGuideView && node.props.trapFocusLeft !== undefined)[0];
+  let root = render(<SectionScreen section="sjon" />);
+  expect(shelf().props.scrollSnapAlign).toBeUndefined();
+  act(() => renderer.unmount());
+  renderer = undefined!;
+  asAndroidTV(() => {
+    root = render(<SectionScreen section="sjon" />);
+    expect(shelf().props).toMatchObject({ scrollSnapAlign: "start", collapsable: false });
+    const row = root.findByType(require("react-native").FlatList).props;
+    expect(row.scrollsChildToFocus).toBe(false);
+    expect(row.fadingEdgeLength).toBe(tvSize(60));
+  });
+});
+
 it("pushes each radio choice once per visit and allows selection again after Back", () => {
   const push = jest.fn();
   jest.mocked(useRouter).mockReturnValue({ push } as unknown as ReturnType<typeof useRouter>);
@@ -118,9 +217,9 @@ it("pushes each radio choice once per visit and allows selection again after Bac
   });
   expect(push).toHaveBeenCalledTimes(1);
   expect(push).toHaveBeenLastCalledWith({ pathname: "/(tabs)/ljod/[section]", params: { section: "ljod-vit" } });
-  // React Navigation invokes the registered focus effect after popping.
+  // React Navigation invokes the screen's focus effects after popping.
   act(() => {
-    jest.mocked(useFocusEffect).mock.calls.at(-1)![0]();
+    jest.mocked(useFocusEffect).mock.calls.forEach(([effect]) => effect());
   });
   cards = root.findAllByType(FocusScaleCard);
   act(() => {
@@ -355,6 +454,26 @@ it("handles Android down/up pairs once and both slider directions", () => {
   expect(onPress).toHaveBeenLastCalledWith(slides[0]);
 });
 
+it("advances on Android's release-only short presses and ignores held-button events", () => {
+  jest.replaceProperty(Platform, "OS", "android");
+  const onPress = jest.fn();
+  const root = render(<HeroBanner heroes={slides} onPress={onPress} />);
+  const touchable = root.findByType(TouchableOpacity);
+  act(() => {
+    touchable.props.onFocus();
+  });
+  // react-native-tvos reports a short Android D-pad press only on release.
+  act(() => {
+    tvHandler({ eventType: "right", eventKeyAction: 1 });
+    tvHandler({ eventType: "longRight", eventKeyAction: 0 });
+    tvHandler({ eventType: "longRight", eventKeyAction: 1 });
+  });
+  act(() => {
+    touchable.props.onPress();
+  });
+  expect(onPress).toHaveBeenLastCalledWith(slides[1]);
+});
+
 it("handles consecutive tvOS Ended arrow taps in both directions", () => {
   const onPress = jest.fn();
   const root = render(<HeroBanner heroes={slides} onPress={onPress} />);
@@ -378,14 +497,13 @@ it("handles consecutive tvOS Ended arrow taps in both directions", () => {
   expect(onPress).toHaveBeenLastCalledWith(slides[0]);
 });
 
-it("returns a radio category to its picker through the focused Back handler", () => {
-  const dismissTo = jest.fn();
-  jest.mocked(useRouter).mockReturnValue({ dismissTo } as unknown as ReturnType<typeof useRouter>);
+it("returns a radio category to its picker by popping the tab's own stack", () => {
   render(<LjodSectionScreen />);
   act(() => {
     jest.mocked(useScreenBack).mock.calls.at(-1)![0]();
   });
-  expect(dismissTo).toHaveBeenCalledWith("/(tabs)/ljod");
+  // A URL-based dismissTo re-enters Android TV's JavaScript tabs at Sjón.
+  expect(mockNavigation.dispatch).toHaveBeenCalledWith(StackActions.popTo("index"));
 });
 
 it("gives MiKS heroes with empty slugs independent image cache identities", () => {
@@ -553,4 +671,22 @@ it("keeps the live card target mounted across channel changes and skips unavaila
   expect(root.findAllByType(ButtonVisual)).toHaveLength(0);
   act(() => target.props.onPress());
   expect(props.onPlay).toHaveBeenCalledTimes(1);
+});
+
+it("uses top Android TV tabs without tab history, with all existing routes and detached inactive screens", () => {
+  const descriptor = Object.getOwnPropertyDescriptor(Platform, "OS")!;
+  const tvDescriptor = Object.getOwnPropertyDescriptor(Platform, "isTV")!;
+  Object.defineProperty(Platform, "OS", { configurable: true, value: "android" });
+  Object.defineProperty(Platform, "isTV", { configurable: true, value: true });
+  try {
+    const root = render(<TabLayout />);
+    const tabs = root.findByType("Tabs" as React.ElementType);
+    // Back from a tab returns to the bar, then leaves the app; it never jumps to Sjón.
+    expect(tabs.props).toMatchObject({ backBehavior: "none", detachInactiveScreens: true, screenOptions: { headerShown: false, tabBarPosition: "top", animation: "fade" } });
+    expect(root.findAllByType("TabScreen" as React.ElementType).map((screen) => screen.props.name)).toEqual(["index", "vit", "miks", "ljod", "schedule", "search"]);
+    expect(root.findAllByType(NativeTabs)).toHaveLength(0);
+  } finally {
+    Object.defineProperty(Platform, "OS", descriptor);
+    Object.defineProperty(Platform, "isTV", tvDescriptor);
+  }
 });

@@ -1,6 +1,6 @@
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import { AppState, Text, TouchableOpacity, type AppStateStatus } from "react-native";
+import { AppState, Platform, Text, TouchableOpacity, type AppStateStatus } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import PlayerScreen from "../player";
 import ProgramScreen from "../program";
@@ -322,6 +322,23 @@ it("updates the selected episode when a card is pressed without a focus event", 
 });
 
 // ── Watch progress ─────────────────────────────────────────────────────────────
+
+it("starts Android program focus on Play so opening a program does not immediately scroll past its information", () => {
+  const os = Object.getOwnPropertyDescriptor(Platform, "OS")!;
+  const tv = Object.getOwnPropertyDescriptor(Platform, "isTV")!;
+  Object.defineProperty(Platform, "OS", { configurable: true, value: "android" });
+  Object.defineProperty(Platform, "isTV", { configurable: true, value: true });
+  try {
+    jest.mocked(useLocalSearchParams).mockReturnValue({ section: "sjon", slug: "show" });
+    setProgramPage(selectionPage);
+    render(<ProgramScreen />);
+    expect(host("Button").props.hasTVPreferredFocus).toBe(true);
+    expect(renderer.root.findAllByType(FocusScaleCard).every((card) => !card.props.hasTVPreferredFocus)).toBe(true);
+  } finally {
+    Object.defineProperty(Platform, "OS", os);
+    Object.defineProperty(Platform, "isTV", tv);
+  }
+});
 
 const trackedParams = {
   streamUrl: "https://example.com/1.m3u8",

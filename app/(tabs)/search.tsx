@@ -1,3 +1,6 @@
+import { tvSize } from "@/utils/tvLayout";
+import { tvScreenScrollProps, tvSnap } from "@/utils/tvScroll";
+import { ANDROID_TV_NAV_HEIGHT } from "@/contexts/AndroidTVNavigationContext";
 import { LoadingSpinner } from "@/components/loading-spinner";
 /**
  * Sendingar — searchable list of all KVF programs.
@@ -17,11 +20,14 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { isNativeSearchAvailable, SearchResult, TvosSearchView, type TvosSearchViewRef } from "expo-tvos-search";
 import strings from "@/constants/strings.json";
 import React, { useCallback, useMemo, useRef, useState } from "react";
-import { FlatList, Platform, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 
 const IS_TV = Platform.isTV;
 const NUM_COLS = IS_TV ? 4 : 2;
-const CARD_W = IS_TV ? 360 : 170;
+const CARD_W = IS_TV ? tvSize(360) : 170;
+/** Space around each card (KvfProgramCard's outer padding) and either side of the grid. */
+const CARD_GUTTER = IS_TV ? tvSize(32) : 20;
+const GRID_INSET = IS_TV ? tvSize(60) : 8;
 
 // ── Shared data hook ──────────────────────────────────────────────────────────
 
@@ -125,26 +131,40 @@ function NativeSearchScreen() {
 
 const SearchHeader = React.memo(function SearchHeader({ onChangeText, inputRef }: { onChangeText: (t: string) => void; inputRef: React.RefObject<TextInput | null> }) {
   const [focused, setFocused] = useState(false);
+  const androidTV = Platform.OS === "android" && Platform.isTV;
+  const input = (
+    <TextInput
+      ref={inputRef}
+      placeholder={strings.search.placeholder}
+      placeholderTextColor="#8E8E93"
+      autoCorrect={false}
+      autoCapitalize="none"
+      onChangeText={onChangeText}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={S.searchInput}
+      multiline={false}
+      numberOfLines={1}
+      returnKeyType="search"
+      clearButtonMode="while-editing"
+    />
+  );
 
   return (
     <View style={S.searchContainer}>
-      <View style={[S.searchInputWrapper, focused && S.searchInputWrapperFocused]}>
-        <TextInput
-          ref={inputRef}
-          placeholder={strings.search.placeholder}
-          placeholderTextColor="#8E8E93"
-          autoCorrect={false}
-          autoCapitalize="none"
-          onChangeText={onChangeText}
+      {androidTV ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={strings.search.placeholder}
+          onPress={() => inputRef.current?.focus()}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          style={S.searchInput}
-          multiline={false}
-          numberOfLines={1}
-          returnKeyType="search"
-          clearButtonMode="while-editing"
-        />
-      </View>
+          style={[S.searchInputWrapper, focused && S.searchInputWrapperFocused]}>
+          {input}
+        </Pressable>
+      ) : (
+        <View style={[S.searchInputWrapper, focused && S.searchInputWrapperFocused]}>{input}</View>
+      )}
     </View>
   );
 });
@@ -177,7 +197,17 @@ function ReactNativeSearchScreen() {
     [router],
   );
 
-  const renderItem = useCallback(({ item }: { item: IndexedProgram }) => <KvfProgramCard program={item} onPress={handlePress} cardWidth={CARD_W} />, [handlePress]);
+  // Android TV's results span the screen like the shelves; tvOS uses the native search view.
+  const { width } = useWindowDimensions();
+  const cardWidth = IS_TV ? (width - 2 * GRID_INSET) / NUM_COLS - CARD_GUTTER : CARD_W;
+  const renderItem = useCallback(
+    ({ item }: { item: IndexedProgram }) => (
+      <View {...tvSnap("center")}>
+        <KvfProgramCard program={item} onPress={handlePress} cardWidth={cardWidth} />
+      </View>
+    ),
+    [handlePress, cardWidth],
+  );
 
   const renderEmpty = useCallback(() => {
     if (isLoading) {
@@ -230,7 +260,8 @@ function ReactNativeSearchScreen() {
           contentContainerStyle={S.gridContent}
           columnWrapperStyle={S.columnWrapper}
           showsVerticalScrollIndicator={false}
-          removeClippedSubviews
+          removeClippedSubviews={Platform.OS !== "android"}
+          {...tvScreenScrollProps(0)}
           initialNumToRender={12}
           maxToRenderPerBatch={12}
           keyboardDismissMode="on-drag"
@@ -267,15 +298,15 @@ const S = StyleSheet.create({
   emptyContainer: { flex: 1 },
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0a0a0a" },
   searchContainer: {
-    paddingTop: IS_TV ? 140 : 60,
-    paddingHorizontal: IS_TV ? 80 : 16,
-    paddingBottom: IS_TV ? 24 : 16,
+    paddingTop: IS_TV ? tvSize(Platform.OS === "android" ? ANDROID_TV_NAV_HEIGHT + 40 : 140) : 60,
+    paddingHorizontal: IS_TV ? tvSize(80) : 16,
+    paddingBottom: IS_TV ? tvSize(24) : 16,
     alignItems: "center",
   },
   searchInputWrapper: {
     width: "100%",
-    maxWidth: 800,
-    borderRadius: IS_TV ? 28 : 25,
+    maxWidth: IS_TV ? tvSize(800) : 800,
+    borderRadius: IS_TV ? tvSize(28) : 25,
     overflow: "hidden",
     borderWidth: 2,
     borderColor: "#3A3A3C",
@@ -285,30 +316,30 @@ const S = StyleSheet.create({
   },
   searchInput: {
     width: "100%",
-    minHeight: IS_TV ? 56 : 50,
+    minHeight: IS_TV ? tvSize(56) : 50,
     backgroundColor: "#2C2C2E",
-    paddingHorizontal: IS_TV ? 28 : 20,
-    fontSize: IS_TV ? 28 : 20,
+    paddingHorizontal: IS_TV ? tvSize(28) : 20,
+    fontSize: IS_TV ? tvSize(28) : 20,
     color: "#FFFFFF",
   },
   gridContent: {
-    paddingBottom: IS_TV ? 120 : 80,
-    paddingHorizontal: IS_TV ? 40 : 8,
+    paddingBottom: IS_TV ? tvSize(120) : 80,
+    paddingHorizontal: GRID_INSET,
   },
   columnWrapper: {
     justifyContent: "flex-start",
-    paddingVertical: IS_TV ? 8 : 4,
+    paddingVertical: IS_TV ? tvSize(8) : 4,
   },
   centerContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 40,
-    gap: IS_TV ? 16 : 12,
+    gap: IS_TV ? tvSize(16) : 12,
   },
-  loadingText: { fontSize: IS_TV ? 20 : 16, color: "#98989D", fontWeight: "500" },
-  errorTitle: { fontSize: IS_TV ? 24 : 20, fontWeight: "700", color: "#FFFFFF" },
-  errorText: { fontSize: IS_TV ? 18 : 15, color: "#98989D", textAlign: "center", lineHeight: 24 },
-  emptyText: { fontSize: IS_TV ? 20 : 16, color: "#98989D", textAlign: "center" },
-  resultsLabel: { fontSize: IS_TV ? 16 : 13, color: "#98989D", textAlign: "center", paddingVertical: IS_TV ? 16 : 10 },
+  loadingText: { fontSize: IS_TV ? tvSize(20) : 16, color: "#98989D", fontWeight: "500" },
+  errorTitle: { fontSize: IS_TV ? tvSize(24) : 20, fontWeight: "700", color: "#FFFFFF" },
+  errorText: { fontSize: IS_TV ? tvSize(18) : 15, color: "#98989D", textAlign: "center", lineHeight: 24 },
+  emptyText: { fontSize: IS_TV ? tvSize(20) : 16, color: "#98989D", textAlign: "center" },
+  resultsLabel: { fontSize: IS_TV ? tvSize(16) : 13, color: "#98989D", textAlign: "center", paddingVertical: IS_TV ? tvSize(16) : 10 },
 });

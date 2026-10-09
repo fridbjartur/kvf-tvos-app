@@ -1,3 +1,5 @@
+import { tvSize } from "@/utils/tvLayout";
+import { isRemotePress } from "@/utils/tvRemote";
 /**
  * Up Next for the episode player.
  *
@@ -14,7 +16,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Platform, Pressable, StyleSheet, Text, TVFocusGuideView, useTVEventHandler, View } from "react-native";
 import { DESIGN } from "@/constants/app";
 import strings from "@/constants/strings.json";
 import NativeUpNext from "@/modules/kvf-up-next";
@@ -82,6 +84,14 @@ export function UpNextOverlay({ visible, title, imageUrl, secondsRemaining, lead
 
 /** `onSelect` is null when the native transport bar provides the button. */
 function UpNextCard({ title, imageUrl, countdown, elapsed, onSelect }: { title: string; imageUrl: string | null; countdown: string; elapsed: number; onSelect: (() => void) | null }) {
+  const buttonRef = useRef<View>(null);
+  // ExoPlayer handles directional focus inside its native controls. An explicit
+  // Up press transfers focus to this action; appearance alone never does.
+  useTVEventHandler((event) => {
+    if (Platform.OS === "android" && Platform.isTV && onSelect && isRemotePress(event, "up")) {
+      buttonRef.current?.requestTVFocus();
+    }
+  });
   const [appear] = useState(() => new Animated.Value(0));
   useEffect(() => {
     const animation = Animated.timing(appear, { toValue: 1, duration: 260, useNativeDriver: true });
@@ -90,15 +100,16 @@ function UpNextCard({ title, imageUrl, countdown, elapsed, onSelect }: { title: 
   }, [appear]);
 
   const translateX = appear.interpolate({ inputRange: [0, 1], outputRange: [40, 0] });
+  const Card = Platform.OS === "android" && Platform.isTV && onSelect ? TVFocusGuideView : View;
 
   return (
     <Animated.View style={[styles.container, { opacity: appear, transform: [{ translateX }] }]} pointerEvents={onSelect ? "box-none" : "none"}>
-      <View style={styles.card}>
+      <Card style={styles.card} {...(Card === TVFocusGuideView ? { autoFocus: true } : {})}>
         {imageUrl ? (
           <Image source={{ uri: imageUrl }} style={styles.thumbnail} contentFit="cover" transition={150} />
         ) : (
           <View style={[styles.thumbnail, styles.thumbnailPlaceholder]}>
-            <Ionicons name="tv-outline" size={TV ? 40 : 28} color="rgba(255,255,255,0.4)" />
+            <Ionicons name="tv-outline" size={TV ? tvSize(40) : 28} color="rgba(255,255,255,0.4)" />
           </View>
         )}
 
@@ -109,10 +120,19 @@ function UpNextCard({ title, imageUrl, countdown, elapsed, onSelect }: { title: 
           </Text>
 
           {onSelect ? (
-            <Pressable onPress={onSelect} hasTVPreferredFocus accessibilityRole="button" accessibilityLabel={`${strings.player.upNextAction}: ${title}`} accessibilityHint={countdown}>
+            <Pressable
+              ref={buttonRef}
+              onPress={onSelect}
+              focusable
+              // Android's native controls and this action share directional focus.
+              // Never steal focus from a viewer who is scrubbing when the card appears.
+              hasTVPreferredFocus={Platform.OS !== "android"}
+              accessibilityRole="button"
+              accessibilityLabel={`${strings.player.upNextAction}: ${title}`}
+              accessibilityHint={countdown}>
               {({ focused, pressed }) => (
                 <View style={[styles.button, focused && styles.buttonFocused, pressed && styles.buttonPressed]}>
-                  <Ionicons name="play" size={TV ? 24 : 16} color={focused ? "#000" : "#FFF"} />
+                  <Ionicons name="play" size={TV ? tvSize(24) : 16} color={focused ? "#000" : "#FFF"} />
                   <Text style={[styles.buttonText, focused && styles.buttonTextFocused]}>{strings.player.upNextAction}</Text>
                 </View>
               )}
@@ -124,31 +144,32 @@ function UpNextCard({ title, imageUrl, countdown, elapsed, onSelect }: { title: 
           </View>
           <Text style={styles.countdown}>{countdown}</Text>
         </View>
-      </View>
+      </Card>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   // Bottom right, high enough to clear the transport bar and its button row when the controls are up.
+  // Android TV's controls are centered, so its card sits just above the scrubber instead.
   container: {
     position: "absolute",
-    bottom: TV ? 300 : 100,
-    right: TV ? 80 : 20,
+    bottom: TV ? tvSize(Platform.OS === "android" ? 240 : 300) : 100,
+    right: TV ? tvSize(80) : 20,
     zIndex: 200,
   },
   card: {
     flexDirection: "row",
     alignItems: "center",
-    gap: TV ? 24 : 14,
-    padding: TV ? 18 : 12,
-    borderRadius: TV ? 18 : 12,
+    gap: TV ? tvSize(24) : 14,
+    padding: TV ? tvSize(18) : 12,
+    borderRadius: TV ? tvSize(18) : 12,
     backgroundColor: "rgba(20, 20, 22, 0.85)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.12)",
   },
   thumbnail: {
-    width: TV ? 256 : 128,
+    width: TV ? tvSize(256) : 128,
     aspectRatio: 16 / 9,
     borderRadius: DESIGN.BORDER_RADIUS_SMALL,
     backgroundColor: "#2C2C2E",
@@ -158,19 +179,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   details: {
-    width: TV ? 340 : 170,
-    gap: TV ? 8 : 4,
+    width: TV ? tvSize(340) : 170,
+    gap: TV ? tvSize(8) : 4,
   },
   heading: {
-    fontSize: TV ? 20 : 12,
+    fontSize: TV ? tvSize(20) : 12,
     fontWeight: "600",
     letterSpacing: 0.5,
     color: "rgba(255, 255, 255, 0.6)",
     textTransform: "uppercase",
   },
   title: {
-    fontSize: TV ? 30 : 16,
-    lineHeight: TV ? 36 : 20,
+    fontSize: TV ? tvSize(30) : 16,
+    lineHeight: TV ? tvSize(36) : 20,
     fontWeight: "700",
     color: "#FFF",
   },
@@ -178,9 +199,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
-    gap: TV ? 10 : 6,
-    paddingHorizontal: TV ? 24 : 14,
-    paddingVertical: TV ? 12 : 8,
+    gap: TV ? tvSize(10) : 6,
+    paddingHorizontal: TV ? tvSize(24) : 14,
+    paddingVertical: TV ? tvSize(12) : 8,
     borderRadius: DESIGN.BORDER_RADIUS_SMALL,
     backgroundColor: "rgba(255, 255, 255, 0.18)",
   },
@@ -191,7 +212,7 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   buttonText: {
-    fontSize: TV ? 22 : 14,
+    fontSize: TV ? tvSize(22) : 14,
     fontWeight: "700",
     color: "#FFF",
   },
@@ -200,7 +221,7 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: 4,
-    marginTop: TV ? 4 : 2,
+    marginTop: TV ? tvSize(4) : 2,
     borderRadius: 2,
     backgroundColor: "rgba(255, 255, 255, 0.2)",
     overflow: "hidden",
@@ -210,7 +231,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
   },
   countdown: {
-    fontSize: TV ? 20 : 12,
+    fontSize: TV ? tvSize(20) : 12,
     fontWeight: "500",
     fontVariant: ["tabular-nums"],
     color: "rgba(255, 255, 255, 0.6)",

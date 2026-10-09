@@ -1,6 +1,8 @@
-# KVF for Apple TV
+# KVF for Apple TV and Android TV
 
 An Expo Router app for browsing KVF television and radio programs, playing episodes, searching the catalog, and listening to or watching live channels. Built with React Native TV and `react-native-video`.
+
+For Android / Google TV setup, a standalone tester APK, and remote/device checks, see [Android TV instructions](docs/android-tv.md).
 
 This is an independent client. Catalog metadata comes from a separately deployed `kvf-scraper-api`; media streams come from KVF.
 
@@ -40,6 +42,8 @@ yarn ios:device:release --no-bundler
 This builds and installs locally; it does not upload to TestFlight or the App Store. Device signing still applies. Stop any Xcode debugging session and quit Xcode after testing, then launch KVF from the Apple TV Home Screen. Release playback should also be checked with the Mac disconnected.
 
 The bundle identifier is `dev.fridbjartur.kvf`. This installs separately from the previous `dev.keiver.kvf` app and starts with its own app storage. Select your signing team in Xcode or Expo when installing on a physical device.
+
+The Expo CLI patch in `patches/@expo+cli+56.1.16.patch` allows device builds to create or refresh provisioning profiles even when a signing team is already configured. `yarn install` applies it through `patch-package`. If signing still fails, check that Xcode is signed in to the Apple account for the selected team and that the KVF target has **Automatically manage signing** enabled. The SDWebImage deployment-target warning is separate from provisioning failures.
 
 The app pauses playback when it enters the background and does not automatically resume on foregrounding. Resume with the native player controls. This behavior does not establish the cause of any device-level wake problem; verify sleep on the physical device.
 

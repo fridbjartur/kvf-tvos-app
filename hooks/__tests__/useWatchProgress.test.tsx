@@ -23,8 +23,10 @@ const videoRef = { current: { seek } as unknown as VideoRef };
 
 function Harness(props: { target: WatchTarget | null; next?: WatchTarget | null; fromStart?: boolean }) {
   const result = useWatchProgress({ target: props.target, next: props.next ?? null, fromStart: props.fromStart, videoRef });
-  callbacks = result.callbacks;
-  holdPlayback = result.holdPlayback;
+  React.useLayoutEffect(() => {
+    callbacks = result.callbacks;
+    holdPlayback = result.holdPlayback;
+  });
   return null;
 }
 

@@ -1,3 +1,4 @@
+import { tvSize } from "@/utils/tvLayout";
 import { LoadingSpinner } from "@/components/loading-spinner";
 /**
  * SectionScreen — the front page for one section: hero banner plus a
@@ -19,19 +20,28 @@ import strings from "@/constants/strings.json";
 import { useKvfResource } from "@/hooks/useKvfResource";
 import { frontPageResource } from "@/services/kvfApi";
 import type { Category, FrontPage, ProgramCard } from "@/types/kvf";
+import { tvRowScrollProps, tvSnap } from "@/utils/tvScroll";
 import { useRouter } from "expo-router";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { FlatList, Platform, StyleSheet, Text, TVFocusGuideView, View } from "react-native";
 
 const IS_TV = Platform.isTV;
-const CARD_W = IS_TV ? 360 : 220;
-const ROW_GAP = IS_TV ? 56 : 32;
+const ANDROID_TV = IS_TV && Platform.OS === "android";
+const CARD_W = IS_TV ? tvSize(360) : 220;
+const ROW_GAP = IS_TV ? tvSize(56) : 32;
 
-function CategoryRow({ category, onPress }: { category: Category; onPress: (p: ProgramCard) => void }) {
-  const renderItem = useCallback(({ item, index }: { item: ProgramCard; index: number }) => <KvfProgramCard program={item} onPress={onPress} cardWidth={CARD_W} index={index} />, [onPress]);
+function CategoryRow({ category, onPress, focusFirst = false }: { category: Category; onPress: (p: ProgramCard) => void; focusFirst?: boolean }) {
+  // Captured at mount: preferred focus applies to the first card once.
+  const [focusFirstOnMount] = useState(focusFirst);
+  const renderItem = useCallback(
+    ({ item, index }: { item: ProgramCard; index: number }) => (
+      <KvfProgramCard program={item} onPress={onPress} cardWidth={CARD_W} index={index} hasTVPreferredFocus={focusFirstOnMount && index === 0} />
+    ),
+    [onPress, focusFirstOnMount],
+  );
 
   return (
-    <TVFocusGuideView autoFocus>
+    <TVFocusGuideView autoFocus {...tvSnap()} trapFocusLeft={ANDROID_TV} trapFocusRight={ANDROID_TV}>
       <Text style={S.categoryTitle}>{category.title}</Text>
       <FlatList
         data={category.programs}
@@ -43,13 +53,18 @@ function CategoryRow({ category, onPress }: { category: Category; onPress: (p: P
         style={S.rowList}
         removeClippedSubviews={false}
         initialNumToRender={6}
+        {...tvRowScrollProps()}
       />
     </TVFocusGuideView>
   );
 }
 
-/** `showContinueWatching` adds the viewer's Continue Watching row under the hero (home only). */
-export function SectionScreen({ section, showContinueWatching = false }: { section: SectionId; showContinueWatching?: boolean }) {
+/**
+ * `showContinueWatching` adds the viewer's Continue Watching row under the hero (home only).
+ * `focusContentOnLoad` focuses the first content once, when it mounts, for screens
+ * pushed from a picker; Android TV has no focus engine to choose it.
+ */
+export function SectionScreen({ section, showContinueWatching = false, focusContentOnLoad = false }: { section: SectionId; showContinueWatching?: boolean; focusContentOnLoad?: boolean }) {
   const router = useRouter();
 
   // Rebuilt each render, but useKvfResource keys off `resource.key` only.
@@ -72,7 +87,7 @@ export function SectionScreen({ section, showContinueWatching = false }: { secti
   );
 
   return (
-    <TVScreenScrollView isRefreshing={isRefreshing}>
+    <TVScreenScrollView isRefreshing={isRefreshing} underNavigation={featured.length > 0}>
       {isLoading && !page ? (
         <View style={S.center}>
           <LoadingSpinner size="large" />
@@ -84,11 +99,11 @@ export function SectionScreen({ section, showContinueWatching = false }: { secti
         </View>
       ) : (
         <>
-          {featured.length > 0 && <HeroBanner heroes={featured} onPress={handleProgramPress} />}
+          {featured.length > 0 && <HeroBanner heroes={featured} onPress={handleProgramPress} hasTVPreferredFocus={focusContentOnLoad} />}
           <View style={S.categories}>
             {showContinueWatching && <ContinueWatchingRow />}
-            {categories.map((cat) => (
-              <CategoryRow key={cat.listKey} category={cat} onPress={handleProgramPress} />
+            {categories.map((cat, index) => (
+              <CategoryRow key={cat.listKey} category={cat} onPress={handleProgramPress} focusFirst={focusContentOnLoad && featured.length === 0 && index === 0} />
             ))}
           </View>
           <View style={S.bottomPad} />
@@ -101,10 +116,10 @@ export function SectionScreen({ section, showContinueWatching = false }: { secti
 // Named "S" not "styles" — prevents editor auto-import from shadowing the local definition.
 const S = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0a0a0a" },
-  errorText: { color: "#FF3B30", fontSize: IS_TV ? 20 : 15, textAlign: "center", padding: 32 },
-  categories: { marginTop: IS_TV ? 40 : 24, gap: ROW_GAP },
-  categoryTitle: { color: "#FFFFFF", fontSize: IS_TV ? 30 : 16, fontWeight: "600", marginBottom: 2, marginLeft: IS_TV ? 76 : 20, letterSpacing: -0.2 },
+  errorText: { color: "#FF3B30", fontSize: IS_TV ? tvSize(20) : 15, textAlign: "center", padding: 32 },
+  categories: { marginTop: IS_TV ? tvSize(40) : 24, gap: ROW_GAP },
+  categoryTitle: { color: "#FFFFFF", fontSize: IS_TV ? tvSize(30) : 16, fontWeight: "600", marginBottom: 2, marginLeft: IS_TV ? tvSize(76) : 20, letterSpacing: -0.2 },
   rowList: { overflow: "visible" },
-  rowContent: { paddingHorizontal: IS_TV ? 60 : 12 },
-  bottomPad: { height: IS_TV ? 240 : 80 },
+  rowContent: { paddingHorizontal: IS_TV ? tvSize(60) : 12 },
+  bottomPad: { height: IS_TV ? tvSize(240) : 80 },
 });

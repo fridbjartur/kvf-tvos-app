@@ -1,6 +1,7 @@
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import { FlatList, StyleSheet } from "react-native";
+import { FlatList, Platform, StyleSheet, TextInput } from "react-native";
+import strings from "@/constants/strings.json";
 import SearchScreen from "../(tabs)/search";
 import { TvosSearchView } from "expo-tvos-search";
 import { useKvfResource } from "@/hooks/useKvfResource";
@@ -99,4 +100,26 @@ it("scrolls fallback results to the top each time the tab becomes active", () =>
   render();
   expect(mockScrollToOffset).toHaveBeenCalledTimes(1);
   expect(mockScrollToOffset).toHaveBeenCalledWith({ offset: 0, animated: false });
+});
+
+it("offers a remote-selectable Android TV search control that focuses the system text input", () => {
+  const os = Object.getOwnPropertyDescriptor(Platform, "OS")!;
+  const tv = Object.getOwnPropertyDescriptor(Platform, "isTV")!;
+  Object.defineProperty(Platform, "OS", { configurable: true, value: "android" });
+  Object.defineProperty(Platform, "isTV", { configurable: true, value: true });
+  mockNativeAvailable = false;
+  try {
+    render();
+    const header = renderer.root.find((node) => typeof node.type === "function" && node.type.name === "SearchHeader");
+    const focus = jest.fn();
+    header.props.inputRef.current = { focus };
+    const button = renderer.root.findAll((node) => node.props.accessibilityRole === "button" && node.props.accessibilityLabel === strings.search.placeholder, { deep: false })[0];
+    act(() => button.props.onPress());
+    expect(focus).toHaveBeenCalledTimes(1);
+    expect(renderer.root.findAllByType(TextInput)).toHaveLength(1);
+    expect(renderer.root.findByType(FlatList).props.removeClippedSubviews).toBe(false);
+  } finally {
+    Object.defineProperty(Platform, "OS", os);
+    Object.defineProperty(Platform, "isTV", tv);
+  }
 });

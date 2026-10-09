@@ -7,7 +7,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Animated, TouchableOpacity, type AccessibilityRole, type AccessibilityState, type StyleProp, type ViewStyle } from "react-native";
+import { Animated, TouchableOpacity, type AccessibilityRole, type AccessibilityState, type StyleProp, type View, type ViewStyle } from "react-native";
+import { useTVFocusMemory } from "@/contexts/TVFocusMemoryContext";
 
 const SPRING = { tension: 220, friction: 22, useNativeDriver: true } as const;
 
@@ -102,19 +103,25 @@ export function FocusScaleCard({
   footer,
 }: FocusScaleCardProps) {
   const { focused, scale, borderOpacity, onFocus: animateFocus, onBlur: animateBlur } = useFocusSpring({ scaleTo, restBorderOpacity });
+  // Android TV: lets the screen refocus this card when a detail screen it opened closes.
+  const focusMemory = useTVFocusMemory();
+  const viewRef = useRef<View>(null);
 
   const handleFocus = useCallback(() => {
     animateFocus();
+    if (viewRef.current) focusMemory?.focused(viewRef.current);
     onFocus?.();
-  }, [animateFocus, onFocus]);
+  }, [animateFocus, focusMemory, onFocus]);
 
   const handleBlur = useCallback(() => {
     animateBlur();
+    if (viewRef.current) focusMemory?.blurred(viewRef.current);
     onBlur?.();
-  }, [animateBlur, onBlur]);
+  }, [animateBlur, focusMemory, onBlur]);
 
   return (
     <TouchableOpacity
+      ref={viewRef}
       onPress={onPress}
       onLongPress={onLongPress}
       onFocus={handleFocus}

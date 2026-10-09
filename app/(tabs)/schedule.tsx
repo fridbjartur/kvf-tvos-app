@@ -1,3 +1,5 @@
+import { tvSize } from "@/utils/tvLayout";
+import { tvSnap } from "@/utils/tvScroll";
 /**
  * Beinleiðis — what is on air now, the live channels, and the day's schedule.
  *
@@ -132,14 +134,14 @@ export default function ScheduleScreen() {
 
   return (
     <TVScreenScrollView contentContainerStyle={S.scrollContent} isRefreshing={showRefreshPip}>
-      <View style={S.header}>
+      <View style={S.header} {...tvSnap()}>
         <Text style={S.pageTitle}>{strings.tabs.live}</Text>
         <TVFocusGuideView autoFocus>
           <SegmentedTabs items={CHANNEL_TABS} selected={channel} onSelect={handleChannel} />
         </TVFocusGuideView>
       </View>
 
-      <View style={[S.featured, wideLayout && S.featuredWide]}>
+      <View style={[S.featured, wideLayout && S.featuredWide]} {...tvSnap()}>
         <View style={S.heroColumn}>
           <NowPlayingCard
             entry={nowPlaying}
@@ -163,7 +165,7 @@ export default function ScheduleScreen() {
       </View>
 
       <View style={S.block}>
-        <TVFocusGuideView autoFocus style={S.scheduleHeader}>
+        <TVFocusGuideView autoFocus style={S.scheduleHeader} {...tvSnap()}>
           <Text style={S.sectionHeading}>{strings.schedule.scheduleHeading}</Text>
           <View style={S.dayNav}>
             <FocusableButton title={strings.schedule.previousDay} onPress={goPreviousDay} disabled={!view?.previousDate} style={S.dayButton} />
@@ -199,7 +201,9 @@ export default function ScheduleScreen() {
           <View style={S.entries}>
             {/* nowPlaying is reference-identical to its row, so "is this on air?" is a === check. */}
             {view?.entries.map((entry) => (
-              <ScheduleEntryRow key={entry.listKey} entry={entry} isNow={entry === nowPlaying} onPress={handleEntryPress} />
+              <View key={entry.listKey} {...tvSnap("center")}>
+                <ScheduleEntryRow entry={entry} isNow={entry === nowPlaying} onPress={handleEntryPress} />
+              </View>
             ))}
           </View>
         )}
@@ -212,37 +216,37 @@ export default function ScheduleScreen() {
 
 // Named "S" not "styles" — prevents editor auto-import from shadowing the local definition.
 const S = StyleSheet.create({
-  scrollContent: { paddingTop: IS_TV ? 32 : 24 },
+  scrollContent: { paddingTop: IS_TV ? tvSize(32) : 24 },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     flexWrap: "wrap",
-    gap: IS_TV ? 24 : 16,
-    paddingHorizontal: IS_TV ? 80 : 24,
+    gap: IS_TV ? tvSize(24) : 16,
+    paddingHorizontal: IS_TV ? tvSize(80) : 24,
   },
-  pageTitle: { color: "#FFFFFF", fontSize: IS_TV ? 48 : 30, lineHeight: IS_TV ? 58 : 38, fontWeight: "800", letterSpacing: -1 },
-  featured: { marginTop: IS_TV ? 28 : 24, marginHorizontal: IS_TV ? 80 : 24, gap: IS_TV ? 28 : 24 },
+  pageTitle: { color: "#FFFFFF", fontSize: IS_TV ? tvSize(48) : 30, lineHeight: IS_TV ? tvSize(58) : 38, fontWeight: "800", letterSpacing: -1 },
+  featured: { marginTop: IS_TV ? tvSize(28) : 24, marginHorizontal: IS_TV ? tvSize(80) : 24, gap: IS_TV ? tvSize(28) : 24 },
   featuredWide: { flexDirection: "row", alignItems: "stretch" },
   heroColumn: { flex: 2, minWidth: 0 },
-  channelsColumn: { gap: IS_TV ? 16 : 12 },
+  channelsColumn: { gap: IS_TV ? tvSize(16) : 12 },
   channelsColumnWide: { flex: 1, minWidth: 0 },
-  channelsHeading: { color: "#A9A9B3", fontSize: IS_TV ? 18 : 14, fontWeight: "600", letterSpacing: 0.3 },
+  channelsHeading: { color: "#A9A9B3", fontSize: IS_TV ? tvSize(18) : 14, fontWeight: "600", letterSpacing: 0.3 },
   block: {
-    marginTop: IS_TV ? 40 : 32,
-    paddingHorizontal: IS_TV ? 80 : 24,
-    gap: IS_TV ? 20 : 16,
+    marginTop: IS_TV ? tvSize(40) : 32,
+    paddingHorizontal: IS_TV ? tvSize(80) : 24,
+    gap: IS_TV ? tvSize(20) : 16,
   },
   sectionHeading: {
     color: "rgba(255,255,255,0.85)",
-    fontSize: IS_TV ? 28 : 16,
+    fontSize: IS_TV ? tvSize(28) : 16,
     fontWeight: "700",
     letterSpacing: -0.3,
   },
   channelGrid: {
     flexDirection: "row",
     flex: 1,
-    gap: IS_TV ? 20 : 12,
+    gap: IS_TV ? tvSize(20) : 12,
   },
   channelGridVertical: { flexDirection: "column" },
   scheduleHeader: {
@@ -250,49 +254,49 @@ const S = StyleSheet.create({
     alignItems: "center",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    gap: IS_TV ? 24 : 14,
+    gap: IS_TV ? tvSize(24) : 14,
   },
   dayNav: {
     flexDirection: "row",
     alignItems: "center",
-    gap: IS_TV ? 16 : 8,
+    gap: IS_TV ? tvSize(16) : 8,
   },
   dayButton: {
-    minWidth: IS_TV ? 56 : 44,
-    minHeight: IS_TV ? 56 : 44,
-    paddingHorizontal: IS_TV ? 16 : 10,
+    minWidth: IS_TV ? tvSize(56) : 44,
+    minHeight: IS_TV ? tvSize(56) : 44,
+    paddingHorizontal: IS_TV ? tvSize(16) : 10,
     paddingVertical: 4,
   },
   dayLabels: {
-    minWidth: IS_TV ? 240 : 132,
+    minWidth: IS_TV ? tvSize(240) : 132,
     alignItems: "center",
   },
   dayLabel: {
     color: "#FFFFFF",
-    fontSize: IS_TV ? 24 : 14,
+    fontSize: IS_TV ? tvSize(24) : 14,
     fontWeight: "600",
     letterSpacing: -0.3,
   },
   weekday: {
     color: "#A9A9B3",
-    fontSize: IS_TV ? 16 : 11,
+    fontSize: IS_TV ? tvSize(16) : 11,
     fontWeight: "500",
     marginTop: 2,
   },
   entries: {
-    gap: IS_TV ? 8 : 6,
+    gap: IS_TV ? tvSize(8) : 6,
   },
-  skeletonRow: { flexDirection: "row", alignItems: "flex-start", gap: IS_TV ? 32 : 20, padding: IS_TV ? 24 : 16, borderRadius: 12, backgroundColor: "#141416" },
-  skeletonTime: { width: IS_TV ? 80 : 44, height: IS_TV ? 24 : 18, borderRadius: 4 },
-  skeletonCopy: { flex: 1, gap: IS_TV ? 12 : 8 },
-  skeletonTitle: { width: "44%", height: IS_TV ? 24 : 18, borderRadius: 4 },
-  skeletonDescription: { width: "72%", height: IS_TV ? 16 : 12, borderRadius: 4 },
+  skeletonRow: { flexDirection: "row", alignItems: "flex-start", gap: IS_TV ? tvSize(32) : 20, padding: IS_TV ? tvSize(24) : 16, borderRadius: 12, backgroundColor: "#141416" },
+  skeletonTime: { width: IS_TV ? tvSize(80) : 44, height: IS_TV ? tvSize(24) : 18, borderRadius: 4 },
+  skeletonCopy: { flex: 1, gap: IS_TV ? tvSize(12) : 8 },
+  skeletonTitle: { width: "44%", height: IS_TV ? tvSize(24) : 18, borderRadius: 4 },
+  skeletonDescription: { width: "72%", height: IS_TV ? tvSize(16) : 12, borderRadius: 4 },
   status: {
-    paddingVertical: IS_TV ? 90 : 44,
+    paddingVertical: IS_TV ? tvSize(90) : 44,
     alignItems: "center",
     justifyContent: "center",
   },
-  errorText: { color: "#FF3B30", fontSize: IS_TV ? 20 : 15, textAlign: "center", padding: 32 },
-  emptyText: { color: "#98989D", fontSize: IS_TV ? 20 : 15, textAlign: "center" },
-  bottomPad: { height: IS_TV ? 100 : 48 },
+  errorText: { color: "#FF3B30", fontSize: IS_TV ? tvSize(20) : 15, textAlign: "center", padding: 32 },
+  emptyText: { color: "#98989D", fontSize: IS_TV ? tvSize(20) : 15, textAlign: "center" },
+  bottomPad: { height: IS_TV ? tvSize(100) : 48 },
 });

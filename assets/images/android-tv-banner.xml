@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Native vector launcher artwork: 16:9, with the KVF name baked into the paths. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp" android:height="180dp"
+    android:viewportWidth="320" android:viewportHeight="180">
+  <path android:fillColor="#141414" android:pathData="M0,0H320V180H0Z" />
+  <path android:fillColor="#34336B" android:pathData="M0,0H320V12H0Z" />
+  <path android:fillColor="#FFFFFF" android:pathData="M76,57H90V82L111,57H129L103,87L131,123H113L90,94V123H76Z M135,57H151L168,104L185,57H201L176,123H160Z M210,57H253V71H225V85H250V99H225V123H210Z" />
+</vector>

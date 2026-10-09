@@ -43,7 +43,10 @@
     "prebuild:tv": "EXPO_TV=1 expo prebuild --clean",
     "prebuild": "expo prebuild --clean",
     "postinstall": "patch-package --error-on-fail",
-    "prepare": "husky"
+    "prepare": "husky",
+    "prebuild:android:tv": "EXPO_TV=1 expo prebuild --platform android --clean",
+    "android:tv": "EXPO_TV=1 expo run:android",
+    "android:tv:apk": "node scripts/build-android-tv-apk.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "~56.0.15",

@@ -1,3 +1,5 @@
+import { tvSize } from "@/utils/tvLayout";
+import { tvRowScrollProps, tvSnap } from "@/utils/tvScroll";
 /**
  * Halt fram at hyggja — the home screen's Continue Watching row.
  *
@@ -28,7 +30,7 @@ import { memo, useCallback, useRef } from "react";
 import { AppState, FlatList, Platform, StyleSheet, Text, TVFocusGuideView, View } from "react-native";
 
 const IS_TV = Platform.isTV;
-const CARD_W = IS_TV ? 360 : 220;
+const CARD_W = IS_TV ? tvSize(360) : 220;
 
 function isForeground(): boolean {
   return AppState.currentState === null || AppState.currentState === "active";
@@ -188,7 +190,7 @@ export function ContinueWatchingRow() {
   if (entries.length === 0) return null;
 
   return (
-    <TVFocusGuideView autoFocus>
+    <TVFocusGuideView autoFocus {...tvSnap()} trapFocusLeft={Platform.OS === "android"} trapFocusRight={Platform.OS === "android"}>
       <Text style={S.heading}>{strings.watch_progress.continue_watching_heading}</Text>
       <FlatList
         data={entries}
@@ -200,6 +202,7 @@ export function ContinueWatchingRow() {
         style={S.rowList}
         removeClippedSubviews={false}
         initialNumToRender={6}
+        {...tvRowScrollProps()}
       />
     </TVFocusGuideView>
   );
@@ -208,36 +211,36 @@ export function ContinueWatchingRow() {
 // Named "S" (not "styles") to prevent editor auto-import from shadowing this with an external module.
 const S = StyleSheet.create({
   // Matches the category rows in section-screen so the shelves line up.
-  heading: { color: "#FFFFFF", fontSize: IS_TV ? 30 : 16, fontWeight: "600", marginBottom: 2, marginLeft: IS_TV ? 76 : 20, letterSpacing: -0.2 },
+  heading: { color: "#FFFFFF", fontSize: IS_TV ? tvSize(30) : 16, fontWeight: "600", marginBottom: 2, marginLeft: IS_TV ? tvSize(76) : 20, letterSpacing: -0.2 },
   rowList: { overflow: "visible" },
-  rowContent: { paddingHorizontal: IS_TV ? 60 : 12 },
+  rowContent: { paddingHorizontal: IS_TV ? tvSize(60) : 12 },
   outer: {
-    width: CARD_W + (IS_TV ? 32 : 20),
-    paddingHorizontal: IS_TV ? 16 : 10,
-    paddingVertical: IS_TV ? 18 : 12,
+    width: CARD_W + (IS_TV ? tvSize(32) : 20),
+    paddingHorizontal: IS_TV ? tvSize(16) : 10,
+    paddingVertical: IS_TV ? tvSize(18) : 12,
   },
   card: {
     width: CARD_W,
     aspectRatio: 16 / 9,
-    marginBottom: IS_TV ? 14 : 6,
+    marginBottom: IS_TV ? tvSize(14) : 6,
     overflow: "hidden",
     borderRadius: DESIGN.BORDER_RADIUS_SMALL,
     backgroundColor: "#1C1C1E",
   },
   image: { width: "100%", height: "100%" },
   placeholder: { width: "100%", height: "100%", justifyContent: "center", alignItems: "center", padding: 16 },
-  placeholderText: { color: "#636366", fontSize: IS_TV ? 18 : 13, fontWeight: "600", textAlign: "center" },
+  placeholderText: { color: "#636366", fontSize: IS_TV ? tvSize(18) : 13, fontWeight: "600", textAlign: "center" },
   border: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    borderWidth: IS_TV ? 3 : 2,
+    borderWidth: IS_TV ? tvSize(3) : 2,
     borderColor: "#FFFFFF",
     borderRadius: DESIGN.BORDER_RADIUS_SMALL,
   },
-  title: { color: "#FFFFFF", fontSize: IS_TV ? 19 : 12, fontWeight: "700", lineHeight: IS_TV ? 24 : 16 },
-  episode: { color: "rgba(255,255,255,0.75)", fontSize: IS_TV ? 16 : 11, lineHeight: IS_TV ? 22 : 15, marginTop: 2 },
-  detail: { color: "#98989D", fontSize: IS_TV ? 14 : 10, marginTop: 2 },
+  title: { color: "#FFFFFF", fontSize: IS_TV ? tvSize(19) : 12, fontWeight: "700", lineHeight: IS_TV ? tvSize(24) : 16 },
+  episode: { color: "rgba(255,255,255,0.75)", fontSize: IS_TV ? tvSize(16) : 11, lineHeight: IS_TV ? tvSize(22) : 15, marginTop: 2 },
+  detail: { color: "#98989D", fontSize: IS_TV ? tvSize(14) : 10, marginTop: 2 },
 });

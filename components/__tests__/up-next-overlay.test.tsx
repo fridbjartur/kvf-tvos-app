@@ -1,8 +1,18 @@
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import { Pressable, Text } from "react-native";
+import { Platform, Text } from "react-native";
 import strings from "@/constants/strings.json";
 import { UpNextOverlay, formatUpNextCountdown } from "../up-next-overlay";
+
+let mockRemoteHandler: ((event: { eventType: string; eventKeyAction: number }) => void) | undefined;
+const mockRequestFocus = jest.fn();
+jest.mock("react-native", () =>
+  Object.defineProperty(Object.create(jest.requireActual("react-native")), "useTVEventHandler", {
+    value: (handler: typeof mockRemoteHandler) => {
+      mockRemoteHandler = handler;
+    },
+  }),
+);
 
 jest.mock("@expo/vector-icons/Ionicons", () => "Ionicons");
 jest.mock("expo-image", () => ({ Image: "Image" }));
@@ -47,6 +57,10 @@ async function render(element: React.ReactElement) {
 async function update(element: React.ReactElement) {
   await act(async () => renderer.update(element));
 }
+function buttons() {
+  return renderer.root.findAll((node) => node.props.accessibilityRole === "button" && typeof node.props.onPress === "function", { deep: false });
+}
+
 function texts() {
   return renderer.root.findAllByType(Text).map((node) => node.props.children);
 }
@@ -70,7 +84,7 @@ describe("with the native transport bar button", () => {
     await render(<UpNextOverlay {...defaultProps} />);
     expect(mockNative.show).toHaveBeenCalledTimes(1);
     expect(mockNative.show).toHaveBeenCalledWith(strings.player.upNextHeading);
-    expect(renderer.root.findAllByType(Pressable)).toHaveLength(0);
+    expect(buttons()).toHaveLength(0);
     expect(texts()).toEqual(expect.arrayContaining([strings.player.upNextHeading, defaultProps.title, formatUpNextCountdown(15)]));
   });
 
@@ -117,7 +131,7 @@ describe("with the native transport bar button", () => {
   it("gives the card its own button when no native player controller is on screen", async () => {
     mockNative = createNative(false);
     await render(<UpNextOverlay {...defaultProps} />);
-    expect(renderer.root.findByType(Pressable).props.hasTVPreferredFocus).toBe(true);
+    expect(buttons()[0].props.hasTVPreferredFocus).toBe(true);
   });
 });
 
@@ -131,7 +145,7 @@ describe("without the native module", () => {
     const onSelect = jest.fn();
     await render(<UpNextOverlay {...defaultProps} onSelect={onSelect} />);
     expect(texts()).toContain(strings.player.upNextAction);
-    act(() => renderer.root.findByType(Pressable).props.onPress());
+    act(() => buttons()[0].props.onPress());
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
 
@@ -140,4 +154,33 @@ describe("without the native module", () => {
     await render(<UpNextOverlay {...defaultProps} onSelect={onSelect} secondsRemaining={0} />);
     expect(onSelect).not.toHaveBeenCalled();
   });
+});
+
+it("does not take focus from Android player controls when Up Next appears", async () => {
+  const descriptor = Object.getOwnPropertyDescriptor(Platform, "OS")!;
+  const tvDescriptor = Object.getOwnPropertyDescriptor(Platform, "isTV")!;
+  Object.defineProperty(Platform, "OS", { configurable: true, value: "android" });
+  Object.defineProperty(Platform, "isTV", { configurable: true, value: true });
+  try {
+    const onSelect = jest.fn();
+    await render(<UpNextOverlay {...defaultProps} onSelect={onSelect} />);
+    expect(buttons()).toHaveLength(1);
+    expect(buttons()[0].props.hasTVPreferredFocus).toBe(false);
+    expect(buttons()[0].props.focusable).toBe(true);
+    expect(renderer.root.findAllByProps({ autoFocus: true }).length).toBeGreaterThan(0);
+    // Jest's native View mock does not implement the TV focus command.
+    buttons()[0].props.ref.current.requestTVFocus = mockRequestFocus;
+    mockRequestFocus.mockClear();
+    // Android reports a short press on release; other keys and the press itself are ignored.
+    act(() => mockRemoteHandler?.({ eventType: "right", eventKeyAction: 1 }));
+    act(() => mockRemoteHandler?.({ eventType: "up", eventKeyAction: 0 }));
+    expect(mockRequestFocus).not.toHaveBeenCalled();
+    act(() => mockRemoteHandler?.({ eventType: "up", eventKeyAction: 1 }));
+    expect(mockRequestFocus).toHaveBeenCalledTimes(1);
+    act(() => buttons()[0].props.onPress());
+    expect(onSelect).toHaveBeenCalledTimes(1);
+  } finally {
+    Object.defineProperty(Platform, "OS", descriptor);
+    Object.defineProperty(Platform, "isTV", tvDescriptor);
+  }
 });

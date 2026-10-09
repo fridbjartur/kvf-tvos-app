@@ -1,3 +1,4 @@
+import { tvSize } from "@/utils/tvLayout";
 import { logger } from "@/utils/logger";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import React from "react";
@@ -61,7 +62,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       return (
         <View style={styles.container}>
           <View style={styles.content}>
-            <Ionicons name="alert-circle" size={Platform.isTV ? 80 : 64} color="#FF3B30" />
+            <Ionicons name="alert-circle" size={Platform.isTV ? tvSize(80) : 64} color="#FF3B30" />
 
             <Text style={styles.title}>Something Went Wrong</Text>
 
@@ -76,9 +77,9 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
               </View>
             )}
 
-            <FocusableButton title="Try Again" onPress={this.handleRetry} hasTVPreferredFocus={true} style={{ marginTop: Platform.isTV ? 48 : 32 }} />
+            <FocusableButton title="Try Again" onPress={this.handleRetry} hasTVPreferredFocus={true} style={{ marginTop: Platform.isTV ? tvSize(48) : 32 }} />
 
-            <FocusableButton title="Reload App" onPress={this.handleReload} style={{ marginTop: Platform.isTV ? 20 : 16 }} />
+            <FocusableButton title="Reload App" onPress={this.handleReload} style={{ marginTop: Platform.isTV ? tvSize(20) : 16 }} />
           </View>
         </View>
       );
@@ -94,48 +95,48 @@ const styles = StyleSheet.create({
     backgroundColor: "#3d3d3d",
     justifyContent: "center",
     alignItems: "center",
-    padding: Platform.isTV ? 60 : 40,
+    padding: Platform.isTV ? tvSize(60) : 40,
   },
   content: {
-    maxWidth: Platform.isTV ? 800 : 400,
+    maxWidth: Platform.isTV ? tvSize(800) : 400,
     width: "100%",
     alignItems: "center",
   },
   title: {
-    marginTop: Platform.isTV ? 32 : 24,
-    fontSize: Platform.isTV ? 36 : 28,
+    marginTop: Platform.isTV ? tvSize(32) : 24,
+    fontSize: Platform.isTV ? tvSize(36) : 28,
     fontWeight: "700",
     color: "#FFFFFF",
     textAlign: "center",
   },
   message: {
-    marginTop: Platform.isTV ? 20 : 16,
-    fontSize: Platform.isTV ? 22 : 18,
+    marginTop: Platform.isTV ? tvSize(20) : 16,
+    fontSize: Platform.isTV ? tvSize(22) : 18,
     fontWeight: "400",
     color: "#98989D",
     textAlign: "center",
-    lineHeight: Platform.isTV ? 32 : 26,
-    paddingHorizontal: Platform.isTV ? 40 : 20,
+    lineHeight: Platform.isTV ? tvSize(32) : 26,
+    paddingHorizontal: Platform.isTV ? tvSize(40) : 20,
   },
   debugContainer: {
-    marginTop: Platform.isTV ? 32 : 24,
-    padding: Platform.isTV ? 20 : 16,
+    marginTop: Platform.isTV ? tvSize(32) : 24,
+    padding: Platform.isTV ? tvSize(20) : 16,
     backgroundColor: "rgba(255, 59, 48, 0.1)",
-    borderRadius: Platform.isTV ? 16 : 12,
+    borderRadius: Platform.isTV ? tvSize(16) : 12,
     borderWidth: 1,
     borderColor: "rgba(255, 59, 48, 0.3)",
     width: "100%",
   },
   debugTitle: {
-    fontSize: Platform.isTV ? 18 : 14,
+    fontSize: Platform.isTV ? tvSize(18) : 14,
     fontWeight: "600",
     color: "#FF3B30",
-    marginBottom: Platform.isTV ? 12 : 8,
+    marginBottom: Platform.isTV ? tvSize(12) : 8,
   },
   debugText: {
-    fontSize: Platform.isTV ? 16 : 12,
+    fontSize: Platform.isTV ? tvSize(16) : 12,
     fontFamily: Platform.select({ ios: "Menlo", default: "monospace" }),
     color: "#98989D",
-    lineHeight: Platform.isTV ? 22 : 18,
+    lineHeight: Platform.isTV ? tvSize(22) : 18,
   },
 });

@@ -2,7 +2,7 @@
   "expo": {
     "name": "KVF",
     "slug": "kvf",
-    "description": "Watch KVF television and listen to KVF radio on your Apple TV.",
+    "description": "Watch KVF television and listen to KVF radio on Apple TV and Android TV.",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
@@ -50,11 +50,13 @@
         "@react-native-tvos/config-tv",
         {
           "isTV": true,
-          "tvosDeploymentTarget": "16.4"
+          "tvosDeploymentTarget": "16.4",
+          "androidTVRequired": true
         }
       ],
       "./plugins/withTVImageAssets",
-      "expo-font"
+      "expo-font",
+      "./plugins/withAndroidTV"
     ],
     "experiments": {
       "typedRoutes": true,

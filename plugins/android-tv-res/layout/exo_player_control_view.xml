@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  KVF's Android TV playback controls. Replaces Media3's phone-oriented
+  exo_player_control_view so react-native-video's PlayerView keeps Media3's
+  remote handling, focus and track menus, laid out for a television:
+
+  - centered rewind, play/pause and fast-forward, with play/pause focused first;
+  - a full-width scrubber with elapsed time and duration;
+  - subtitles and settings (audio track, speed) only.
+
+  There is no previous/next, fullscreen, VR, shuffle, repeat or overflow
+  button: playback is always fullscreen and Up Next handles the episode queue.
+  Media3 treats every control as optional. The containers keep their Media3 ids
+  for its show/hide animations.
+-->
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <!-- 0dp: expanded to the player's size in code (see Media3's default layout). -->
+  <View android:id="@id/exo_controls_background"
+      android:layout_width="0dp"
+      android:layout_height="0dp"
+      android:background="@drawable/kvf_player_scrim"/>
+
+  <!-- First in the hierarchy, so focus recovery reaches it before the bottom bar. -->
+  <LinearLayout android:id="@id/exo_center_controls"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_gravity="center"
+      android:gravity="center"
+      android:clipToPadding="false"
+      android:layoutDirection="ltr">
+
+    <FrameLayout
+        android:layout_width="@dimen/kvf_player_seek_button_size"
+        android:layout_height="@dimen/kvf_player_seek_button_size"
+        android:layout_marginEnd="@dimen/kvf_player_button_gap"
+        android:addStatesFromChildren="true"
+        android:background="@drawable/kvf_player_button_background">
+
+      <Button android:id="@id/exo_rew_with_amount"
+          style="@style/KvfPlayer.SeekButton"
+          android:foreground="@drawable/exo_styled_controls_rewind"/>
+
+    </FrameLayout>
+
+    <ImageButton android:id="@id/exo_play_pause"
+        android:layout_width="@dimen/kvf_player_play_button_size"
+        android:layout_height="@dimen/kvf_player_play_button_size"
+        android:padding="@dimen/kvf_player_play_button_padding"
+        android:scaleType="fitCenter"
+        android:focusedByDefault="true"
+        android:background="@drawable/kvf_player_button_background"
+        android:tint="@color/kvf_player_button_tint"
+        android:src="@drawable/exo_styled_controls_play"
+        android:contentDescription="@string/exo_controls_play_description"/>
+
+    <FrameLayout
+        android:layout_width="@dimen/kvf_player_seek_button_size"
+        android:layout_height="@dimen/kvf_player_seek_button_size"
+        android:layout_marginStart="@dimen/kvf_player_button_gap"
+        android:addStatesFromChildren="true"
+        android:background="@drawable/kvf_player_button_background">
+
+      <Button android:id="@id/exo_ffwd_with_amount"
+          style="@style/KvfPlayer.SeekButton"
+          android:foreground="@drawable/exo_styled_controls_fastforward"/>
+
+    </FrameLayout>
+
+  </LinearLayout>
+
+  <View android:id="@id/exo_progress_placeholder"
+      android:layout_width="match_parent"
+      android:layout_height="@dimen/exo_styled_progress_layout_height"
+      android:layout_gravity="bottom"
+      android:layout_marginStart="@dimen/kvf_player_side_margin"
+      android:layout_marginEnd="@dimen/kvf_player_side_margin"
+      android:layout_marginBottom="@dimen/exo_styled_progress_margin_bottom"/>
+
+  <FrameLayout android:id="@id/exo_bottom_bar"
+      android:layout_width="match_parent"
+      android:layout_height="@dimen/exo_styled_bottom_bar_height"
+      android:layout_gravity="bottom"
+      android:layout_marginBottom="@dimen/kvf_player_bottom_margin"
+      android:paddingStart="@dimen/kvf_player_side_margin"
+      android:paddingEnd="@dimen/kvf_player_side_margin"
+      android:layoutDirection="ltr">
+
+    <LinearLayout android:id="@id/exo_time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical|start"
+        android:layoutDirection="ltr">
+
+      <TextView android:id="@id/exo_position"
+          style="@style/KvfPlayer.TimeText"/>
+
+      <TextView
+          style="@style/KvfPlayer.TimeText"
+          android:text="@string/kvf_player_time_separator"
+          android:textColor="@color/kvf_player_secondary_text"/>
+
+      <TextView android:id="@id/exo_duration"
+          style="@style/KvfPlayer.TimeText"
+          android:textColor="@color/kvf_player_secondary_text"/>
+
+    </LinearLayout>
+
+    <LinearLayout android:id="@id/exo_basic_controls"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical|end"
+        android:layoutDirection="ltr">
+
+      <ImageButton android:id="@id/exo_subtitle"
+          style="@style/KvfPlayer.BarButton"
+          android:src="@drawable/exo_styled_controls_subtitle_off"
+          android:contentDescription="@string/exo_controls_cc_disabled_description"/>
+
+      <ImageButton android:id="@id/exo_settings"
+          style="@style/KvfPlayer.BarButton"
+          android:src="@drawable/exo_styled_controls_settings"
+          android:contentDescription="@string/exo_controls_settings_description"/>
+
+    </LinearLayout>
+
+    <!-- Media3's layout manager moves controls here when the bar is too narrow;
+         with two buttons it never does on a television. -->
+    <HorizontalScrollView android:id="@id/exo_extra_controls_scroll_view"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical|end"
+        android:visibility="invisible">
+
+      <LinearLayout android:id="@id/exo_extra_controls"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layoutDirection="ltr"/>
+
+    </HorizontalScrollView>
+
+  </FrameLayout>
+
+</merge>

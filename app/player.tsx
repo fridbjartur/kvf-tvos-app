@@ -1,3 +1,4 @@
+import { tvSize } from "@/utils/tvLayout";
 import { LoadingSpinner } from "@/components/loading-spinner";
 import strings from "@/constants/strings.json";
 /**
@@ -18,6 +19,7 @@ import { useLoading } from "@/contexts/LoadingContext";
 import { useVideoPlayback } from "@/hooks/useVideoPlayback";
 import { useWatchProgress } from "@/hooks/useWatchProgress";
 import { resolveStreamUrl } from "@/services/kvfApi";
+import { playbackSource } from "@/utils/playbackSource";
 import type { WatchTarget } from "@/services/watchProgressService";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
@@ -159,7 +161,7 @@ function PlayerSession({ params }: { params: PlayerParams }) {
   const { videoRef, paused, state, showLoadingOverlay, videoCallbacks, pause, retry } = useVideoPlayback({ streamUrl: params.streamUrl ?? null, onPlaybackEnd: handlePlaybackEnd });
   // `holdPlayback` keeps a resumed episode paused, behind the loader, until it has seeked.
   const { callbacks: watchProgress, holdPlayback } = useWatchProgress({ target: watchTarget, next: nextTarget, fromStart: params.fromStart === "true", videoRef });
-  const source = useMemo(() => ({ uri: params.streamUrl ?? "" }), [params.streamUrl]);
+  const source = useMemo(() => playbackSource(params.streamUrl ?? ""), [params.streamUrl]);
 
   useEffect(() => {
     hideGlobalLoader();
@@ -254,6 +256,10 @@ function PlayerSession({ params }: { params: PlayerParams }) {
           style={styles.video}
           resizeMode="contain"
           controls
+          focusable
+          // Android's TV controls are a Media3 layout (plugins/android-tv-res).
+          // Remote rewind/fast-forward skip 10 seconds, as on tvOS.
+          controlsStyles={Platform.OS === "android" ? { seekIncrementMS: 10_000 } : undefined}
           paused={paused || holdPlayback}
           playInBackground={false}
           playWhenInactive={false}
@@ -324,11 +330,11 @@ const styles = StyleSheet.create({
     lineHeight: 26,
   },
   buttonGroup: {
-    gap: Platform.isTV ? 16 : 12,
-    marginTop: Platform.isTV ? 32 : 24,
+    gap: Platform.isTV ? tvSize(16) : 12,
+    marginTop: Platform.isTV ? tvSize(32) : 24,
     alignItems: "center",
   },
-  button: { minWidth: Platform.isTV ? 300 : 250 },
+  button: { minWidth: Platform.isTV ? tvSize(300) : 250 },
   iosBackButton: {
     position: "absolute",
     top: 50,

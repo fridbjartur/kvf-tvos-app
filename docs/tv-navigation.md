@@ -30,9 +30,67 @@ Views with the shared small corner radius, leaving one actual focusable action
 per banner. The hero guide traps only Left/Right; Up/Down remain native exits.
 Full-banner parallax is disabled. Slide selection survives refreshed arrays,
 tvOS tap events with `eventKeyAction: 1` advance normally (the tap recognizer
-emits Ended only). Android down/up pairs advance on down only. Do not apply
-Android's key-up filter to tvOS. Auto-advance stops while the banner is focused
+emits Ended only). Android advances once per press, on release (see
+`isRemotePress` below). Auto-advance stops while the banner is focused
 or its screen is inactive. Slide animations stop on cleanup.
+
+## Android TV
+
+Android TV uses JavaScript tabs (`app/(tabs)/_layout.tsx`) with
+`components/android-tv-tab-bar.tsx` floating over the screens. The tab bar
+does what tvOS's native tab bar does:
+
+- Moving focus along the bar selects tabs. Focus entering the bar from content,
+  or from Android's focus recovery (a focused view removed by a push or pop
+  lands on the first tab), never changes tabs; it moves to the selected tab
+  unless the returning screen restores its own focus first.
+- The bar scrolls away with the focused screen and leaves the focus order once
+  mostly hidden, so Up moves through the rows above instead of jumping to it.
+- Back from content scrolls the screen to its top and focuses the selected
+  tab. Back at the bar leaves the app (`backBehavior="none"`), as Menu does at
+  tvOS's tab bar. Detail screens (program, player, radio category) handle Back
+  first.
+
+`contexts/AndroidTVNavigationContext.ts` couples the bar to the focused
+`TVScreenScrollView`: the screen drives the bar's offset on the UI thread
+(`Animated.event`) and registers its scroll-to-top.
+
+### Focus scrolling
+
+React Native's Android scroll views scroll a newly focused child twice: the
+platform's `arrowScroll` starts a smooth scroll, then `requestChildFocus` jumps
+to the child, and the animation restarts from the old offset. That is the
+flash on shelves. `utils/tvScroll.ts` leaves one path active:
+
+- Shelves (`tvRowScrollProps`) keep `arrowScroll`: smooth, minimal, like
+  UIKit. `scrollsChildToFocus={false}` turns off the jump. The fading edge is
+  the margin a revealed card keeps from the screen edge.
+- Screens (`tvScreenScrollProps`) disable user scrolling, which also disables
+  `arrowScroll`. Focus moves through Android's focus search and the scroll view
+  animates once to the focused section, using react-native-tvos's
+  `snapToAlignment="item"`. Mark sections with `tvSnap()`: `start` for shelves
+  and page blocks, `center` for list rows, `end` for content that should stay
+  put when it fits. A focusable outside any marked section does not scroll the
+  screen. `tvSnap` sets `collapsable={false}`; plain Views are otherwise
+  flattened and lose the marker.
+
+### Restoring focus
+
+When a detail screen closes, tvOS's focus engine returns to the card that
+opened it. Android recovers focus to the top-left element instead, and React
+Native Screens only restores focus its fragment still held when stopped,
+which a fast pushed screen has usually taken (reliably so in release builds).
+`contexts/TVFocusMemoryContext.ts` gives each Android TV `TVScreenScrollView`
+a memory: `FocusScaleCard` and the hero report focus, the screen keeps the
+focused card when it loses navigation focus, and requests it again when it
+returns, until the card reports focus. A screen left from the tab bar has no
+focused card, so selecting its tab again leaves focus on the bar. A pushed
+radio category focuses its first content when it loads.
+
+react-native-tvos reports a short Android D-pad press to `useTVEventHandler`
+only on release (`eventKeyAction` 1); held buttons arrive as `longLeft`, ….
+Use `isRemotePress` from `utils/tvRemote.ts` to count one press per click on
+both platforms.
 
 `useKvfResource` scopes data, error, and loading callbacks to the active resource
 and request. Late completions after a category change cannot clear the new page.

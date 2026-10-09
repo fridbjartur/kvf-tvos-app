@@ -1,3 +1,4 @@
+import { tvSize } from "@/utils/tvLayout";
 /**
  * Watch state drawn over an episode's artwork: a progress bar along the bottom
  * edge while it is part-watched, a Watched badge once it is finished.
@@ -34,7 +35,7 @@ export function EpisodeProgressOverlay({ progress }: { progress: EpisodeProgress
   if (progress?.completed) {
     return (
       <View style={S.badge} pointerEvents="none">
-        <Ionicons name="checkmark" size={IS_TV ? 18 : 12} color="#000" />
+        <Ionicons name="checkmark" size={IS_TV ? tvSize(18) : 12} color="#000" />
         <Text style={S.badgeText}>{strings.watch_progress.watched_badge}</Text>
       </View>
     );
@@ -55,26 +56,26 @@ export function EpisodeProgressOverlay({ progress }: { progress: EpisodeProgress
 const S = StyleSheet.create({
   track: {
     position: "absolute",
-    left: IS_TV ? 12 : 8,
-    right: IS_TV ? 12 : 8,
-    bottom: IS_TV ? 10 : 6,
-    height: IS_TV ? 6 : 4,
-    borderRadius: IS_TV ? 3 : 2,
+    left: IS_TV ? tvSize(12) : 8,
+    right: IS_TV ? tvSize(12) : 8,
+    bottom: IS_TV ? tvSize(10) : 6,
+    height: IS_TV ? tvSize(6) : 4,
+    borderRadius: IS_TV ? tvSize(3) : 2,
     backgroundColor: "rgba(255,255,255,0.3)",
     overflow: "hidden",
   },
   fill: { height: "100%", backgroundColor: "#FFFFFF" },
   badge: {
     position: "absolute",
-    top: IS_TV ? 12 : 8,
-    right: IS_TV ? 12 : 8,
+    top: IS_TV ? tvSize(12) : 8,
+    right: IS_TV ? tvSize(12) : 8,
     flexDirection: "row",
     alignItems: "center",
-    gap: IS_TV ? 4 : 2,
-    paddingHorizontal: IS_TV ? 10 : 6,
-    paddingVertical: IS_TV ? 4 : 2,
+    gap: IS_TV ? tvSize(4) : 2,
+    paddingHorizontal: IS_TV ? tvSize(10) : 6,
+    paddingVertical: IS_TV ? tvSize(4) : 2,
     borderRadius: DESIGN.BORDER_RADIUS_SMALL,
     backgroundColor: "rgba(255,255,255,0.92)",
   },
-  badgeText: { color: "#000", fontSize: IS_TV ? 14 : 10, fontWeight: "700" },
+  badgeText: { color: "#000", fontSize: IS_TV ? tvSize(14) : 10, fontWeight: "700" },
 });

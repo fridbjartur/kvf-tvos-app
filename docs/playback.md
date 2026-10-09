@@ -2,7 +2,7 @@
 
 ## Active audio and video support
 
-KVF passes the API's stream URL directly to `react-native-video`, which uses AVPlayer on Apple TV. Keep these capabilities when changing playback:
+KVF passes the API's stream URL directly to `react-native-video`, which uses AVPlayer on Apple TV and ExoPlayer on Android TV. Android sources explicitly identify HLS for `.m3u8` and KVF's `.smil?type=m3u8` redirect URLs; otherwise ExoPlayer incorrectly selects its progressive media extractor. Direct AAC radio retains format inference. Keep these capabilities when changing playback:
 
 - Native player controls and the stream's available audio/subtitle tracks.
 - System-language audio-track selection and adaptive HLS stream selection. These are player defaults; see the [react-native-video v6 props](https://docs.thewidlarzgroup.com/react-native-video/docs/v6/component/props/).
@@ -19,6 +19,18 @@ On tvOS the native `AVPlayerViewController` owns remote focus, so React views dr
 - In the last 20 seconds (at most half the episode), `components/up-next-overlay.tsx` shows a passive card (artwork, title, countdown) in the bottom right, above the transport bar. It never takes focus.
 - When the episode ends, the next one starts automatically. The card stays up at 0 seconds until it does. Seeking back out of the window hides it.
 - If no native player controller is found, or on iOS and Android, the card shows its own **Spæl nú** button instead.
+- On Android TV, pressing Up while the card is visible requests focus on **Spæl nú**. Its appearance never requests focus, so native controls and seeking remain available. The card sits just above the scrubber, clear of the centered controls.
+
+### Android TV controls
+
+Playback is always fullscreen. `react-native-video` renders Media3's `PlayerView`; its stock controller is a phone layout (previous/next, fullscreen, overflow). `plugins/withAndroidTV.js` installs `plugins/android-tv-res/`, whose `layout/exo_player_control_view.xml` replaces Media3's layout by resource name. Media3 keeps the remote handling, focus, track menus and show/hide animation:
+
+- Centered rewind, play/pause and fast-forward. Play/pause has `focusedByDefault`, so it takes focus when the player opens.
+- A full-width scrubber (Left/Right seek while it is focused; its larger thumb is the focus state), elapsed time and duration.
+- Subtitles (when the stream has text tracks) and settings (audio track, speed). There is no fullscreen, previous/next, VR, shuffle, repeat or overflow button.
+- The first D-pad press shows the controls. Media keys (play/pause, rewind, fast-forward) work while they are hidden.
+
+Rewind and fast-forward skip 10 seconds, as on tvOS. `react-native-video` 6.19 ignores `controlsStyles.seekIncrementMS`, so `patches/react-native-video+6.19.2.patch` applies it to ExoPlayer's seek increments. The other `controlsStyles` flags (`hideNext`, `hideFullscreen`, …) are also ignored by this release, and `hideFullscreen` disables the whole controller; change the layout instead. Edits to `plugins/android-tv-res/` need an Android prebuild and native build.
 
 Rejected on tvOS: a floating contextual action (`contextualActions`) appears on Apple's schedule and takes over the remote while focused. Hiding the native controls for a takeover screen removes scrubbing. `contextualActionsInfoView` and `contextualActionsPreviewImage` are iOS-only.
 
